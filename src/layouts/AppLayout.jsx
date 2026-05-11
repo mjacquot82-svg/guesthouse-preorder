@@ -1,13 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
 
 const primaryLinks = [
-  { to: "/", label: "Home" },
   { to: "/menu", label: "Menu" },
   { to: "/cart", label: "Cart" },
 ];
 
 const adminLinks = [
-  { to: "/admin", label: "Dashboard" },
+  { to: "/admin", label: "Admin" },
   { to: "/admin/orders", label: "Orders" },
   { to: "/admin/products", label: "Products" },
 ];
@@ -18,16 +17,18 @@ export default function AppLayout() {
       <header className="site-header">
         <nav className="nav-container" aria-label="Main navigation">
           <NavLink to="/" className="brand" aria-label="Guesthouse Preorder home">
-            <span className="brand-mark">G</span>
             <span>
-              <strong>Guesthouse</strong>
-              <small>Preorder</small>
+              <strong>Guesthouse Pantry</strong>
+              <small>Room ordering</small>
             </span>
           </NavLink>
 
           <div className="nav-links">
+            <NavLink to="/" end>
+              Home
+            </NavLink>
             {primaryLinks.map((link) => (
-              <NavLink key={link.to} to={link.to} end={link.to === "/"}>
+              <NavLink key={link.to} to={link.to}>
                 {link.label}
               </NavLink>
             ))}

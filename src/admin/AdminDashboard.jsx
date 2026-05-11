@@ -8,9 +8,8 @@ export default function AdminDashboard() {
   return (
     <section className="page-section">
       <div className="page-heading">
-        <p className="eyebrow">Admin</p>
-        <h1>Operations dashboard</h1>
-        <p>Monitor preorder activity, product readiness, and guest service flow.</p>
+        <h1>Admin</h1>
+        <p>Keep room orders, menu items, and availability easy to scan.</p>
       </div>
 
       <div className="dashboard-grid">
