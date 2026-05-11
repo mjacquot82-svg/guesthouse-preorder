@@ -1,36 +1,49 @@
 const categories = [
   {
-    name: "Breakfast",
-    description: "Fresh pastries, fruit, coffee service, and room-delivered morning baskets.",
-  },
-  {
-    name: "Lunch",
-    description: "Light meals, picnic boxes, salads, and guesthouse kitchen staples.",
+    name: "Coffee",
+    description: "Fresh coffee, tea, espresso drinks, and simple morning cups.",
+    items: ["House coffee", "Cappuccino", "English breakfast tea"],
   },
   {
     name: "Drinks",
-    description: "Coffee, tea, sparkling water, local wine, and seasonal refreshments.",
+    description: "Cold drinks for the room, porch, or evening wind-down.",
+    items: ["Sparkling water", "Orange juice", "Local wine"],
   },
   {
-    name: "Specials",
-    description: "Chef selections, welcome packages, and limited house offerings.",
+    name: "Snacks",
+    description: "Easy bites for between plans.",
+    items: ["Fruit bowl", "Cheese plate", "Chocolate bar"],
+  },
+  {
+    name: "Light breakfast",
+    description: "Small breakfast items prepared for a slower morning.",
+    items: ["Croissant", "Granola yogurt", "Toast and jam"],
   },
 ];
 
 export default function MenuPage() {
   return (
-    <section className="page-section">
+    <section className="page-section ordering-page">
       <div className="page-heading">
-        <p className="eyebrow">Menu</p>
-        <h1>Preorder categories</h1>
-        <p>Product data will connect here as the Supabase catalog comes online.</p>
+        <h1>Menu</h1>
+        <p>Simple room ordering for coffee, drinks, snacks, and breakfast.</p>
       </div>
 
-      <div className="card-grid">
+      <div className="menu-stack">
         {categories.map((category) => (
           <article className="menu-card" key={category.name}>
-            <span>{category.name}</span>
-            <p>{category.description}</p>
+            <div>
+              <h2>{category.name}</h2>
+              <p>{category.description}</p>
+            </div>
+            <ul>
+              {category.items.map((item) => (
+                <li key={item}>
+                  <span>{item}</span>
+                  <button type="button">Add</button>
+                </li>
+              ))}
+            </ul>
           </article>
         ))}
       </div>
