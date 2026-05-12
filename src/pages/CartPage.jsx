@@ -50,6 +50,11 @@ export default function CartPage() {
             <li key={item.id}>
               <div>
                 <strong>{item.name}</strong>
+                {item.options?.length ? (
+                  <small>
+                    {item.options.map((option) => `${option.groupName}: ${option.name}`).join(", ")}
+                  </small>
+                ) : null}
                 <span>
                   {item.quantity} x {formatPrice(item.price)}
                 </span>

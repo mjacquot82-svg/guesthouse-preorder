@@ -5,12 +5,6 @@ const primaryLinks = [
   { to: "/cart", label: "Cart" },
 ];
 
-const adminLinks = [
-  { to: "/admin", label: "Admin" },
-  { to: "/admin/orders", label: "Orders" },
-  { to: "/admin/products", label: "Products" },
-];
-
 export default function AppLayout() {
   return (
     <div className="app-shell">
@@ -29,14 +23,6 @@ export default function AppLayout() {
             </NavLink>
             {primaryLinks.map((link) => (
               <NavLink key={link.to} to={link.to}>
-                {link.label}
-              </NavLink>
-            ))}
-          </div>
-
-          <div className="admin-links">
-            {adminLinks.map((link) => (
-              <NavLink key={link.to} to={link.to} end={link.to === "/admin"}>
                 {link.label}
               </NavLink>
             ))}

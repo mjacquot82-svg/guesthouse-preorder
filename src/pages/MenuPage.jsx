@@ -1,85 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-
-const menuSections = [
-  {
-    name: "Coffee",
-    note: "House-roasted style cups for slow mornings.",
-    items: [
-      { id: "drip-coffee", name: "Drip Coffee", description: "Warm, steady, and ready from the counter.", price: 3.75 },
-      { id: "americano", name: "Americano", description: "Espresso softened with hot water.", price: 4.25 },
-      { id: "cold-brew", name: "Cold Brew", description: "Slow-steeped and poured over ice.", price: 4.75 },
-    ],
-  },
-  {
-    name: "Espresso Drinks",
-    note: "Steamed milk, soft foam, and handwritten favorites.",
-    items: [
-      { id: "espresso", name: "Espresso", description: "A small, direct pull with a deep finish.", price: 3.5 },
-      { id: "latte", name: "Latte", description: "Velvety milk and a double shot.", price: 5.25 },
-      { id: "cappuccino", name: "Cappuccino", description: "Foamy, cozy, and balanced.", price: 5.25 },
-      { id: "cafe-mocha", name: "Cafe Mocha", description: "Chocolate, espresso, and steamed milk.", price: 5.75 },
-      { id: "white-mocha", name: "White Mocha", description: "Creamy white chocolate with espresso.", price: 5.95 },
-    ],
-  },
-  {
-    name: "Tea",
-    note: "Gentle cups for porch reading and rainy check-ins.",
-    items: [
-      { id: "tea", name: "Tea", description: "Ask for black, green, mint, or chamomile.", price: 3.5 },
-      { id: "chai-latte", name: "Chai Latte", description: "Spiced tea with steamed milk.", price: 5.25 },
-      { id: "matcha-latte", name: "Matcha Latte", description: "Earthy matcha whisked with milk.", price: 5.75 },
-      { id: "london-fog", name: "London Fog", description: "Earl Grey, vanilla, and warm milk.", price: 5.25 },
-    ],
-  },
-  {
-    name: "Hot Chocolate",
-    note: "A sweet little cup for colder evenings.",
-    items: [
-      { id: "hot-chocolate", name: "Hot Chocolate", description: "Steamed milk and rich cocoa.", price: 4.75 },
-      { id: "kids-cocoa", name: "Small Cocoa", description: "A smaller, not-too-hot guesthouse cup.", price: 3.75 },
-    ],
-  },
-  {
-    name: "Smoothies",
-    note: "Bright blends from the pantry fridge.",
-    items: [
-      { id: "berry-smoothie", name: "Berry Smoothie", description: "Mixed berries, banana, and yogurt.", price: 6.5 },
-      { id: "green-smoothie", name: "Green Smoothie", description: "Spinach, apple, banana, and citrus.", price: 6.5 },
-    ],
-  },
-  {
-    name: "Flavour Shots",
-    note: "A small handwritten plus-one for any drink.",
-    items: [
-      { id: "vanilla-shot", name: "Vanilla Shot", description: "Soft and familiar.", price: 0.75 },
-      { id: "hazelnut-shot", name: "Hazelnut Shot", description: "Toasty and rounded.", price: 0.75 },
-      { id: "caramel-shot", name: "Caramel Shot", description: "Buttery sweetness.", price: 0.75 },
-    ],
-  },
-  {
-    name: "Non-Dairy Milk",
-    note: "Easy swaps for espresso drinks, tea, and cocoa.",
-    items: [
-      { id: "oat-milk", name: "Oat Milk", description: "Creamy and lightly sweet.", price: 0.85 },
-      { id: "almond-milk", name: "Almond Milk", description: "Nutty and light.", price: 0.85 },
-      { id: "soy-milk", name: "Soy Milk", description: "Smooth and classic.", price: 0.85 },
-      { id: "coconut-milk", name: "Coconut Milk", description: "Soft tropical finish.", price: 0.85 },
-    ],
-  },
-  {
-    name: "Light Snacks",
-    note: "Simple bites from the pastry case.",
-    items: [
-      { id: "croissant", name: "Butter Croissant", description: "Flaky, simple, and warmed on request.", price: 4.5 },
-      { id: "blueberry-muffin", name: "Blueberry Muffin", description: "Bakery-style with a tender crumb.", price: 3.95 },
-      { id: "banana-bread", name: "Banana Bread", description: "Thick slice, lightly toasted.", price: 4.25 },
-      { id: "granola-yogurt", name: "Granola Yogurt", description: "Honey, yogurt, and a crunchy top.", price: 5.5 },
-    ],
-  },
-];
-
-const allItems = menuSections.flatMap((section) => section.items);
+import {
+  getCategoryById,
+  getModifierGroupsForProduct,
+  menuCategories,
+} from "../data/catalog.js";
+import { useCatalogProducts } from "../stores/catalogStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -100,12 +26,123 @@ function storeCart(cart) {
   window.localStorage.setItem("guesthouse-cart", JSON.stringify(cart));
 }
 
+function getDefaultSelections(product) {
+  return getModifierGroupsForProduct(product).reduce((selections, group) => {
+    const defaultOption = group.options[0]?.id;
+    return {
+      ...selections,
+      [group.id]: group.type === "multiple" ? [] : defaultOption || "",
+    };
+  }, {});
+}
+
+function getSelectedOptions(product, selections) {
+  return getModifierGroupsForProduct(product).flatMap((group) => {
+    const selectedValue = selections[group.id];
+    const selectedIds = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+
+    return selectedIds
+      .map((optionId) => {
+        const option = group.options.find((item) => item.id === optionId);
+        return option ? { groupId: group.id, groupName: group.name, ...option } : null;
+      })
+      .filter(Boolean);
+  });
+}
+
+function getConfiguredPrice(product, selections) {
+  return getSelectedOptions(product, selections).reduce(
+    (sum, option) => sum + (Number(option.priceDelta) || 0),
+    product.price
+  );
+}
+
+function getCartLineId(product, selectedOptions) {
+  const optionSignature = selectedOptions
+    .map((option) => `${option.groupId}:${option.id}`)
+    .sort()
+    .join("|");
+
+  return optionSignature ? `${product.id}__${optionSignature}` : product.id;
+}
+
+function groupProductsByCategory(products) {
+  return menuCategories
+    .map((category) => ({
+      ...category,
+      items: products.filter((product) => product.category === category.id && product.available),
+    }))
+    .filter((section) => section.items.length);
+}
+
+function ProductModifiers({ product, selections, onChange }) {
+  const modifierGroups = getModifierGroupsForProduct(product);
+
+  if (!modifierGroups.length) {
+    return null;
+  }
+
+  return (
+    <div className="modifier-stack">
+      {modifierGroups.map((group) => (
+        <fieldset key={group.id} className="modifier-group">
+          <legend>{group.name}</legend>
+          <div className="modifier-options">
+            {group.options.map((option) => {
+              const selectedValue = selections[group.id];
+              const isSelected = Array.isArray(selectedValue)
+                ? selectedValue.includes(option.id)
+                : selectedValue === option.id;
+
+              return (
+                <label key={option.id} className={isSelected ? "selected" : ""}>
+                  <input
+                    checked={isSelected}
+                    name={`${product.id}-${group.id}`}
+                    type={group.type === "multiple" ? "checkbox" : "radio"}
+                    value={option.id}
+                    onChange={(event) => {
+                      if (group.type === "multiple") {
+                        const current = Array.isArray(selectedValue) ? selectedValue : [];
+                        onChange(
+                          group.id,
+                          event.target.checked
+                            ? [...current, option.id]
+                            : current.filter((item) => item !== option.id)
+                        );
+                        return;
+                      }
+
+                      onChange(group.id, option.id);
+                    }}
+                  />
+                  <span>{option.name}</span>
+                  {option.priceDelta ? <small>+{formatPrice(option.priceDelta)}</small> : null}
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+      ))}
+    </div>
+  );
+}
+
 export default function MenuPage() {
-  const [activeSection, setActiveSection] = useState(menuSections[0].name);
+  const { products } = useCatalogProducts();
+  const sections = useMemo(() => groupProductsByCategory(products), [products]);
+  const firstSection = sections[0]?.id || "";
+  const [activeSection, setActiveSection] = useState(firstSection);
   const [cart, setCart] = useState(getStoredCart);
   const [lastAdded, setLastAdded] = useState("");
+  const [selectionsByProduct, setSelectionsByProduct] = useState({});
 
-  const activeMenuSection = menuSections.find((section) => section.name === activeSection) || menuSections[0];
+  const activeSectionId = sections.some((section) => section.id === activeSection)
+    ? activeSection
+    : firstSection;
+  const activeMenuSection = sections.find((section) => section.id === activeSectionId);
+  const availableItems = products.filter((product) => product.available);
+  const featuredItems = availableItems.filter((product) => product.featured);
 
   const cartCount = useMemo(
     () => cart.reduce((total, item) => total + item.quantity, 0),
@@ -117,20 +154,55 @@ export default function MenuPage() {
     [cart]
   );
 
-  function addItem(menuItem) {
-    const nextCart = cart.some((item) => item.id === menuItem.id)
+  function getSelections(product) {
+    return selectionsByProduct[product.id] || getDefaultSelections(product);
+  }
+
+  function updateSelection(productId, groupId, value) {
+    setSelectionsByProduct((current) => ({
+      ...current,
+      [productId]: {
+        ...current[productId],
+        [groupId]: value,
+      },
+    }));
+  }
+
+  function addItem(product) {
+    const selections = getSelections(product);
+    const selectedOptions = getSelectedOptions(product, selections);
+    const configuredPrice = getConfiguredPrice(product, selections);
+    const cartLineId = getCartLineId(product, selectedOptions);
+    const category = getCategoryById(product.category);
+    const cartItem = {
+      id: cartLineId,
+      productId: product.id,
+      name: product.name,
+      description: product.description,
+      price: configuredPrice,
+      basePrice: product.price,
+      category: category?.name || product.category,
+      options: selectedOptions.map((option) => ({
+        groupName: option.groupName,
+        name: option.name,
+        priceDelta: option.priceDelta,
+      })),
+    };
+    const nextCart = cart.some((item) => item.id === cartLineId)
       ? cart.map((item) =>
-          item.id === menuItem.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === cartLineId ? { ...item, quantity: item.quantity + 1 } : item
         )
-      : [...cart, { ...menuItem, quantity: 1 }];
+      : [...cart, { ...cartItem, quantity: 1 }];
 
     setCart(nextCart);
     storeCart(nextCart);
-    setLastAdded(menuItem.name);
+    setLastAdded(product.name);
   }
 
-  function getItemQuantity(itemId) {
-    return cart.find((item) => item.id === itemId)?.quantity || 0;
+  function getItemQuantity(product) {
+    const selections = getSelections(product);
+    const cartLineId = getCartLineId(product, getSelectedOptions(product, selections));
+    return cart.find((item) => item.id === cartLineId)?.quantity || 0;
   }
 
   return (
@@ -139,8 +211,8 @@ export default function MenuPage() {
         <p className="eyebrow">Guesthouse coffee bar</p>
         <h1>Pantry Menu</h1>
         <p>
-          A small handwritten-style board of warm drinks, simple snacks, and cozy add-ons
-          prepared for your room or porch table.
+          A small catalog of warm drinks, simple snacks, and cozy add-ons prepared for
+          your room or porch table.
         </p>
       </div>
 
@@ -153,12 +225,12 @@ export default function MenuPage() {
       </div>
 
       <div className="menu-category-rail" aria-label="Menu categories">
-        {menuSections.map((section) => (
+        {sections.map((section) => (
           <button
-            className={section.name === activeSection ? "active" : ""}
+            className={section.id === activeSectionId ? "active" : ""}
             type="button"
-            key={section.name}
-            onClick={() => setActiveSection(section.name)}
+            key={section.id}
+            onClick={() => setActiveSection(section.id)}
           >
             {section.name}
           </button>
@@ -168,42 +240,68 @@ export default function MenuPage() {
       <div className="cafe-menu-board">
         <aside className="menu-board-note" aria-label="Cafe note">
           <span>Today&apos;s board</span>
-          <p>
-            Pick your base drink, then add a flavour shot or non-dairy milk from the
-            little notes below.
-          </p>
-          <small>{allItems.length} pantry favorites</small>
+          <p>Pick your base item, choose any options, and add it to your pantry order.</p>
+          <small>{availableItems.length} available favorites</small>
+          {featuredItems.length ? (
+            <div className="featured-list">
+              {featuredItems.slice(0, 4).map((item) => (
+                <span key={item.id}>{item.name}</span>
+              ))}
+            </div>
+          ) : null}
         </aside>
 
         <section className="menu-card menu-card-featured" aria-labelledby="active-menu-heading">
-          <div className="menu-card-heading">
-            <span className="pin-mark" aria-hidden="true" />
-            <div>
-              <h2 id="active-menu-heading">{activeMenuSection.name}</h2>
-              <p>{activeMenuSection.note}</p>
+          {activeMenuSection ? (
+            <>
+              <div className="menu-card-heading">
+                <span className="pin-mark" aria-hidden="true" />
+                <div>
+                  <h2 id="active-menu-heading">{activeMenuSection.name}</h2>
+                  <p>{activeMenuSection.note}</p>
+                </div>
+              </div>
+
+              <ul className="drink-card-grid">
+                {activeMenuSection.items.map((item, index) => {
+                  const selections = getSelections(item);
+                  const quantity = getItemQuantity(item);
+                  const price = getConfiguredPrice(item, selections);
+
+                  return (
+                    <li
+                      className="drink-card"
+                      key={item.id}
+                      style={{ "--tilt": index % 2 ? "0.45deg" : "-0.35deg" }}
+                    >
+                      <div>
+                        <div className="drink-card-title">
+                          <h3>{item.name}</h3>
+                          <strong>{formatPrice(price)}</strong>
+                        </div>
+                        <p>{item.description}</p>
+                      </div>
+
+                      <ProductModifiers
+                        product={item}
+                        selections={selections}
+                        onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
+                      />
+
+                      <button type="button" onClick={() => addItem(item)}>
+                        {quantity ? `Add again - ${quantity}` : "Add"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : (
+            <div className="empty-menu-note">
+              <h2>No available items</h2>
+              <p>The pantry menu is being updated.</p>
             </div>
-          </div>
-
-          <ul className="drink-card-grid">
-            {activeMenuSection.items.map((item, index) => {
-              const quantity = getItemQuantity(item.id);
-
-              return (
-                <li className="drink-card" key={item.id} style={{ "--tilt": index % 2 ? "0.45deg" : "-0.35deg" }}>
-                  <div>
-                    <div className="drink-card-title">
-                      <h3>{item.name}</h3>
-                      <strong>{formatPrice(item.price)}</strong>
-                    </div>
-                    <p>{item.description}</p>
-                  </div>
-                  <button type="button" onClick={() => addItem(item)}>
-                    {quantity ? `Add again - ${quantity}` : "Add"}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          )}
         </section>
       </div>
     </section>

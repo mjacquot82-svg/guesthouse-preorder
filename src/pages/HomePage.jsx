@@ -1,19 +1,27 @@
 import { Link } from "react-router-dom";
+import { getCategoryById, menuCategories } from "../data/catalog.js";
+import { useCatalogProducts } from "../stores/catalogStore.js";
 
-const quickCategories = [
-  { name: "Coffee", detail: "Hot coffee, tea, espresso drinks" },
-  { name: "Drinks", detail: "Water, juice, sparkling, wine" },
-  { name: "Snacks", detail: "Chips, fruit, sweets, cheese" },
-  { name: "Breakfast", detail: "Pastries, yogurt, toast, granola" },
-];
-
-const popularItems = [
-  { name: "House coffee", price: "$4", image: "coffee" },
-  { name: "Croissant", price: "$5", image: "pastry" },
-  { name: "Sparkling water", price: "$3", image: "water" },
-];
+function formatPrice(price) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(price);
+}
 
 export default function HomePage() {
+  const { products } = useCatalogProducts();
+  const availableProducts = products.filter((product) => product.available);
+  const quickCategories = menuCategories
+    .map((category) => ({
+      ...category,
+      count: availableProducts.filter((product) => product.category === category.id).length,
+    }))
+    .filter((category) => category.count)
+    .slice(0, 4);
+  const popularItems = availableProducts.filter((product) => product.featured).slice(0, 3);
+
   return (
     <section className="home-page ordering-page">
       <div className="welcome-panel">
@@ -35,7 +43,9 @@ export default function HomePage() {
           {quickCategories.map((category) => (
             <Link className="category-card" to="/menu" key={category.name}>
               <strong>{category.name}</strong>
-              <span>{category.detail}</span>
+              <span>
+                {category.count} {category.count === 1 ? "item" : "items"} available
+              </span>
             </Link>
           ))}
         </div>
@@ -52,9 +62,9 @@ export default function HomePage() {
               <div className={`item-thumb item-thumb-${item.image}`} aria-hidden="true" />
               <div>
                 <h3>{item.name}</h3>
-                <p>Available now</p>
+                <p>{getCategoryById(item.category)?.name || "Available now"}</p>
               </div>
-              <strong>{item.price}</strong>
+              <strong>{formatPrice(item.price)}</strong>
             </article>
           ))}
         </div>
