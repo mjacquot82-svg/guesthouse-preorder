@@ -1761,3 +1761,476 @@ main {
     justify-items: start;
   }
 }
+
+/* Touch-first cafe ordering flow */
+.ordering-page {
+  gap: 12px;
+}
+
+.app-welcome-panel {
+  position: relative;
+  overflow: hidden;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  border-radius: 24px;
+  padding: 17px;
+}
+
+.app-welcome-panel::after {
+  position: absolute;
+  right: -18px;
+  bottom: -34px;
+  width: 138px;
+  height: 138px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 48% 48%, transparent 0 35%, rgba(104, 69, 47, 0.14) 36% 43%, transparent 44%),
+    rgba(237, 242, 230, 0.74);
+  content: "";
+}
+
+.app-welcome-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.app-welcome-panel h1,
+.ordering-top-card h1 {
+  max-width: 360px;
+  margin-bottom: 6px;
+  font-size: clamp(1.6rem, 8vw, 2.25rem);
+  line-height: 1;
+}
+
+.app-welcome-panel p:not(.eyebrow),
+.ordering-top-card p:not(.eyebrow) {
+  max-width: 320px;
+  font-size: 0.91rem;
+  line-height: 1.38;
+}
+
+.eyebrow {
+  margin-bottom: 7px;
+  font-size: 0.68rem;
+}
+
+.welcome-actions {
+  gap: 8px;
+}
+
+.welcome-actions .primary-button {
+  min-height: 42px;
+  padding: 0 15px;
+}
+
+.welcome-actions span,
+.order-meta-pills span {
+  min-height: 34px;
+  font-size: 0.76rem;
+}
+
+.home-order-status {
+  position: sticky;
+  top: 66px;
+  z-index: 8;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(104, 69, 47, 0.12);
+  border-radius: 20px;
+  background: rgba(255, 254, 249, 0.94);
+  box-shadow: 0 12px 28px rgba(58, 39, 25, 0.1);
+  backdrop-filter: blur(14px);
+  padding: 9px 10px;
+}
+
+.home-order-status div {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--app-coffee-dark);
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.home-order-status span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-order-status svg {
+  flex: 0 0 auto;
+  color: var(--app-coffee);
+}
+
+.home-order-status a {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--app-coffee);
+  color: var(--chalk);
+  font-size: 0.8rem;
+  font-weight: 900;
+  padding: 0 12px;
+}
+
+.app-content-block {
+  border-radius: 22px;
+  padding: 12px;
+}
+
+.section-heading {
+  margin-bottom: 10px;
+}
+
+.section-heading h2 {
+  font-size: 0.98rem;
+}
+
+.section-heading a {
+  font-size: 0.8rem;
+}
+
+.category-pill-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.category-pill-card {
+  min-width: 0;
+  display: grid;
+  min-height: 58px;
+  align-content: space-between;
+  border: 1px solid rgba(104, 69, 47, 0.11);
+  border-radius: 18px;
+  background: linear-gradient(145deg, #fffdf8, #fff5e7);
+  padding: 10px;
+}
+
+.category-pill-card strong {
+  overflow: hidden;
+  color: var(--app-coffee-dark);
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-pill-card span {
+  width: fit-content;
+  min-width: 25px;
+  border-radius: 999px;
+  background: var(--app-sage-soft);
+  color: var(--sage-ink);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 5px 7px;
+}
+
+.quick-add-block {
+  overflow: hidden;
+}
+
+.quick-product-rail {
+  display: grid;
+  grid-auto-columns: minmax(132px, 41%);
+  grid-auto-flow: column;
+  gap: 10px;
+  overflow-x: auto;
+  margin: 0 -12px;
+  padding: 0 12px 2px;
+  scrollbar-width: none;
+}
+
+.quick-product-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-product-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 180px;
+  display: grid;
+  align-content: end;
+  border: 1px solid rgba(104, 69, 47, 0.12);
+  border-radius: 22px;
+  background: var(--app-card-warm);
+  box-shadow: 0 10px 24px rgba(58, 39, 25, 0.07);
+}
+
+.quick-product-image {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+}
+
+.quick-product-card::after {
+  position: absolute;
+  inset: 34% 0 0;
+  background: linear-gradient(180deg, transparent, rgba(47, 33, 24, 0.78));
+  content: "";
+}
+
+.quick-product-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: #fffaf0;
+  padding: 52px 42px 12px 12px;
+}
+
+.quick-product-copy span {
+  color: rgba(255, 250, 240, 0.78);
+  font-size: 0.67rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.quick-product-copy h3 {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.05;
+}
+
+.quick-product-copy strong {
+  font-size: 0.84rem;
+}
+
+.quick-product-card button {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #fffaf0;
+  color: var(--app-coffee);
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(47, 33, 24, 0.22);
+}
+
+.compact-item-list {
+  gap: 8px;
+}
+
+.compact-item-list .item-row {
+  min-height: 66px;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  border-radius: 18px;
+  padding: 8px 10px 8px 8px;
+}
+
+.compact-item-list .item-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
+
+.compact-item-list h3 {
+  font-size: 0.92rem;
+}
+
+.compact-item-list p {
+  font-size: 0.78rem;
+}
+
+.ordering-top-card {
+  gap: 10px;
+  border-radius: 24px;
+  padding: 16px;
+}
+
+.app-menu-page {
+  gap: 10px;
+}
+
+.app-order-strip {
+  top: 64px;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  border-radius: 20px;
+  padding: 8px 9px 8px 12px;
+}
+
+.app-order-strip span,
+.app-order-strip strong {
+  font-size: 0.82rem;
+}
+
+.app-order-strip a {
+  min-height: 36px;
+  font-size: 0.8rem;
+  padding: 0 11px;
+}
+
+.menu-category-rail {
+  padding-bottom: 6px;
+}
+
+.menu-category-rail button {
+  min-height: 38px;
+  border-radius: 16px;
+  font-size: 0.8rem;
+  padding: 0 12px;
+}
+
+.app-menu-card {
+  border-radius: 24px;
+  padding: 12px;
+}
+
+.menu-card-heading {
+  align-items: center;
+}
+
+.menu-card-featured h2 {
+  font-size: 1.12rem;
+}
+
+.menu-card-featured p {
+  font-size: 0.82rem;
+}
+
+.drink-card-grid {
+  gap: 8px;
+}
+
+.app-product-card {
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  border-radius: 20px;
+  padding: 8px;
+}
+
+.product-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+}
+
+.product-card-main {
+  gap: 6px;
+}
+
+.drink-card-title {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.drink-card-title span {
+  margin-bottom: 2px;
+  font-size: 0.64rem;
+}
+
+.drink-card h3 {
+  font-size: 0.95rem;
+}
+
+.drink-card-title strong {
+  font-size: 0.86rem;
+}
+
+.drink-card p {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.78rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.modifier-stack {
+  gap: 6px;
+}
+
+.modifier-group legend {
+  font-size: 0.68rem;
+}
+
+.modifier-options label {
+  min-height: 32px;
+  font-size: 0.7rem;
+  padding: 0 9px;
+}
+
+.drink-card button {
+  min-height: 40px;
+  font-size: 0.8rem;
+}
+
+.bottom-nav {
+  max-width: 390px;
+  border-radius: 22px;
+  padding: 6px;
+}
+
+.bottom-nav a {
+  min-height: 50px;
+  border-radius: 17px;
+}
+
+@media (min-width: 761px) {
+  .quick-product-rail {
+    grid-auto-columns: minmax(154px, 1fr);
+    grid-auto-flow: column;
+  }
+}
+
+@media (max-width: 460px) {
+  .home-page,
+  .page-section {
+    padding-top: 8px;
+  }
+
+  .home-order-status {
+    top: 60px;
+  }
+
+  .category-pill-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .category-pill-card {
+    min-height: 54px;
+    border-radius: 16px;
+    padding: 9px;
+  }
+
+  .category-pill-card strong {
+    font-size: 0.76rem;
+  }
+
+  .quick-product-rail {
+    grid-auto-columns: minmax(126px, 43%);
+  }
+
+  .quick-product-card {
+    min-height: 168px;
+  }
+
+  .app-order-strip {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .app-order-strip span {
+    grid-column: auto;
+    white-space: nowrap;
+  }
+
+  .app-order-strip a {
+    grid-column: 1 / -1;
+  }
+}
