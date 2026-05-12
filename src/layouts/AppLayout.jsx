@@ -1,17 +1,19 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Coffee, Home, ShoppingBag, SlidersHorizontal } from "lucide-react";
+import { Coffee, Home, ReceiptText, Search, ShoppingBag, UserRound } from "lucide-react";
 
 const primaryLinks = [
   { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/menu", label: "Menu", icon: Coffee },
+  { to: "/menu", label: "Browse", icon: Search },
   { to: "/cart", label: "Cart", icon: ShoppingBag },
+  { to: "/orders", label: "Orders", icon: ReceiptText },
+  { to: "/account", label: "Account", icon: UserRound },
 ];
 
 export default function AppLayout() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <nav className="nav-container" aria-label="Main navigation">
+        <div className="nav-container">
           <NavLink to="/" className="brand" aria-label="Guesthouse Preorder home">
             <span className="brand-mark" aria-hidden="true">
               <Coffee size={18} strokeWidth={2.4} />
@@ -22,18 +24,10 @@ export default function AppLayout() {
             </span>
           </NavLink>
 
-          <div className="nav-links">
-            {primaryLinks.map((link) => (
-              <NavLink key={link.to} to={link.to} end={link.end}>
-                {link.label}
-              </NavLink>
-            ))}
-            <NavLink to="/admin" className="admin-nav-link">
-              <SlidersHorizontal size={16} />
-              <span>Admin</span>
-            </NavLink>
-          </div>
-        </nav>
+          <NavLink to="/cart" className="header-cart-link" aria-label="Open cart">
+            <ShoppingBag size={18} strokeWidth={2.4} />
+          </NavLink>
+        </div>
       </header>
 
       <main>
