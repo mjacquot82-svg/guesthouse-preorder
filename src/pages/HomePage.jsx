@@ -21,19 +21,27 @@ export default function HomePage() {
     .filter((category) => category.count)
     .slice(0, 4);
   const popularItems = availableProducts.filter((product) => product.featured).slice(0, 3);
+  const coffeeCount = availableProducts.filter((product) =>
+    ["coffee", "espresso", "tea", "iced-drinks"].includes(product.category)
+  ).length;
 
   return (
     <section className="home-page ordering-page">
-      <div className="welcome-panel">
-        <p className="eyebrow">Room service</p>
-        <h1>Order drinks, coffee, snacks, and light breakfast.</h1>
-        <p>Choose a few items and send your request to the guesthouse team.</p>
-        <Link className="primary-button" to="/menu">
-          Start order
-        </Link>
+      <div className="welcome-panel app-welcome-panel">
+        <div>
+          <p className="eyebrow">Guesthouse cafe</p>
+          <h1>Pantry favorites, sent to your room.</h1>
+          <p>Browse warm drinks, breakfast bites, pastries, and cozy add-ons.</p>
+        </div>
+        <div className="welcome-actions">
+          <Link className="primary-button" to="/menu">
+            Start order
+          </Link>
+          <span>{coffeeCount} cafe drinks ready</span>
+        </div>
       </div>
 
-      <section className="content-block" aria-labelledby="quick-order-heading">
+      <section className="content-block app-content-block" aria-labelledby="quick-order-heading">
         <div className="section-heading">
           <h2 id="quick-order-heading">Quick order</h2>
           <Link to="/menu">View all</Link>
@@ -51,9 +59,9 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="content-block" aria-labelledby="popular-heading">
+      <section className="content-block app-content-block" aria-labelledby="popular-heading">
         <div className="section-heading">
-          <h2 id="popular-heading">Often ordered</h2>
+          <h2 id="popular-heading">Popular now</h2>
         </div>
 
         <div className="item-list">

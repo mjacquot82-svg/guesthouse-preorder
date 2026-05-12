@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { Minus, Plus, Trash2 } from "lucide-react";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -16,12 +17,26 @@ function getStoredCart() {
   }
 }
 
+function storeCart(cart) {
+  window.localStorage.setItem("guesthouse-cart", JSON.stringify(cart));
+}
+
 export default function CartPage() {
-  const [cart] = useState(getStoredCart);
+  const [cart, setCart] = useState(getStoredCart);
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [cart]
   );
+
+  function updateQuantity(itemId, nextQuantity) {
+    const nextCart =
+      nextQuantity <= 0
+        ? cart.filter((item) => item.id !== itemId)
+        : cart.map((item) => (item.id === itemId ? { ...item, quantity: nextQuantity } : item));
+
+    setCart(nextCart);
+    storeCart(nextCart);
+  }
 
   if (!cart.length) {
     return (
@@ -38,17 +53,17 @@ export default function CartPage() {
   }
 
   return (
-    <section className="page-section ordering-page">
-      <div className="page-heading">
+    <section className="page-section ordering-page cart-page">
+      <div className="page-heading cart-heading">
         <h1>Your order</h1>
-        <p>Review your guesthouse coffee bar picks before sending them to the pantry.</p>
+        <p>Review your pantry picks before sending them to the guesthouse team.</p>
       </div>
 
-      <div className="content-block cart-review">
+      <div className="content-block cart-review app-cart-review">
         <ul>
           {cart.map((item) => (
             <li key={item.id}>
-              <div>
+              <div className="cart-item-copy">
                 <strong>{item.name}</strong>
                 {item.options?.length ? (
                   <small>
@@ -59,7 +74,34 @@ export default function CartPage() {
                   {item.quantity} x {formatPrice(item.price)}
                 </span>
               </div>
-              <strong>{formatPrice(item.price * item.quantity)}</strong>
+              <div className="cart-line-actions">
+                <strong>{formatPrice(item.price * item.quantity)}</strong>
+                <div className="quantity-stepper" aria-label={`Quantity for ${item.name}`}>
+                  <button
+                    type="button"
+                    aria-label={`Remove one ${item.name}`}
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span>{item.quantity}</span>
+                  <button
+                    type="button"
+                    aria-label={`Add one ${item.name}`}
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+                <button
+                  className="remove-cart-item"
+                  type="button"
+                  aria-label={`Remove ${item.name}`}
+                  onClick={() => updateQuantity(item.id, 0)}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </li>
           ))}
         </ul>

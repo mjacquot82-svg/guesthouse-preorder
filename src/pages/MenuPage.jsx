@@ -206,20 +206,23 @@ export default function MenuPage() {
   }
 
   return (
-    <section className="page-section menu-page">
-      <div className="cafe-board-hero">
-        <p className="eyebrow">Guesthouse coffee bar</p>
-        <h1>Pantry Menu</h1>
-        <p>
-          A small catalog of warm drinks, simple snacks, and cozy add-ons prepared for
-          your room or porch table.
-        </p>
+    <section className="page-section menu-page app-menu-page">
+      <div className="ordering-top-card">
+        <div>
+          <p className="eyebrow">Order ahead</p>
+          <h1>Pantry Menu</h1>
+          <p>Choose coffee, breakfast, pastries, and room-friendly snacks.</p>
+        </div>
+        <div className="order-meta-pills" aria-label="Menu summary">
+          <span>{availableItems.length} items</span>
+          <span>{featuredItems.length} favorites</span>
+        </div>
       </div>
 
-      <div className="menu-order-strip" aria-live="polite">
-        <span>{lastAdded ? `${lastAdded} added` : "Choose something warm from the board"}</span>
+      <div className="menu-order-strip app-order-strip" aria-live="polite">
+        <span>{lastAdded ? `${lastAdded} added` : "Build your pantry order"}</span>
         <strong>
-          {cartCount} {cartCount === 1 ? "item" : "items"} - {formatPrice(cartTotal)}
+          {cartCount} {cartCount === 1 ? "item" : "items"} · {formatPrice(cartTotal)}
         </strong>
         <Link to="/cart">View cart</Link>
       </div>
@@ -237,25 +240,11 @@ export default function MenuPage() {
         ))}
       </div>
 
-      <div className="cafe-menu-board">
-        <aside className="menu-board-note" aria-label="Cafe note">
-          <span>Today&apos;s board</span>
-          <p>Pick your base item, choose any options, and add it to your pantry order.</p>
-          <small>{availableItems.length} available favorites</small>
-          {featuredItems.length ? (
-            <div className="featured-list">
-              {featuredItems.slice(0, 4).map((item) => (
-                <span key={item.id}>{item.name}</span>
-              ))}
-            </div>
-          ) : null}
-        </aside>
-
-        <section className="menu-card menu-card-featured" aria-labelledby="active-menu-heading">
+      <div className="app-menu-surface">
+        <section className="menu-card menu-card-featured app-menu-card" aria-labelledby="active-menu-heading">
           {activeMenuSection ? (
             <>
               <div className="menu-card-heading">
-                <span className="pin-mark" aria-hidden="true" />
                 <div>
                   <h2 id="active-menu-heading">{activeMenuSection.name}</h2>
                   <p>{activeMenuSection.note}</p>
@@ -263,34 +252,35 @@ export default function MenuPage() {
               </div>
 
               <ul className="drink-card-grid">
-                {activeMenuSection.items.map((item, index) => {
+                {activeMenuSection.items.map((item) => {
                   const selections = getSelections(item);
                   const quantity = getItemQuantity(item);
                   const price = getConfiguredPrice(item, selections);
+                  const category = getCategoryById(item.category);
 
                   return (
-                    <li
-                      className="drink-card"
-                      key={item.id}
-                      style={{ "--tilt": index % 2 ? "0.45deg" : "-0.35deg" }}
-                    >
-                      <div>
+                    <li className="drink-card app-product-card" key={item.id}>
+                      <div className={`product-thumb item-thumb-${item.image}`} aria-hidden="true" />
+                      <div className="product-card-main">
                         <div className="drink-card-title">
-                          <h3>{item.name}</h3>
+                          <div>
+                            <span>{category?.name || "Pantry"}</span>
+                            <h3>{item.name}</h3>
+                          </div>
                           <strong>{formatPrice(price)}</strong>
                         </div>
                         <p>{item.description}</p>
+
+                        <ProductModifiers
+                          product={item}
+                          selections={selections}
+                          onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
+                        />
+
+                        <button type="button" onClick={() => addItem(item)}>
+                          {quantity ? `Add again · ${quantity}` : "Add to order"}
+                        </button>
                       </div>
-
-                      <ProductModifiers
-                        product={item}
-                        selections={selections}
-                        onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
-                      />
-
-                      <button type="button" onClick={() => addItem(item)}>
-                        {quantity ? `Add again - ${quantity}` : "Add"}
-                      </button>
                     </li>
                   );
                 })}
