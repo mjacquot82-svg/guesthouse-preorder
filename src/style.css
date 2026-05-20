@@ -3422,7 +3422,7 @@ body {
 }
 
 .home-page.ordering-page {
-  gap: 22px;
+  gap: 16px;
 }
 
 .home-page .app-welcome-panel,
@@ -3497,11 +3497,12 @@ body {
   border-color: var(--premium-line);
   background: rgba(255, 255, 255, 0.94);
   box-shadow: 0 10px 24px rgba(47, 37, 29, 0.055);
+  padding: 8px 9px;
 }
 
 .home-page .app-content-block {
   border-radius: 24px;
-  padding: 16px;
+  padding: 14px;
 }
 
 .home-page .section-heading {
@@ -3558,7 +3559,7 @@ body {
 .home-page .cafe-favorites-block {
   background: transparent;
   box-shadow: none;
-  padding: 2px 0 0;
+  padding: 0;
 }
 
 .home-page .cafe-favorites-block .section-heading {
@@ -3566,7 +3567,7 @@ body {
 }
 
 .home-page .compact-item-list {
-  gap: 10px;
+  gap: 9px;
 }
 
 .home-page .compact-item-list .item-row {
@@ -3577,7 +3578,7 @@ body {
 
 .loyalty-card {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   background:
     linear-gradient(135deg, var(--premium-paper), var(--premium-ivory));
 }
