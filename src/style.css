@@ -3648,3 +3648,136 @@ body {
     grid-auto-columns: minmax(158px, 68%);
   }
 }
+
+/* Customization selector readability refresh */
+.modifier-stack {
+  gap: 14px;
+  margin-top: 2px;
+}
+
+.modifier-group legend {
+  margin-bottom: 8px;
+  color: var(--scandi-espresso);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.modifier-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.modifier-options::-webkit-scrollbar {
+  display: initial;
+}
+
+.modifier-options label {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  gap: 7px 9px;
+  border: 1px solid rgba(79, 56, 40, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 253, 248, 0.94);
+  color: #544438;
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.25;
+  padding: 10px 12px;
+  box-shadow: 0 7px 18px rgba(47, 37, 29, 0.045);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.modifier-options label::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid rgba(79, 56, 40, 0.28);
+  border-radius: 50%;
+  background: #fffdf8;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.modifier-options label:hover {
+  border-color: rgba(79, 56, 40, 0.22);
+  box-shadow: 0 9px 20px rgba(47, 37, 29, 0.07);
+  transform: translateY(-1px);
+}
+
+.modifier-options label.selected {
+  border-color: rgba(79, 56, 40, 0.44);
+  background: #5a4030;
+  color: #fffaf2;
+  box-shadow: 0 10px 22px rgba(79, 56, 40, 0.16);
+}
+
+.modifier-options label.selected::before {
+  border-color: rgba(255, 250, 242, 0.92);
+  background:
+    radial-gradient(circle, #fffaf2 0 35%, transparent 39%),
+    rgba(255, 250, 242, 0.18);
+}
+
+.modifier-options label:focus-within {
+  outline: 2px solid rgba(124, 139, 115, 0.55);
+  outline-offset: 2px;
+}
+
+.modifier-options input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modifier-options span {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.modifier-options small {
+  justify-self: end;
+  color: inherit;
+  font-size: 0.75rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+@media (min-width: 520px) {
+  .modifier-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 460px) {
+  .modifier-stack {
+    gap: 12px;
+  }
+
+  .modifier-group legend {
+    font-size: 0.76rem;
+  }
+
+  .modifier-options label {
+    min-height: 50px;
+    border-radius: 15px;
+    font-size: 0.82rem;
+    padding: 10px 11px;
+  }
+}
