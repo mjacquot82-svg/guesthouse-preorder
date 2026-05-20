@@ -3781,3 +3781,448 @@ body {
     padding: 10px 11px;
   }
 }
+
+/* Guest House interior alignment and desktop breathing room */
+:root {
+  --guest-bg: #fffdf8;
+  --guest-ivory: #fbf8f0;
+  --guest-warm-white: #fffefa;
+  --guest-oak: #e7d4b6;
+  --guest-oak-soft: #f7efe2;
+  --guest-sage: #7f8d75;
+  --guest-sage-soft: #f1f5ec;
+  --guest-ink: #2e2923;
+  --guest-muted: #706b62;
+  --guest-line: rgba(54, 47, 38, 0.085);
+  --guest-espresso: #4c382b;
+  --guest-shadow: 0 14px 34px rgba(48, 39, 29, 0.055);
+  --guest-lift-shadow: 0 20px 48px rgba(48, 39, 29, 0.08);
+}
+
+html,
+body {
+  background:
+    linear-gradient(180deg, #fffefb 0%, #fbf9f4 50%, #f6f0e7 100%),
+    var(--guest-bg);
+}
+
+.app-shell {
+  background:
+    linear-gradient(180deg, var(--guest-warm-white) 0%, var(--guest-ivory) 64%, #f8f2e9 100%);
+}
+
+.site-header {
+  background: rgba(255, 254, 250, 0.92);
+  border-bottom-color: rgba(54, 47, 38, 0.055);
+}
+
+.desktop-nav {
+  display: none;
+}
+
+.brand-mark,
+.header-cart-link {
+  border-color: var(--guest-line);
+  background: linear-gradient(145deg, #ffffff, #fbf6ec);
+  color: var(--guest-espresso);
+  box-shadow: 0 9px 22px rgba(48, 39, 29, 0.055);
+}
+
+.brand strong,
+.app-welcome-panel h1,
+.ordering-top-card h1,
+.cart-heading h1,
+.section-heading h2,
+.menu-card-featured h2,
+.drink-card h3,
+.app-status-card h2,
+.account-card h2 {
+  color: var(--guest-ink);
+}
+
+.brand small,
+.app-welcome-panel p:not(.eyebrow),
+.ordering-top-card p:not(.eyebrow),
+.cart-heading p,
+.drink-card p,
+.app-status-card p,
+.account-card p,
+.loyalty-card p:not(.eyebrow) {
+  color: var(--guest-muted);
+}
+
+.eyebrow,
+.drink-card-title span,
+.section-heading a {
+  color: var(--guest-sage);
+}
+
+.app-welcome-panel,
+.ordering-top-card,
+.app-content-block,
+.app-cart-review,
+.empty-state,
+.confirmation-panel,
+.compact-info-row,
+.cart-review li {
+  border-color: var(--guest-line);
+  background: rgba(255, 254, 250, 0.9);
+  box-shadow: var(--guest-shadow);
+}
+
+.home-page .app-welcome-panel,
+.home-page .app-content-block,
+.app-content-block,
+.app-cart-review {
+  background: rgba(255, 254, 250, 0.94);
+}
+
+.cafe-hero-image {
+  background:
+    linear-gradient(180deg, rgba(255, 254, 250, 0.03), rgba(46, 41, 35, 0.13)),
+    url("https://images.unsplash.com/photo-1518005020951-eccb494ad742?q=80&w=1200&auto=format&fit=crop");
+  background-position: center;
+  background-size: cover;
+}
+
+.ordering-top-card {
+  background:
+    linear-gradient(120deg, rgba(255, 254, 250, 0.96), rgba(255, 254, 250, 0.8) 50%, rgba(247, 239, 226, 0.4)),
+    url("https://images.unsplash.com/photo-1519710164239-da123dc03ef4?q=80&w=1200&auto=format&fit=crop");
+  background-position: center;
+  background-size: cover;
+}
+
+.primary-button,
+.app-order-strip a,
+.home-order-status a,
+.drink-card button,
+.quick-product-card button {
+  background: var(--guest-espresso);
+}
+
+.primary-button {
+  box-shadow: 0 10px 22px rgba(76, 56, 43, 0.14);
+}
+
+.welcome-actions span,
+.order-meta-pills span,
+.category-pill-card span,
+.bottom-nav a.active,
+.modifier-options label.selected,
+.status-icon,
+.account-avatar {
+  background: var(--guest-sage-soft);
+  color: #65745d;
+}
+
+.home-order-status,
+.app-order-strip {
+  border-color: var(--guest-line);
+  background: rgba(255, 254, 250, 0.94);
+  box-shadow: 0 12px 28px rgba(48, 39, 29, 0.065);
+}
+
+.category-pill-card,
+.compact-item-list .item-row,
+.app-product-card {
+  border-color: var(--guest-line);
+  background: var(--guest-warm-white);
+  box-shadow: var(--guest-shadow);
+}
+
+.category-pill-card {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(247, 239, 226, 0.48));
+}
+
+.drink-card-title strong,
+.secondary-button {
+  background: var(--guest-oak-soft);
+  color: var(--guest-espresso);
+}
+
+.modifier-options label {
+  border-color: var(--guest-line);
+  background: rgba(255, 254, 250, 0.96);
+  color: #5f574e;
+  box-shadow: 0 6px 16px rgba(48, 39, 29, 0.035);
+}
+
+.modifier-options label.selected {
+  border-color: rgba(127, 141, 117, 0.42);
+  background: #eef4e8;
+  color: #536249;
+  box-shadow: 0 8px 18px rgba(83, 98, 73, 0.1);
+}
+
+.modifier-options label.selected::before {
+  border-color: rgba(83, 98, 73, 0.48);
+  background:
+    radial-gradient(circle, #536249 0 35%, transparent 39%),
+    #ffffff;
+}
+
+.bottom-nav {
+  border-color: var(--guest-line);
+  background: rgba(255, 254, 250, 0.96);
+}
+
+@media (min-width: 761px) {
+  body {
+    align-items: stretch;
+    background:
+      radial-gradient(circle at 12% 10%, rgba(231, 212, 182, 0.28), transparent 28rem),
+      radial-gradient(circle at 88% 4%, rgba(241, 245, 236, 0.88), transparent 26rem),
+      linear-gradient(180deg, #fffefb 0%, #faf8f2 58%, #f4eee5 100%);
+  }
+
+  .app-shell {
+    width: min(100%, 1180px);
+    max-width: none;
+    padding-bottom: 0;
+    box-shadow: none;
+  }
+
+  .nav-container,
+  main {
+    width: min(calc(100% - 56px), 1080px);
+    max-width: 1080px;
+  }
+
+  .nav-container {
+    min-height: 74px;
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .header-cart-link {
+    display: none;
+  }
+
+  .desktop-nav {
+    display: flex;
+    justify-self: end;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .desktop-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 42px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    color: var(--guest-muted);
+    font-size: 0.88rem;
+    font-weight: 850;
+    padding: 0 13px;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  .desktop-nav a:hover,
+  .desktop-nav a.active {
+    border-color: rgba(127, 141, 117, 0.18);
+    background: var(--guest-sage-soft);
+    color: #65745d;
+  }
+
+  .bottom-nav {
+    display: none;
+  }
+
+  .home-page,
+  .page-section {
+    padding-top: 30px;
+    padding-bottom: 58px;
+  }
+
+  .ordering-page,
+  .home-page.ordering-page,
+  .app-menu-page {
+    gap: 22px;
+  }
+
+  .home-page .app-welcome-panel {
+    grid-template-columns: minmax(0, 0.92fr) minmax(280px, 0.72fr);
+    gap: clamp(24px, 4vw, 54px);
+    min-height: 360px;
+    align-items: stretch;
+    border-radius: 34px;
+    padding: clamp(24px, 4vw, 42px);
+  }
+
+  .home-page .app-welcome-panel h1,
+  .app-welcome-panel h1,
+  .ordering-top-card h1,
+  .cart-heading h1 {
+    max-width: 520px;
+    font-size: clamp(2.55rem, 4.8vw, 4.9rem);
+    line-height: 0.96;
+  }
+
+  .home-page .app-welcome-panel p:not(.eyebrow),
+  .app-welcome-panel p:not(.eyebrow),
+  .ordering-top-card p:not(.eyebrow),
+  .cart-heading p {
+    max-width: 470px;
+    font-size: 1rem;
+    line-height: 1.58;
+  }
+
+  .home-page .cafe-hero-image {
+    min-height: 300px;
+    border-radius: 30px;
+  }
+
+  .home-order-status {
+    position: static;
+  }
+
+  .home-page .app-content-block,
+  .app-content-block,
+  .app-cart-review {
+    border-radius: 30px;
+    padding: 22px;
+  }
+
+  .home-page .cafe-favorites-block {
+    width: min(720px, 100%);
+    background: transparent;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  .loyalty-card {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
+    align-items: end;
+  }
+
+  .ordering-top-card {
+    min-height: 252px;
+    align-content: end;
+    align-items: end;
+    border-radius: 34px;
+    padding: clamp(26px, 4vw, 44px);
+  }
+
+  .app-order-strip {
+    top: 88px;
+    width: min(760px, 100%);
+    justify-self: start;
+  }
+
+  .menu-category-rail {
+    margin: 0;
+    padding: 0 0 4px;
+  }
+
+  .app-menu-card {
+    max-width: none;
+  }
+
+  .menu-card-heading {
+    max-width: 640px;
+    padding-bottom: 6px;
+  }
+
+  .menu-card-featured h2 {
+    font-size: clamp(1.6rem, 2.4vw, 2.25rem);
+  }
+
+  .drink-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .app-product-card {
+    grid-template-columns: 138px minmax(0, 1fr);
+    gap: 16px;
+    min-height: 282px;
+    border-radius: 28px;
+    padding: 12px;
+  }
+
+  .product-thumb {
+    width: 138px;
+    min-height: 100%;
+    border-radius: 22px;
+  }
+
+  .product-card-main {
+    gap: 10px;
+    padding: 6px 4px 4px 0;
+  }
+
+  .drink-card h3 {
+    font-size: 1.22rem;
+  }
+
+  .drink-card p {
+    display: block;
+    overflow: visible;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .modifier-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .modifier-options label {
+    min-height: 44px;
+    border-radius: 14px;
+    font-size: 0.8rem;
+    padding: 9px 10px;
+  }
+
+  .cart-page,
+  .app-simple-page {
+    width: min(760px, 100%);
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .compact-app-heading {
+    min-height: 210px;
+  }
+}
+
+@media (min-width: 1020px) {
+  .home-page.ordering-page {
+    grid-template-columns: minmax(0, 1fr) minmax(330px, 0.36fr);
+    align-items: start;
+  }
+
+  .home-page .app-welcome-panel,
+  .home-page .home-order-status {
+    grid-column: 1 / -1;
+  }
+
+  .home-page .cafe-favorites-block,
+  .home-page .loyalty-card {
+    align-self: stretch;
+  }
+
+  .home-page .cafe-favorites-block {
+    width: 100%;
+  }
+
+  .app-menu-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .drink-card-grid {
+    grid-template-columns: repeat(2, minmax(420px, 1fr));
+  }
+}
+
+@media (min-width: 1180px) {
+  .drink-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

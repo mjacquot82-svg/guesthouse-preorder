@@ -27,6 +27,18 @@ export default function AppLayout() {
           <NavLink to="/cart" className="header-cart-link" aria-label="Open cart">
             <ShoppingBag size={18} strokeWidth={2.4} />
           </NavLink>
+
+          <nav className="desktop-nav" aria-label="Desktop ordering navigation">
+            {primaryLinks.slice(0, 4).map((link) => {
+              const Icon = link.icon;
+              return (
+                <NavLink key={link.to} to={link.to} end={link.end}>
+                  <Icon size={17} strokeWidth={2.35} />
+                  <span>{link.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
         </div>
       </header>
 
