@@ -3055,3 +3055,341 @@ body {
     grid-auto-columns: minmax(170px, 74%);
   }
 }
+
+/* Scandinavian artisan cafe refinement */
+:root {
+  --scandi-white: #fffefb;
+  --scandi-ivory: #fbf8f1;
+  --scandi-oak: #ead9bd;
+  --scandi-oak-soft: #f7efe1;
+  --scandi-sage: #7c8b73;
+  --scandi-sage-soft: #eef3e9;
+  --scandi-olive: #657256;
+  --scandi-espresso: #5a3d2b;
+  --scandi-espresso-dark: #2f251d;
+  --scandi-charcoal: #292722;
+  --scandi-muted: #6f675d;
+  --scandi-line: rgba(69, 56, 42, 0.1);
+  --scandi-shadow: 0 18px 44px rgba(55, 42, 28, 0.09);
+  --scandi-soft-shadow: 0 10px 28px rgba(55, 42, 28, 0.06);
+}
+
+html {
+  background: #f2eee6;
+}
+
+body {
+  background:
+    linear-gradient(180deg, rgba(255, 254, 251, 0.96) 0%, rgba(246, 239, 226, 0.62) 100%),
+    #f2eee6;
+}
+
+.app-shell {
+  background:
+    linear-gradient(180deg, var(--scandi-white) 0%, var(--scandi-ivory) 54%, #f8f1e5 100%);
+  box-shadow:
+    0 28px 76px rgba(41, 35, 27, 0.16),
+    0 0 0 1px rgba(90, 61, 43, 0.07);
+}
+
+.site-header {
+  background: rgba(255, 254, 251, 0.9);
+  border-bottom: 1px solid rgba(69, 56, 42, 0.06);
+}
+
+.brand-mark,
+.header-cart-link {
+  border-color: var(--scandi-line);
+  background:
+    linear-gradient(145deg, #ffffff, var(--scandi-oak-soft));
+  color: var(--scandi-espresso);
+  box-shadow: var(--scandi-soft-shadow);
+}
+
+.brand strong,
+.app-welcome-panel h1,
+.ordering-top-card h1,
+.cart-heading h1,
+.section-heading h2,
+.menu-card-featured h2,
+.drink-card h3,
+.app-status-card h2,
+.account-card h2 {
+  color: var(--scandi-charcoal);
+}
+
+.brand small,
+.app-welcome-panel p:not(.eyebrow),
+.ordering-top-card p:not(.eyebrow),
+.cart-heading p,
+.drink-card p,
+.app-status-card p,
+.account-card p {
+  color: var(--scandi-muted);
+}
+
+.home-page,
+.page-section {
+  padding-top: 18px;
+}
+
+.ordering-page {
+  gap: 20px;
+}
+
+.app-welcome-panel,
+.ordering-top-card,
+.app-content-block,
+.app-cart-review,
+.empty-state,
+.confirmation-panel,
+.compact-info-row {
+  border-color: var(--scandi-line);
+  background: rgba(255, 254, 251, 0.88);
+  box-shadow: var(--scandi-shadow);
+}
+
+.app-welcome-panel {
+  min-height: 456px;
+  gap: 18px;
+  border-radius: 34px;
+  background:
+    linear-gradient(180deg, rgba(255, 254, 251, 0.96), rgba(255, 254, 251, 0.8)),
+    var(--scandi-white);
+  padding: 18px;
+}
+
+.cafe-hero-image {
+  min-height: 226px;
+  border: 1px solid rgba(255, 255, 255, 0.52);
+  border-radius: 30px;
+  background:
+    linear-gradient(180deg, rgba(255, 254, 251, 0.02), rgba(47, 37, 29, 0.12)),
+    url("https://images.unsplash.com/photo-1511081692775-05d0f180a065?q=80&w=900&auto=format&fit=crop");
+  background-position: center;
+  background-size: cover;
+  box-shadow:
+    inset 0 -66px 78px rgba(47, 37, 29, 0.14),
+    0 16px 34px rgba(55, 42, 28, 0.1);
+}
+
+.app-welcome-panel h1,
+.ordering-top-card h1,
+.cart-heading h1 {
+  max-width: 370px;
+  letter-spacing: 0;
+}
+
+.eyebrow {
+  color: var(--scandi-olive);
+}
+
+.primary-button,
+.app-order-strip a,
+.home-order-status a,
+.drink-card button {
+  background: var(--scandi-espresso);
+  color: #fffaf2;
+}
+
+.primary-button {
+  box-shadow: 0 12px 24px rgba(90, 61, 43, 0.2);
+}
+
+.secondary-button {
+  border-color: var(--scandi-line);
+  background: var(--scandi-oak-soft);
+  color: var(--scandi-espresso-dark);
+}
+
+.welcome-actions span,
+.order-meta-pills span,
+.category-pill-card span,
+.bottom-nav a.active,
+.modifier-options label.selected,
+.status-icon,
+.account-avatar {
+  background: var(--scandi-sage-soft);
+  color: var(--scandi-olive);
+}
+
+.home-order-status,
+.app-order-strip {
+  border-color: var(--scandi-line);
+  background: rgba(255, 254, 251, 0.94);
+  box-shadow: 0 14px 34px rgba(55, 42, 28, 0.1);
+}
+
+.app-content-block,
+.app-cart-review {
+  border-radius: 30px;
+  padding: 18px;
+}
+
+.section-heading {
+  margin-bottom: 16px;
+}
+
+.section-heading a {
+  color: var(--scandi-olive);
+}
+
+.category-pill-grid {
+  gap: 12px;
+}
+
+.category-pill-card {
+  min-height: 88px;
+  border-color: rgba(69, 56, 42, 0.09);
+  border-radius: 28px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(247, 239, 225, 0.58));
+  box-shadow: var(--scandi-soft-shadow);
+  padding: 15px;
+}
+
+.category-pill-card strong {
+  color: var(--scandi-charcoal);
+  font-weight: 850;
+}
+
+.quick-product-rail {
+  grid-auto-columns: minmax(190px, 74%);
+  gap: 15px;
+  margin: 0 -18px;
+  padding: 0 18px 6px;
+}
+
+.quick-product-card {
+  min-height: 256px;
+  border-color: rgba(69, 56, 42, 0.08);
+  border-radius: 32px;
+  box-shadow: 0 22px 42px rgba(55, 42, 28, 0.14);
+}
+
+.quick-product-card::before {
+  background:
+    linear-gradient(180deg, rgba(255, 254, 251, 0.02), rgba(47, 37, 29, 0.08) 34%, rgba(47, 37, 29, 0.78)),
+    linear-gradient(90deg, rgba(47, 37, 29, 0.12), transparent 54%);
+}
+
+.quick-product-copy {
+  padding: 126px 54px 17px 17px;
+}
+
+.quick-product-copy span {
+  background: rgba(255, 254, 251, 0.22);
+}
+
+.quick-product-copy strong {
+  background: rgba(255, 254, 251, 0.94);
+  color: var(--scandi-espresso-dark);
+}
+
+.quick-product-card button {
+  background: var(--scandi-espresso);
+}
+
+.compact-item-list .item-row,
+.cart-review li {
+  border-color: var(--scandi-line);
+  background: var(--scandi-white);
+  box-shadow: var(--scandi-soft-shadow);
+}
+
+.ordering-top-card {
+  min-height: 188px;
+  border-radius: 32px;
+  background:
+    linear-gradient(120deg, rgba(255, 254, 251, 0.95), rgba(255, 254, 251, 0.78) 48%, rgba(247, 239, 225, 0.46)),
+    url("https://images.unsplash.com/photo-1445116572660-236099ec97a0?q=80&w=900&auto=format&fit=crop");
+  background-position: center;
+  background-size: cover;
+  padding: 22px;
+}
+
+.menu-category-rail {
+  padding-bottom: 9px;
+}
+
+.menu-category-rail button {
+  border-color: var(--scandi-line);
+  background: rgba(255, 254, 251, 0.94);
+  color: var(--scandi-muted);
+}
+
+.menu-category-rail button.active,
+.menu-category-rail button:hover {
+  border-color: rgba(124, 139, 115, 0.28);
+  background: var(--scandi-sage-soft);
+  color: var(--scandi-olive);
+}
+
+.app-product-card {
+  border-color: var(--scandi-line);
+  border-radius: 32px;
+  background: var(--scandi-white);
+  box-shadow: 0 16px 34px rgba(55, 42, 28, 0.09);
+  padding: 11px;
+}
+
+.product-thumb {
+  border-radius: 26px;
+  box-shadow:
+    inset 0 -46px 52px rgba(47, 37, 29, 0.14),
+    0 10px 24px rgba(55, 42, 28, 0.07);
+}
+
+.drink-card-title span {
+  color: var(--scandi-sage);
+}
+
+.drink-card-title strong {
+  background: var(--scandi-oak-soft);
+  color: var(--scandi-espresso);
+}
+
+.modifier-group legend {
+  color: var(--scandi-muted);
+}
+
+.modifier-options label {
+  border-color: var(--scandi-line);
+  background: rgba(255, 250, 242, 0.88);
+  color: var(--scandi-muted);
+}
+
+.bottom-nav {
+  border-color: var(--scandi-line);
+  background: rgba(255, 254, 251, 0.96);
+}
+
+.bottom-nav a {
+  color: #72685e;
+}
+
+.bottom-nav a.active {
+  box-shadow: inset 0 0 0 1px rgba(124, 139, 115, 0.08);
+}
+
+.quantity-stepper,
+.remove-cart-item {
+  border-color: var(--scandi-line);
+  background: var(--scandi-white);
+}
+
+.quantity-stepper button,
+.remove-cart-item,
+.compact-info-row svg {
+  color: var(--scandi-espresso);
+}
+
+.compact-info-row strong {
+  color: var(--scandi-olive);
+}
+
+@media (max-width: 380px) {
+  .quick-product-rail {
+    grid-auto-columns: minmax(172px, 75%);
+  }
+}
