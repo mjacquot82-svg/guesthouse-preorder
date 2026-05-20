@@ -4226,3 +4226,346 @@ body {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Real Guest House interior alignment */
+:root {
+  --gh-wall: #fffdf8;
+  --gh-ivory: #faf7f0;
+  --gh-oak: #ead6b5;
+  --gh-oak-soft: #f6eddf;
+  --gh-sage: #617461;
+  --gh-sage-soft: #e8ece1;
+  --gh-green: #4e5f4f;
+  --gh-olive: #566b57;
+  --gh-eucalyptus: #6b7d67;
+  --gh-charcoal: #262622;
+  --gh-charcoal-soft: #3a3933;
+  --gh-muted: #6d685f;
+  --gh-line: rgba(38, 38, 34, 0.085);
+  --gh-shadow: 0 12px 32px rgba(42, 38, 31, 0.052);
+  --gh-lift: 0 20px 48px rgba(42, 38, 31, 0.075);
+}
+
+html,
+body {
+  background:
+    radial-gradient(circle at 14% 5%, rgba(234, 214, 181, 0.32), transparent 26rem),
+    radial-gradient(circle at 86% 0%, rgba(107, 125, 103, 0.18), transparent 24rem),
+    linear-gradient(180deg, #fffefa 0%, #fbf8f1 58%, #f5eee5 100%);
+}
+
+.app-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(250, 247, 240, 0.96) 62%, #f7f0e7);
+}
+
+.site-header {
+  background: rgba(255, 253, 248, 0.9);
+  border-bottom-color: rgba(38, 38, 34, 0.055);
+}
+
+.brand {
+  gap: 11px;
+}
+
+.brand-mark {
+  overflow: hidden;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--gh-green);
+  box-shadow: 0 10px 24px rgba(38, 38, 34, 0.08);
+}
+
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.brand strong,
+.app-welcome-panel h1,
+.ordering-top-card h1,
+.cart-heading h1,
+.section-heading h2,
+.menu-card-featured h2,
+.drink-card h3,
+.app-status-card h2,
+.account-card h2,
+.loyalty-card h2 {
+  color: var(--gh-charcoal);
+}
+
+.brand small,
+.app-welcome-panel p:not(.eyebrow),
+.ordering-top-card p:not(.eyebrow),
+.cart-heading p,
+.drink-card p,
+.app-status-card p,
+.account-card p,
+.loyalty-card p:not(.eyebrow),
+.item-row p,
+.cart-review li span,
+.cart-review li small,
+.cart-total-row span {
+  color: var(--gh-muted);
+}
+
+.eyebrow,
+.drink-card-title span,
+.section-heading a {
+  color: var(--gh-sage);
+}
+
+.app-welcome-panel,
+.ordering-top-card,
+.app-content-block,
+.app-cart-review,
+.empty-state,
+.confirmation-panel,
+.compact-info-row,
+.cart-review li,
+.app-product-card,
+.compact-item-list .item-row {
+  border-color: var(--gh-line);
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: var(--gh-shadow);
+}
+
+.home-page .app-welcome-panel {
+  background:
+    linear-gradient(135deg, rgba(255, 253, 248, 0.98), rgba(250, 247, 240, 0.9) 56%, rgba(246, 237, 223, 0.86));
+}
+
+.cafe-hero-image {
+  border-color: rgba(255, 255, 255, 0.68);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0), rgba(38, 38, 34, 0.08)),
+    url("../inspiration/641787261_18304622398278697_7180447476909606473_n.jpg");
+  background-position: center 46%;
+  background-size: cover;
+  box-shadow:
+    inset 0 -54px 64px rgba(38, 38, 34, 0.1),
+    var(--gh-shadow);
+}
+
+.ordering-top-card {
+  background:
+    linear-gradient(120deg, rgba(255, 253, 248, 0.96), rgba(255, 253, 248, 0.84) 48%, rgba(246, 237, 223, 0.48)),
+    url("../inspiration/641787261_18304622398278697_7180447476909606473_n.jpg");
+  background-position: center 42%;
+  background-size: cover;
+}
+
+.primary-button,
+.app-order-strip a,
+.home-order-status a,
+.drink-card button,
+.quick-product-card button {
+  background: var(--gh-charcoal);
+  color: #fffdf8;
+}
+
+.primary-button {
+  box-shadow: 0 10px 22px rgba(38, 38, 34, 0.12);
+}
+
+.secondary-button,
+.drink-card-title strong {
+  background: var(--gh-oak-soft);
+  color: var(--gh-charcoal);
+}
+
+.welcome-actions span,
+.order-meta-pills span,
+.category-pill-card span,
+.bottom-nav a.active,
+.status-icon,
+.account-avatar {
+  background: var(--gh-sage-soft);
+  color: var(--gh-olive);
+}
+
+.home-order-status,
+.app-order-strip,
+.bottom-nav {
+  border-color: var(--gh-line);
+  background: rgba(255, 253, 248, 0.95);
+  box-shadow: 0 12px 28px rgba(42, 38, 31, 0.06);
+}
+
+.category-pill-card {
+  border-color: var(--gh-line);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(246, 237, 223, 0.42));
+  box-shadow: var(--gh-shadow);
+}
+
+.app-content-block,
+.app-cart-review {
+  border-radius: 24px;
+}
+
+.app-product-card {
+  background: rgba(255, 253, 248, 0.96);
+}
+
+.product-thumb {
+  box-shadow:
+    inset 0 -42px 48px rgba(38, 38, 34, 0.11),
+    0 8px 18px rgba(42, 38, 31, 0.045);
+}
+
+.modifier-options label {
+  border-color: var(--gh-line);
+  background: rgba(255, 253, 248, 0.96);
+  color: var(--gh-charcoal-soft);
+  box-shadow: 0 5px 14px rgba(42, 38, 31, 0.03);
+}
+
+.modifier-options label.selected {
+  border-color: rgba(38, 38, 34, 0.22);
+  background: var(--gh-charcoal);
+  color: #fffdf8;
+  box-shadow: 0 9px 20px rgba(38, 38, 34, 0.13);
+}
+
+.modifier-options label.selected::before {
+  border-color: rgba(255, 253, 248, 0.88);
+  background:
+    radial-gradient(circle, #fffdf8 0 35%, transparent 39%),
+    rgba(255, 253, 248, 0.12);
+}
+
+.bottom-nav {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+@media (min-width: 761px) {
+  .app-shell {
+    width: 100%;
+  }
+
+  .nav-container,
+  main {
+    width: min(calc(100% - 72px), 1120px);
+  }
+
+  .home-page,
+  .page-section {
+    padding-top: 26px;
+    padding-bottom: 56px;
+  }
+
+  .home-page.ordering-page {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.36fr);
+    gap: 22px;
+  }
+
+  .home-page .app-welcome-panel,
+  .home-page .home-order-status {
+    grid-column: 1 / -1;
+  }
+
+  .home-page .app-welcome-panel {
+    min-height: 318px;
+    grid-template-columns: minmax(0, 0.95fr) minmax(280px, 0.68fr);
+    gap: clamp(24px, 4vw, 46px);
+    padding: clamp(24px, 3.4vw, 38px);
+  }
+
+  .home-page .app-welcome-panel h1,
+  .app-welcome-panel h1,
+  .ordering-top-card h1,
+  .cart-heading h1 {
+    max-width: 500px;
+    font-size: clamp(2.15rem, 3.4vw, 3.55rem);
+    line-height: 1;
+  }
+
+  .home-page .app-welcome-panel p:not(.eyebrow),
+  .app-welcome-panel p:not(.eyebrow),
+  .ordering-top-card p:not(.eyebrow),
+  .cart-heading p {
+    max-width: 445px;
+    font-size: 0.96rem;
+    line-height: 1.52;
+  }
+
+  .home-page .cafe-hero-image {
+    min-height: 250px;
+    border-radius: 26px;
+  }
+
+  .home-page .app-content-block,
+  .app-content-block,
+  .app-cart-review {
+    padding: 24px;
+  }
+
+  .home-page .cafe-favorites-block {
+    width: 100%;
+  }
+
+  .ordering-top-card {
+    min-height: 236px;
+  }
+
+  .loyalty-card {
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: 14px;
+  }
+
+  .loyalty-card h2 {
+    max-width: 22rem;
+    font-size: 1.06rem;
+    line-height: 1.18;
+  }
+
+  .loyalty-card p:not(.eyebrow) {
+    max-width: 24rem;
+    margin-top: 5px;
+    line-height: 1.45;
+  }
+
+  .loyalty-card .stamp-row {
+    width: min(100%, 284px);
+    grid-template-columns: repeat(8, 1fr);
+  }
+
+  .drink-card-grid {
+    gap: 20px;
+  }
+
+  .app-product-card {
+    border-radius: 24px;
+    box-shadow: var(--gh-shadow);
+  }
+}
+
+@media (min-width: 1020px) {
+  .home-page .loyalty-card {
+    min-height: 100%;
+    justify-content: stretch;
+  }
+}
+
+@media (min-width: 1180px) {
+  .home-page .loyalty-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .home-page .loyalty-card h2,
+  .home-page .loyalty-card p:not(.eyebrow) {
+    max-width: 27rem;
+  }
+
+  .home-page .loyalty-card .stamp-row {
+    width: 248px;
+  }
+}

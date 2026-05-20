@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Coffee, Home, ReceiptText, Search, ShoppingBag, UserRound } from "lucide-react";
+import { Home, ReceiptText, Search, ShoppingBag, UserRound } from "lucide-react";
+import guestHouseLogo from "../../inspiration/610636354_18297756187278697_828168607581072468_n.jpg";
 
 const primaryLinks = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -16,7 +17,7 @@ export default function AppLayout() {
         <div className="nav-container">
           <NavLink to="/" className="brand" aria-label="The Guest House home">
             <span className="brand-mark" aria-hidden="true">
-              <Coffee size={18} strokeWidth={2.4} />
+              <img src={guestHouseLogo} alt="" />
             </span>
             <span>
               <strong>The Guest House</strong>
