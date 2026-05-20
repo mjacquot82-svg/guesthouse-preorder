@@ -1,6 +1,6 @@
 export const businessConfig = {
-  businessName: "Morning Vale Cafe",
-  tagline: "Plants, coffee, and cozy pickup orders.",
+  businessName: "The Guest House",
+  tagline: "Café & Pantry",
   description:
     "Order ahead from our café menu and pick up your drinks when they’re ready.",
   primaryAction: "Start an Order",
