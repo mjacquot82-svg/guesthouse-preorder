@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   getCategoryById,
@@ -135,7 +135,18 @@ export default function MenuPage() {
   const [activeSection, setActiveSection] = useState(firstSection);
   const [cart, setCart] = useState(getStoredCart);
   const [lastAdded, setLastAdded] = useState("");
+  const [addedLineId, setAddedLineId] = useState("");
+  const [bagIsUpdating, setBagIsUpdating] = useState(false);
   const [selectionsByProduct, setSelectionsByProduct] = useState({});
+  const addedResetTimer = useRef(null);
+  const bagPulseTimer = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(addedResetTimer.current);
+      clearTimeout(bagPulseTimer.current);
+    };
+  }, []);
 
   const activeSectionId = sections.some((section) => section.id === activeSection)
     ? activeSection
@@ -197,6 +208,23 @@ export default function MenuPage() {
     setCart(nextCart);
     storeCart(nextCart);
     setLastAdded(product.name);
+    setAddedLineId(cartLineId);
+    setBagIsUpdating(false);
+
+    clearTimeout(addedResetTimer.current);
+    clearTimeout(bagPulseTimer.current);
+
+    requestAnimationFrame(() => {
+      setBagIsUpdating(true);
+    });
+
+    addedResetTimer.current = setTimeout(() => {
+      setAddedLineId("");
+    }, 1700);
+
+    bagPulseTimer.current = setTimeout(() => {
+      setBagIsUpdating(false);
+    }, 900);
   }
 
   function getItemQuantity(product) {
@@ -219,12 +247,24 @@ export default function MenuPage() {
         </div>
       </div>
 
-      <div className="menu-order-strip app-order-strip" aria-live="polite">
+      <div
+        className={`menu-order-strip app-order-strip${bagIsUpdating ? " is-updating" : ""}`}
+        aria-live="polite"
+      >
         <span>{lastAdded ? `${lastAdded} added` : "Build your café order"}</span>
-        <strong>
+        <strong key={`${cartCount}-${cartTotal}`}>
           {cartCount} {cartCount === 1 ? "item" : "items"} · {formatPrice(cartTotal)}
         </strong>
         <Link to="/cart">View cart</Link>
+      </div>
+
+      <div
+        className={`cafe-bag-toast${bagIsUpdating ? " is-visible" : ""}`}
+        role="status"
+        aria-live="polite"
+        aria-hidden={!bagIsUpdating}
+      >
+        Added to your café bag
       </div>
 
       <div className="menu-category-rail" aria-label="Menu categories">
@@ -257,6 +297,8 @@ export default function MenuPage() {
                   const quantity = getItemQuantity(item);
                   const price = getConfiguredPrice(item, selections);
                   const category = getCategoryById(item.category);
+                  const cartLineId = getCartLineId(item, getSelectedOptions(item, selections));
+                  const isAdded = addedLineId === cartLineId;
 
                   return (
                     <li className="drink-card app-product-card" key={item.id}>
@@ -277,8 +319,18 @@ export default function MenuPage() {
                           onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
                         />
 
-                        <button type="button" onClick={() => addItem(item)}>
-                          {quantity ? `Add again · ${quantity}` : "Add to order"}
+                        <button
+                          className={isAdded ? "is-added" : ""}
+                          type="button"
+                          onClick={() => addItem(item)}
+                        >
+                          <span>
+                            {isAdded
+                              ? "✓ Added to order"
+                              : quantity
+                                ? `Add again · ${quantity}`
+                                : "Add to order"}
+                          </span>
                         </button>
                       </div>
                     </li>

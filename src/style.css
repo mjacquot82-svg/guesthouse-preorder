@@ -4412,6 +4412,153 @@ body {
   background: rgba(255, 253, 248, 0.96);
 }
 
+.menu-order-strip {
+  position: relative;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.menu-order-strip.is-updating {
+  border-color: rgba(108, 123, 93, 0.34);
+  background:
+    linear-gradient(120deg, rgba(241, 247, 234, 0.76), rgba(255, 253, 248, 0.96) 58%),
+    rgba(255, 253, 248, 0.95);
+  box-shadow:
+    0 16px 34px rgba(76, 90, 64, 0.1),
+    0 4px 14px rgba(42, 38, 31, 0.045);
+  transform: translateY(-1px);
+}
+
+.menu-order-strip.is-updating::after {
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(108, 123, 93, 0.12);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+  animation: cafe-bag-bloom 760ms ease both;
+}
+
+.menu-order-strip.is-updating strong {
+  animation: cafe-bag-count 520ms ease both;
+}
+
+.cafe-bag-toast {
+  width: fit-content;
+  margin: -2px 0 0 12px;
+  border: 1px solid rgba(108, 123, 93, 0.22);
+  border-radius: 999px;
+  background: rgba(252, 253, 247, 0.92);
+  color: var(--gh-olive);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  padding: 7px 12px;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+
+.cafe-bag-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.drink-card button {
+  position: relative;
+  overflow: hidden;
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+.drink-card button span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.drink-card button.is-added {
+  background: #eef4e8;
+  color: var(--gh-olive);
+  box-shadow:
+    inset 0 0 0 1px rgba(108, 123, 93, 0.22),
+    0 8px 18px rgba(76, 90, 64, 0.1);
+  transform: translateY(1px);
+}
+
+.drink-card button.is-added span {
+  animation: added-button-settle 480ms ease both;
+}
+
+@keyframes added-button-settle {
+  0% {
+    opacity: 0.72;
+    transform: translateY(5px) scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes cafe-bag-count {
+  0% {
+    opacity: 0.62;
+    transform: translateY(4px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cafe-bag-bloom {
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+
+  45% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.015);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-order-strip,
+  .menu-order-strip.is-updating,
+  .menu-order-strip.is-updating::after,
+  .menu-order-strip.is-updating strong,
+  .cafe-bag-toast,
+  .drink-card button,
+  .drink-card button span,
+  .drink-card button.is-added span {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
+}
+
 .product-thumb {
   box-shadow:
     inset 0 -42px 48px rgba(38, 38, 34, 0.11),
