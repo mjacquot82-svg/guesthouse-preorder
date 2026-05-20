@@ -1,5 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#2d251f"/>
-  <path fill="#f7f1e8" d="M18 44V20h28v24h-6V26H24v18z"/>
-  <path fill="#f0bf7f" d="M28 44V32h8v12z"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 150" role="img" aria-label="The Guest House">
+  <rect width="150" height="150" fill="#2c3f2e"/>
+  <g fill="none" stroke="#f5f6ef" stroke-linecap="round" stroke-linejoin="round">
+    <path stroke-width="3.2" d="M92 58a31 31 0 1 0 0 38"/>
+    <path stroke-width="3.2" d="M66 77h25"/>
+    <path stroke-width="3" d="M105 48v56M105 77h38M143 48v56"/>
+    <path stroke-width="1.25" d="M56 79l28-14"/>
+    <path stroke-width="1" d="M62 76l5-6M67 73l6-5M72 70l7-4M76 68l8-2M68 79l7 5M74 76l7 3"/>
+  </g>
 </svg>

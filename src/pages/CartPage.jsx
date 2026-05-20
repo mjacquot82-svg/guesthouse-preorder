@@ -2,6 +2,29 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Minus, Plus, Trash2 } from "lucide-react";
 
+const pickupOptions = [
+  {
+    value: "soon",
+    label: "Soonest",
+    summary: "Ready around 15-25 minutes",
+  },
+  {
+    value: "30",
+    label: "In 30 minutes",
+    summary: "Ready around 30 minutes",
+  },
+  {
+    value: "45",
+    label: "In 45 minutes",
+    summary: "Ready around 45 minutes",
+  },
+  {
+    value: "60",
+    label: "In 1 hour",
+    summary: "Ready around 1 hour",
+  },
+];
+
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -21,12 +44,27 @@ function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
+function getStoredPickupTime() {
+  try {
+    return window.localStorage.getItem("guesthouse-pickup-time") || pickupOptions[0].value;
+  } catch {
+    return pickupOptions[0].value;
+  }
+}
+
+function storePickupTime(value) {
+  window.localStorage.setItem("guesthouse-pickup-time", value);
+}
+
 export default function CartPage() {
   const [cart, setCart] = useState(getStoredCart);
+  const [pickupTime, setPickupTime] = useState(getStoredPickupTime);
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [cart]
   );
+  const selectedPickupTime =
+    pickupOptions.find((option) => option.value === pickupTime) || pickupOptions[0];
 
   function updateQuantity(itemId, nextQuantity) {
     const nextCart =
@@ -36,6 +74,11 @@ export default function CartPage() {
 
     setCart(nextCart);
     storeCart(nextCart);
+  }
+
+  function updatePickupTime(value) {
+    setPickupTime(value);
+    storePickupTime(value);
   }
 
   if (!cart.length) {
@@ -105,6 +148,33 @@ export default function CartPage() {
             </li>
           ))}
         </ul>
+        <div className="pickup-timing-panel">
+          <div className="pickup-timing-heading">
+            <div>
+              <span>Preferred pickup time</span>
+              <h2>When should we have it ready?</h2>
+            </div>
+            <strong>{selectedPickupTime.summary}</strong>
+          </div>
+          <div className="pickup-time-options" role="radiogroup" aria-label="Preferred pickup time">
+            {pickupOptions.map((option) => (
+              <label key={option.value} className={option.value === pickupTime ? "selected" : ""}>
+                <input
+                  checked={option.value === pickupTime}
+                  name="pickup-time"
+                  type="radio"
+                  value={option.value}
+                  onChange={() => updatePickupTime(option.value)}
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="cart-summary-detail">
+          <span>Preferred pickup time</span>
+          <strong>{selectedPickupTime.summary}</strong>
+        </div>
         <div className="cart-total-row">
           <span>Estimated total</span>
           <strong>{formatPrice(total)}</strong>

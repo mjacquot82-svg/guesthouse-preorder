@@ -867,6 +867,98 @@ h3 {
   padding-top: 14px;
 }
 
+.pickup-timing-panel {
+  display: grid;
+  gap: 13px;
+  margin: 2px 0 16px;
+  border: 1px solid rgba(108, 123, 93, 0.2);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(242, 246, 236, 0.78), rgba(255, 253, 248, 0.94)),
+    var(--surface);
+  padding: 15px;
+}
+
+.pickup-timing-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pickup-timing-heading span,
+.cart-summary-detail span {
+  display: block;
+  color: var(--sage-ink);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.pickup-timing-heading h2 {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.pickup-timing-heading strong {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.84);
+  color: var(--sage-ink);
+  font-size: 0.82rem;
+  padding: 8px 11px;
+}
+
+.pickup-time-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pickup-time-options label {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid rgba(108, 123, 93, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.9);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 850;
+  padding: 0 12px;
+}
+
+.pickup-time-options label.selected {
+  border-color: rgba(38, 38, 34, 0.22);
+  background: var(--gh-charcoal, var(--ink));
+  color: #fffdf8;
+}
+
+.pickup-time-options input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--sage-ink);
+}
+
+.cart-summary-detail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px dashed var(--border);
+  padding-top: 14px;
+}
+
+.cart-summary-detail strong {
+  color: var(--ink);
+  font-size: 0.94rem;
+  text-align: right;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4714,5 +4806,79 @@ body {
 
   .home-page .loyalty-card .stamp-row {
     width: 248px;
+  }
+}
+
+.app-menu-page {
+  gap: 16px;
+}
+
+.app-order-strip {
+  position: static;
+  z-index: auto;
+  width: 100%;
+  margin: 2px 0 4px;
+  border-radius: 24px;
+}
+
+.menu-category-rail {
+  position: relative;
+  z-index: 1;
+  padding-top: 2px;
+  padding-bottom: 12px;
+}
+
+.pickup-timing-panel {
+  border-color: var(--gh-line, rgba(108, 123, 93, 0.2));
+  border-radius: 24px;
+  box-shadow: 0 12px 26px rgba(42, 38, 31, 0.045);
+}
+
+.pickup-timing-heading span,
+.cart-summary-detail span {
+  color: var(--gh-sage, var(--sage-ink));
+}
+
+.pickup-timing-heading h2,
+.cart-summary-detail strong {
+  color: var(--gh-charcoal, var(--ink));
+}
+
+@media (max-width: 520px) {
+  .pickup-timing-heading,
+  .cart-summary-detail {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pickup-timing-heading strong,
+  .cart-summary-detail strong {
+    text-align: left;
+  }
+
+  .pickup-time-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pickup-time-options label {
+    justify-content: center;
+    padding: 0 10px;
+  }
+}
+
+@media (min-width: 761px) {
+  .app-menu-page {
+    gap: 18px;
+  }
+
+  .app-order-strip {
+    width: min(760px, 100%);
+    margin-top: 0;
+  }
+
+  .menu-category-rail {
+    padding-bottom: 14px;
   }
 }
