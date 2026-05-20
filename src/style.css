@@ -4828,6 +4828,112 @@ body {
   padding-bottom: 12px;
 }
 
+.favorite-item-link {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    background-color 180ms ease;
+}
+
+.favorite-item-link::after {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.68), rgba(240, 245, 236, 0));
+  opacity: 0;
+  pointer-events: none;
+  content: "";
+  transition: opacity 180ms ease;
+}
+
+.favorite-item-link:hover,
+.favorite-item-link:focus-visible {
+  border-color: rgba(111, 125, 102, 0.22);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 14px 30px rgba(47, 37, 29, 0.09);
+  transform: translateY(-1px);
+}
+
+.favorite-item-link:hover::after,
+.favorite-item-link:focus-visible::after {
+  opacity: 1;
+}
+
+.favorite-item-link:active {
+  transform: translateY(0) scale(0.992);
+}
+
+.favorite-item-action {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--gh-sage, var(--premium-sage));
+}
+
+.favorite-item-action strong {
+  color: var(--gh-sage, var(--premium-sage));
+  font-size: 0.95rem;
+}
+
+.favorite-item-action svg {
+  opacity: 0.58;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.favorite-item-link:hover .favorite-item-action svg,
+.favorite-item-link:focus-visible .favorite-item-action svg {
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+.app-product-card {
+  scroll-margin-top: 28px;
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease,
+    background-color 220ms ease;
+}
+
+.app-product-card:focus {
+  outline: none;
+}
+
+.app-product-card.is-spotlighted {
+  border-color: rgba(111, 125, 102, 0.34);
+  background: rgba(255, 254, 250, 0.98);
+  box-shadow:
+    0 20px 44px rgba(47, 37, 29, 0.13),
+    0 0 0 5px rgba(240, 245, 236, 0.9);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .favorite-item-link,
+  .favorite-item-link::after,
+  .favorite-item-action svg,
+  .app-product-card {
+    transition: none;
+  }
+
+  .favorite-item-link:hover,
+  .favorite-item-link:focus-visible,
+  .favorite-item-link:active,
+  .app-product-card.is-spotlighted {
+    transform: none;
+  }
+}
+
 .pickup-timing-panel {
   border-color: var(--gh-line, rgba(108, 123, 93, 0.2));
   border-radius: 24px;

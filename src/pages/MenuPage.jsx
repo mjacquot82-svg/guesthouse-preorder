@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   getCategoryById,
   getModifierGroupsForProduct,
@@ -130,23 +130,63 @@ function ProductModifiers({ product, selections, onChange }) {
 
 export default function MenuPage() {
   const { products } = useCatalogProducts();
+  const [searchParams, setSearchParams] = useSearchParams();
   const sections = useMemo(() => groupProductsByCategory(products), [products]);
   const firstSection = sections[0]?.id || "";
+  const targetProductId = searchParams.get("product") || "";
+  const targetProduct = products.find(
+    (product) => product.id === targetProductId && product.available
+  );
   const [activeSection, setActiveSection] = useState(firstSection);
   const [cart, setCart] = useState(getStoredCart);
   const [lastAdded, setLastAdded] = useState("");
   const [addedLineId, setAddedLineId] = useState("");
   const [bagIsUpdating, setBagIsUpdating] = useState(false);
+  const [spotlightProductId, setSpotlightProductId] = useState("");
   const [selectionsByProduct, setSelectionsByProduct] = useState({});
   const addedResetTimer = useRef(null);
   const bagPulseTimer = useRef(null);
+  const spotlightTimer = useRef(null);
 
   useEffect(() => {
     return () => {
       clearTimeout(addedResetTimer.current);
       clearTimeout(bagPulseTimer.current);
+      clearTimeout(spotlightTimer.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (!targetProduct) {
+      return;
+    }
+
+    setActiveSection(targetProduct.category);
+  }, [targetProduct]);
+
+  useEffect(() => {
+    if (!targetProduct || activeSection !== targetProduct.category) {
+      return;
+    }
+
+    clearTimeout(spotlightTimer.current);
+
+    requestAnimationFrame(() => {
+      const productCard = document.getElementById(`product-${targetProduct.id}`);
+
+      if (!productCard) {
+        return;
+      }
+
+      productCard.scrollIntoView({ behavior: "smooth", block: "center" });
+      productCard.focus({ preventScroll: true });
+      setSpotlightProductId(targetProduct.id);
+
+      spotlightTimer.current = setTimeout(() => {
+        setSpotlightProductId("");
+      }, 1800);
+    });
+  }, [activeSection, targetProduct]);
 
   const activeSectionId = sections.some((section) => section.id === activeSection)
     ? activeSection
@@ -273,7 +313,12 @@ export default function MenuPage() {
             className={section.id === activeSectionId ? "active" : ""}
             type="button"
             key={section.id}
-            onClick={() => setActiveSection(section.id)}
+            onClick={() => {
+              setActiveSection(section.id);
+              if (targetProductId) {
+                setSearchParams({});
+              }
+            }}
           >
             {section.name}
           </button>
@@ -300,8 +345,15 @@ export default function MenuPage() {
                   const cartLineId = getCartLineId(item, getSelectedOptions(item, selections));
                   const isAdded = addedLineId === cartLineId;
 
+                  const isSpotlighted = spotlightProductId === item.id;
+
                   return (
-                    <li className="drink-card app-product-card" key={item.id}>
+                    <li
+                      className={`drink-card app-product-card${isSpotlighted ? " is-spotlighted" : ""}`}
+                      id={`product-${item.id}`}
+                      key={item.id}
+                      tabIndex={-1}
+                    >
                       <div className={`product-thumb item-thumb-${item.image}`} aria-hidden="true" />
                       <div className="product-card-main">
                         <div className="drink-card-title">

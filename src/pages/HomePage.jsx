@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { ShoppingBag } from "lucide-react";
+import { ChevronRight, ShoppingBag } from "lucide-react";
 import { getCategoryById } from "../data/catalog.js";
 import { useCatalogProducts } from "../stores/catalogStore.js";
 
@@ -71,14 +71,22 @@ export default function HomePage() {
 
         <div className="item-list compact-item-list">
           {popularItems.slice(0, 3).map((item) => (
-            <article className="item-row" key={item.name}>
+            <Link
+              className="item-row favorite-item-link"
+              key={item.id}
+              to={`/menu?product=${encodeURIComponent(item.id)}`}
+              aria-label={`Customize ${item.name}`}
+            >
               <div className={`item-thumb item-thumb-${item.image}`} aria-hidden="true" />
               <div>
                 <h3>{item.name}</h3>
                 <p>{getCategoryById(item.category)?.name || "Available now"}</p>
               </div>
-              <strong>{formatPrice(item.price)}</strong>
-            </article>
+              <span className="favorite-item-action">
+                <strong>{formatPrice(item.price)}</strong>
+                <ChevronRight size={17} strokeWidth={2.2} aria-hidden="true" />
+              </span>
+            </Link>
           ))}
         </div>
       </section>
