@@ -1,5 +1,5 @@
 export const businessConfig = {
-  businessName: "The Guest House",
+  businessName: "Morning Vale Cafe",
   tagline: "Plants, coffee, and cozy pickup orders.",
   description:
     "Order ahead from our café menu and pick up your drinks when they’re ready.",

@@ -14,7 +14,7 @@ export default function AdminDashboard() {
     <section className="page-section">
       <div className="page-heading">
         <h1>Admin</h1>
-        <p>Keep room orders, menu items, and availability easy to scan.</p>
+        <p>Keep cafe orders, menu items, and availability easy to scan.</p>
         <Link className="secondary-button" to="/admin/products">
           Manage products
         </Link>

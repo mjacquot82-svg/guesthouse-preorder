@@ -6,9 +6,9 @@ export default function OrdersPageMobile() {
     <section className="page-section ordering-page app-simple-page">
       <div className="ordering-top-card compact-app-heading">
         <div>
-          <p className="eyebrow">Room service</p>
+          <p className="eyebrow">Order updates</p>
           <h1>Orders</h1>
-          <p>Track pantry requests placed from this guest room.</p>
+          <p>Track your café orders and pickup timing.</p>
         </div>
       </div>
 
@@ -18,7 +18,7 @@ export default function OrdersPageMobile() {
         </span>
         <div>
           <h2>No active orders</h2>
-          <p>Your next coffee or breakfast tray will appear here after checkout.</p>
+          <p>Your next coffee or breakfast order will appear here after checkout.</p>
         </div>
         <Link className="primary-button" to="/menu">
           Browse menu
@@ -27,7 +27,7 @@ export default function OrdersPageMobile() {
 
       <div className="content-block app-content-block compact-info-row">
         <Clock3 size={18} strokeWidth={2.4} />
-        <span>Typical delivery: 15-25 minutes</span>
+        <span>Typical pickup: 15-25 minutes</span>
       </div>
     </section>
   );

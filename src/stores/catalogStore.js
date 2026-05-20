@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { initialCatalogProducts } from "../data/catalog.js";
 
-const CATALOG_STORAGE_KEY = "guesthouse-catalog-products";
+const CATALOG_STORAGE_KEY = "cafe-catalog-products";
+const CATALOG_UPDATED_EVENT = "cafe-catalog-updated";
 
 function readStoredProducts() {
   if (typeof window === "undefined") {
@@ -18,7 +19,7 @@ function readStoredProducts() {
 
 function writeStoredProducts(products) {
   window.localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(products));
-  window.dispatchEvent(new CustomEvent("guesthouse-catalog-updated"));
+  window.dispatchEvent(new CustomEvent(CATALOG_UPDATED_EVENT));
 }
 
 function normalizeProduct(product) {
@@ -58,11 +59,11 @@ export function useCatalogProducts() {
     }
 
     window.addEventListener("storage", handleCatalogUpdate);
-    window.addEventListener("guesthouse-catalog-updated", handleCatalogUpdate);
+    window.addEventListener(CATALOG_UPDATED_EVENT, handleCatalogUpdate);
 
     return () => {
       window.removeEventListener("storage", handleCatalogUpdate);
-      window.removeEventListener("guesthouse-catalog-updated", handleCatalogUpdate);
+      window.removeEventListener(CATALOG_UPDATED_EVENT, handleCatalogUpdate);
     };
   }, []);
 

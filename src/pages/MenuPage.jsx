@@ -16,14 +16,14 @@ function formatPrice(price) {
 
 function getStoredCart() {
   try {
-    return JSON.parse(window.localStorage.getItem("guesthouse-cart")) || [];
+    return JSON.parse(window.localStorage.getItem("cafe-cart")) || [];
   } catch {
     return [];
   }
 }
 
 function storeCart(cart) {
-  window.localStorage.setItem("guesthouse-cart", JSON.stringify(cart));
+  window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
 function getDefaultSelections(product) {
@@ -209,9 +209,9 @@ export default function MenuPage() {
     <section className="page-section menu-page app-menu-page">
       <div className="ordering-top-card">
         <div>
-          <p className="eyebrow">Order ahead</p>
-          <h1>Pantry Menu</h1>
-          <p>Choose coffee, breakfast, pastries, and room-friendly snacks.</p>
+          <p className="eyebrow">Browse menu</p>
+          <h1>Crafted drinks and fresh bites</h1>
+          <p>Choose espresso, tea, breakfast, pastries, and seasonal café picks.</p>
         </div>
         <div className="order-meta-pills" aria-label="Menu summary">
           <span>{availableItems.length} items</span>
@@ -220,7 +220,7 @@ export default function MenuPage() {
       </div>
 
       <div className="menu-order-strip app-order-strip" aria-live="polite">
-        <span>{lastAdded ? `${lastAdded} added` : "Build your pantry order"}</span>
+        <span>{lastAdded ? `${lastAdded} added` : "Build your café order"}</span>
         <strong>
           {cartCount} {cartCount === 1 ? "item" : "items"} · {formatPrice(cartTotal)}
         </strong>
@@ -264,7 +264,7 @@ export default function MenuPage() {
                       <div className="product-card-main">
                         <div className="drink-card-title">
                           <div>
-                            <span>{category?.name || "Pantry"}</span>
+                            <span>{category?.name || "Cafe"}</span>
                             <h3>{item.name}</h3>
                           </div>
                           <strong>{formatPrice(price)}</strong>
@@ -289,7 +289,7 @@ export default function MenuPage() {
           ) : (
             <div className="empty-menu-note">
               <h2>No available items</h2>
-              <p>The pantry menu is being updated.</p>
+              <p>The cafe menu is being updated.</p>
             </div>
           )}
         </section>

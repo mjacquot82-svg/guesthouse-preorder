@@ -1,14 +1,14 @@
 import { Link } from "react-router-dom";
-import { Bell, DoorOpen, UserRound } from "lucide-react";
+import { Bell, Coffee, UserRound } from "lucide-react";
 
 export default function AccountPage() {
   return (
     <section className="page-section ordering-page app-simple-page">
       <div className="ordering-top-card compact-app-heading">
         <div>
-          <p className="eyebrow">Guest profile</p>
+          <p className="eyebrow">Cafe profile</p>
           <h1>Account</h1>
-          <p>Room ordering preferences for your guesthouse stay.</p>
+          <p>Your saved preferences for faster café checkout.</p>
         </div>
       </div>
 
@@ -17,16 +17,16 @@ export default function AccountPage() {
           <UserRound size={24} strokeWidth={2.4} />
         </span>
         <div>
-          <h2>Guest room</h2>
-          <p>Saved for fast pantry checkout.</p>
+          <h2>Favorite order</h2>
+          <p>Saved for a smoother coffee run.</p>
         </div>
       </div>
 
       <div className="account-settings-list">
         <div className="compact-info-row content-block app-content-block">
-          <DoorOpen size={18} strokeWidth={2.4} />
-          <span>Deliver to room</span>
-          <strong>On</strong>
+          <Coffee size={18} strokeWidth={2.4} />
+          <span>Favorite milk</span>
+          <strong>Oat</strong>
         </div>
         <div className="compact-info-row content-block app-content-block">
           <Bell size={18} strokeWidth={2.4} />

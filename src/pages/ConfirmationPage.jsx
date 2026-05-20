@@ -6,7 +6,7 @@ export default function ConfirmationPage() {
       <div className="confirmation-panel">
         <h1>Order received</h1>
         <p>
-          Confirmation details, timing, and room delivery notes will appear here.
+          Confirmation details, timing, and pickup notes will appear here.
         </p>
         <Link className="secondary-button" to="/">
           Return Home

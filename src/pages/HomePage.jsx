@@ -14,14 +14,14 @@ function formatPrice(price) {
 
 function getStoredCart() {
   try {
-    return JSON.parse(window.localStorage.getItem("guesthouse-cart")) || [];
+    return JSON.parse(window.localStorage.getItem("cafe-cart")) || [];
   } catch {
     return [];
   }
 }
 
 function storeCart(cart) {
-  window.localStorage.setItem("guesthouse-cart", JSON.stringify(cart));
+  window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
 export default function HomePage() {
@@ -78,22 +78,23 @@ export default function HomePage() {
     <section className="home-page ordering-page">
       <div className="welcome-panel app-welcome-panel">
         <div>
-          <p className="eyebrow">Guesthouse cafe</p>
-          <h1>Order from the pantry</h1>
-          <p>Warm cups, breakfast bites, and bedside comforts sent up from the cafe.</p>
+          <p className="eyebrow">Coffee bar</p>
+          <h1>Freshly crafted café favorites</h1>
+          <p>Explore seasonal drinks, bakery case treats, and calm everyday rituals.</p>
         </div>
+        <div className="cafe-hero-image" aria-hidden="true" />
         <div className="welcome-actions">
           <Link className="primary-button" to="/menu">
-            Start order
+            Browse menu
           </Link>
-          <span>{coffeeCount} drinks ready</span>
+          <span>{coffeeCount} crafted drinks</span>
         </div>
       </div>
 
       <div className="home-order-status" aria-live="polite">
         <div>
           <ShoppingBag size={18} strokeWidth={2.4} />
-          <span>{lastAdded ? `${lastAdded} added` : "Your room tray"}</span>
+          <span>{lastAdded ? `${lastAdded} added` : "Your café bag"}</span>
         </div>
         <Link to="/cart">
           {cartCount} {cartCount === 1 ? "item" : "items"} · {formatPrice(cartTotal)}
@@ -127,7 +128,7 @@ export default function HomePage() {
             <article className="quick-product-card" key={item.id}>
               <div className={`quick-product-image item-thumb-${item.image}`} aria-hidden="true" />
               <div className="quick-product-copy">
-                <span>{getCategoryById(item.category)?.name || "Pantry"}</span>
+                <span>{getCategoryById(item.category)?.name || "Cafe"}</span>
                 <h3>{item.name}</h3>
                 <strong>{formatPrice(item.price)}</strong>
               </div>
@@ -141,7 +142,7 @@ export default function HomePage() {
 
       <section className="content-block app-content-block" aria-labelledby="popular-heading">
         <div className="section-heading">
-          <h2 id="popular-heading">Guest favorites</h2>
+          <h2 id="popular-heading">Café favorites</h2>
         </div>
 
         <div className="item-list compact-item-list">

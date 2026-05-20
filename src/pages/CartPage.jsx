@@ -11,14 +11,14 @@ function formatPrice(price) {
 
 function getStoredCart() {
   try {
-    return JSON.parse(window.localStorage.getItem("guesthouse-cart")) || [];
+    return JSON.parse(window.localStorage.getItem("cafe-cart")) || [];
   } catch {
     return [];
   }
 }
 
 function storeCart(cart) {
-  window.localStorage.setItem("guesthouse-cart", JSON.stringify(cart));
+  window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
 export default function CartPage() {
@@ -56,7 +56,7 @@ export default function CartPage() {
     <section className="page-section ordering-page cart-page">
       <div className="page-heading cart-heading">
         <h1>Your order</h1>
-        <p>Review your pantry picks before sending them to the guesthouse team.</p>
+        <p>Review your café picks before placing your order.</p>
       </div>
 
       <div className="content-block cart-review app-cart-review">
@@ -110,7 +110,7 @@ export default function CartPage() {
           <strong>{formatPrice(total)}</strong>
         </div>
         <Link className="primary-button" to="/confirmation">
-          Send order
+          Place order
         </Link>
       </div>
     </section>

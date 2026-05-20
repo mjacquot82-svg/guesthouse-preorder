@@ -1,13 +1,13 @@
 export const menuCategories = [
   { id: "coffee", name: "Coffee", note: "House cups for slow mornings." },
-  { id: "espresso", name: "Espresso", note: "Steamed milk, soft foam, and familiar favorites." },
-  { id: "tea", name: "Tea", note: "Gentle cups for porch reading and rainy check-ins." },
-  { id: "iced-drinks", name: "Iced Drinks", note: "Cool pantry pours for warm afternoons." },
-  { id: "smoothies", name: "Smoothies", note: "Bright blends from the pantry fridge." },
-  { id: "breakfast", name: "Breakfast", note: "Simple starts for guests heading out." },
+  { id: "espresso", name: "Espresso", note: "Steamed milk, soft foam, and signature favorites." },
+  { id: "tea", name: "Tea", note: "Gentle cups for slow reading and quiet afternoons." },
+  { id: "iced-drinks", name: "Iced Drinks", note: "Cool café pours for warm afternoons." },
+  { id: "smoothies", name: "Smoothies", note: "Bright blends from the cold bar." },
+  { id: "breakfast", name: "Breakfast", note: "Simple starts and fresh morning plates." },
   { id: "pastries", name: "Pastries", note: "Bakery case comforts, warmed on request." },
-  { id: "snacks", name: "Snacks", note: "Small bites between check-in and supper." },
-  { id: "extras", name: "Extras", note: "Little add-ons for drinks and trays." },
+  { id: "snacks", name: "Snacks", note: "Small bites for an easy pause." },
+  { id: "extras", name: "Extras", note: "Little add-ons for drinks and bakery picks." },
 ];
 
 export const modifierGroups = [

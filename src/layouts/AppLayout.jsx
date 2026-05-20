@@ -14,13 +14,13 @@ export default function AppLayout() {
     <div className="app-shell">
       <header className="site-header">
         <div className="nav-container">
-          <NavLink to="/" className="brand" aria-label="Guesthouse Preorder home">
+          <NavLink to="/" className="brand" aria-label="Boutique cafe home">
             <span className="brand-mark" aria-hidden="true">
               <Coffee size={18} strokeWidth={2.4} />
             </span>
             <span>
-              <strong>Guesthouse Pantry</strong>
-              <small>Room ordering</small>
+              <strong>Morning Vale</strong>
+              <small>Boutique cafe</small>
             </span>
           </NavLink>
 

@@ -2689,3 +2689,369 @@ main {
     width: 82px;
   }
 }
+
+/* Boutique cafe redesign */
+:root {
+  --boutique-bg: #f8f4ec;
+  --boutique-paper: #fffdf8;
+  --boutique-cream: #f3eadc;
+  --boutique-warm: #fbf1e2;
+  --boutique-ink: #2f281f;
+  --boutique-muted: #766b5f;
+  --boutique-line: rgba(80, 61, 43, 0.11);
+  --boutique-coffee: #6f4f37;
+  --boutique-clay: #a97055;
+  --boutique-sage: #738269;
+  --boutique-sage-soft: #edf1e6;
+  --boutique-shadow: 0 18px 38px rgba(62, 45, 29, 0.1);
+}
+
+html {
+  background: #ede5d9;
+}
+
+body {
+  background:
+    linear-gradient(180deg, #f2eadf 0%, #ede5d9 100%);
+}
+
+.app-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, var(--boutique-bg) 48%, #f4ecdf 100%);
+  box-shadow:
+    0 24px 70px rgba(50, 38, 28, 0.18),
+    0 0 0 1px rgba(104, 82, 58, 0.08);
+}
+
+.site-header {
+  background: rgba(255, 253, 248, 0.9);
+  border-bottom: 1px solid rgba(80, 61, 43, 0.07);
+}
+
+.brand-mark,
+.header-cart-link {
+  border-color: var(--boutique-line);
+  border-radius: 18px;
+  background: var(--boutique-paper);
+  color: var(--boutique-coffee);
+  box-shadow: 0 8px 18px rgba(62, 45, 29, 0.07);
+}
+
+.brand strong {
+  color: var(--boutique-ink);
+  font-weight: 850;
+}
+
+.brand small {
+  color: var(--boutique-muted);
+}
+
+.home-page,
+.page-section {
+  padding-top: 14px;
+}
+
+.ordering-page {
+  gap: 18px;
+}
+
+.app-welcome-panel,
+.ordering-top-card,
+.app-content-block,
+.app-menu-card,
+.app-cart-review,
+.empty-state,
+.confirmation-panel {
+  border: 1px solid var(--boutique-line);
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: var(--boutique-shadow);
+}
+
+.app-welcome-panel {
+  min-height: 430px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 16px;
+  overflow: hidden;
+  border-radius: 32px;
+  background: var(--boutique-paper);
+  padding: 16px;
+}
+
+.app-welcome-panel::after {
+  content: none;
+}
+
+.cafe-hero-image {
+  min-height: 210px;
+  border-radius: 26px;
+  background:
+    linear-gradient(180deg, rgba(47, 40, 31, 0.02), rgba(47, 40, 31, 0.16)),
+    url("https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?q=80&w=900&auto=format&fit=crop");
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset 0 -70px 80px rgba(47, 40, 31, 0.18);
+}
+
+.app-welcome-panel h1,
+.ordering-top-card h1,
+.cart-heading h1 {
+  max-width: 360px;
+  color: var(--boutique-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.05rem, 10vw, 3.2rem);
+  font-weight: 700;
+  line-height: 0.98;
+}
+
+.app-welcome-panel p:not(.eyebrow),
+.ordering-top-card p:not(.eyebrow),
+.cart-heading p {
+  max-width: 335px;
+  color: var(--boutique-muted);
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+.eyebrow {
+  color: var(--boutique-clay);
+  letter-spacing: 0.09em;
+}
+
+.primary-button,
+.app-order-strip a,
+.home-order-status a,
+.drink-card button {
+  background: var(--boutique-coffee);
+  color: #fffaf2;
+}
+
+.primary-button {
+  box-shadow: 0 12px 22px rgba(111, 79, 55, 0.18);
+}
+
+.welcome-actions {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.welcome-actions span,
+.order-meta-pills span {
+  border-color: rgba(115, 130, 105, 0.18);
+  background: var(--boutique-sage-soft);
+  color: #5f6d56;
+}
+
+.home-order-status,
+.app-order-strip {
+  border-color: var(--boutique-line);
+  background: rgba(255, 253, 248, 0.92);
+  box-shadow: 0 14px 30px rgba(62, 45, 29, 0.1);
+}
+
+.section-heading {
+  margin-bottom: 14px;
+}
+
+.section-heading h2,
+.app-status-card h2,
+.account-card h2 {
+  color: var(--boutique-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.14rem;
+  font-weight: 700;
+}
+
+.section-heading a {
+  color: var(--boutique-sage);
+}
+
+.app-content-block,
+.app-menu-card,
+.app-cart-review {
+  border-radius: 28px;
+  background: rgba(255, 253, 248, 0.78);
+  padding: 16px;
+}
+
+.category-pill-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.category-pill-card {
+  min-height: 82px;
+  border-color: var(--boutique-line);
+  border-radius: 24px;
+  background:
+    linear-gradient(145deg, rgba(255, 253, 248, 0.96), rgba(251, 241, 226, 0.82));
+  box-shadow: 0 10px 22px rgba(62, 45, 29, 0.06);
+  padding: 13px;
+}
+
+.category-pill-card strong {
+  color: var(--boutique-ink);
+  font-size: 0.92rem;
+}
+
+.category-pill-card span {
+  background: #fff7eb;
+  color: var(--boutique-coffee);
+}
+
+.quick-product-rail {
+  grid-auto-columns: minmax(186px, 72%);
+  gap: 13px;
+  margin: 0 -16px;
+  padding: 0 16px 4px;
+}
+
+.quick-product-card {
+  min-height: 246px;
+  border-radius: 30px;
+  box-shadow: 0 20px 38px rgba(62, 45, 29, 0.16);
+}
+
+.quick-product-copy {
+  padding: 118px 52px 16px 16px;
+}
+
+.quick-product-copy h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.quick-product-copy span {
+  background: rgba(255, 250, 242, 0.2);
+}
+
+.compact-item-list .item-row {
+  border-radius: 22px;
+  background: rgba(255, 253, 248, 0.82);
+  box-shadow: 0 8px 18px rgba(62, 45, 29, 0.05);
+}
+
+.ordering-top-card {
+  min-height: 170px;
+  align-content: end;
+  border-radius: 30px;
+  background:
+    linear-gradient(120deg, rgba(255, 253, 248, 0.9), rgba(255, 253, 248, 0.68)),
+    url("https://images.unsplash.com/photo-1517701604599-bb29b565090c?q=80&w=900&auto=format&fit=crop");
+  background-position: center;
+  background-size: cover;
+  padding: 20px;
+}
+
+.app-menu-card {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+.menu-card-heading {
+  padding: 0 2px 4px;
+}
+
+.menu-card-featured h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.42rem;
+  font-weight: 700;
+}
+
+.drink-card-grid {
+  gap: 14px;
+}
+
+.app-product-card {
+  grid-template-columns: 122px minmax(0, 1fr);
+  gap: 13px;
+  border-color: var(--boutique-line);
+  border-radius: 30px;
+  background: var(--boutique-paper);
+  box-shadow: 0 14px 30px rgba(62, 45, 29, 0.1);
+  padding: 10px;
+}
+
+.product-thumb {
+  width: 122px;
+  min-height: 158px;
+  border-radius: 24px;
+}
+
+.drink-card h3 {
+  color: var(--boutique-ink);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+
+.drink-card-title span {
+  color: var(--boutique-sage);
+}
+
+.drink-card-title strong {
+  background: var(--boutique-warm);
+  color: var(--boutique-coffee);
+}
+
+.drink-card p {
+  color: var(--boutique-muted);
+}
+
+.modifier-options label {
+  border-color: var(--boutique-line);
+  background: #fffaf2;
+  color: #6f6257;
+}
+
+.modifier-options label.selected {
+  background: var(--boutique-sage-soft);
+  color: #5f6d56;
+}
+
+.bottom-nav {
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.94);
+  box-shadow: 0 18px 40px rgba(50, 38, 28, 0.14);
+  padding: 5px;
+}
+
+.bottom-nav a {
+  min-height: 50px;
+  border-radius: 999px;
+  color: #817468;
+}
+
+.bottom-nav a.active {
+  background: var(--boutique-sage-soft);
+  color: #5f6d56;
+  box-shadow: none;
+}
+
+.cart-review li {
+  border-color: var(--boutique-line);
+  background: var(--boutique-paper);
+  box-shadow: 0 10px 22px rgba(62, 45, 29, 0.06);
+}
+
+.status-icon,
+.account-avatar {
+  background: var(--boutique-sage-soft);
+  color: #5f6d56;
+}
+
+@media (max-width: 380px) {
+  .app-product-card {
+    grid-template-columns: 104px minmax(0, 1fr);
+  }
+
+  .product-thumb {
+    width: 104px;
+  }
+
+  .quick-product-rail {
+    grid-auto-columns: minmax(170px, 74%);
+  }
+}

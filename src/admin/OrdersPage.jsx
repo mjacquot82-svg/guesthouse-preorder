@@ -4,7 +4,7 @@ export default function OrdersPage() {
       <div className="operations-panel">
         <h1>Orders</h1>
         <p>
-          Incoming room orders, prep timing, and status controls will appear here.
+          Incoming cafe orders, prep timing, and status controls will appear here.
         </p>
       </div>
     </section>
