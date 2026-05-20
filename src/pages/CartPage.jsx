@@ -51,7 +51,7 @@ function storeCart(cart) {
 
 function getStoredPickupTime() {
   try {
-    const storedPickupTime = window.localStorage.getItem("guesthouse-pickup-time");
+    const storedPickupTime = window.localStorage.getItem("cedar-oak-pickup-time");
     const isSupportedPickupTime =
       storedPickupTime === "custom" ||
       quickPickupOptions.some((option) => option.value === storedPickupTime);
@@ -63,7 +63,7 @@ function getStoredPickupTime() {
 }
 
 function storePickupTime(value) {
-  window.localStorage.setItem("guesthouse-pickup-time", value);
+  window.localStorage.setItem("cedar-oak-pickup-time", value);
 }
 
 function getRoundedPickupTime(addMinutes = 20) {
@@ -78,14 +78,14 @@ function getRoundedPickupTime(addMinutes = 20) {
 
 function getStoredCustomPickupTime() {
   try {
-    return window.localStorage.getItem("guesthouse-custom-pickup-time") || getRoundedPickupTime();
+    return window.localStorage.getItem("cedar-oak-custom-pickup-time") || getRoundedPickupTime();
   } catch {
     return getRoundedPickupTime();
   }
 }
 
 function storeCustomPickupTime(value) {
-  window.localStorage.setItem("guesthouse-custom-pickup-time", value);
+  window.localStorage.setItem("cedar-oak-custom-pickup-time", value);
 }
 
 function formatReadyTime(date) {

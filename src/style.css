@@ -933,7 +933,7 @@ h3 {
 
 .pickup-time-options label.selected {
   border-color: rgba(38, 38, 34, 0.22);
-  background: var(--gh-charcoal, var(--ink));
+  background: var(--cedar-charcoal, var(--ink));
   color: #fffdf8;
 }
 
@@ -3874,33 +3874,33 @@ body {
   }
 }
 
-/* Guest House interior alignment and desktop breathing room */
+/* boutique cafe interior alignment and desktop breathing room */
 :root {
-  --guest-bg: #fffdf8;
-  --guest-ivory: #fbf8f0;
-  --guest-warm-white: #fffefa;
-  --guest-oak: #e7d4b6;
-  --guest-oak-soft: #f7efe2;
-  --guest-sage: #7f8d75;
-  --guest-sage-soft: #f1f5ec;
-  --guest-ink: #2e2923;
-  --guest-muted: #706b62;
-  --guest-line: rgba(54, 47, 38, 0.085);
-  --guest-espresso: #4c382b;
-  --guest-shadow: 0 14px 34px rgba(48, 39, 29, 0.055);
-  --guest-lift-shadow: 0 20px 48px rgba(48, 39, 29, 0.08);
+  --cafe-bg: #fffdf8;
+  --cafe-ivory: #fbf8f0;
+  --cafe-warm-white: #fffefa;
+  --cafe-oak: #e7d4b6;
+  --cafe-oak-soft: #f7efe2;
+  --cafe-sage: #7f8d75;
+  --cafe-sage-soft: #f1f5ec;
+  --cafe-ink: #2e2923;
+  --cafe-muted: #706b62;
+  --cafe-line: rgba(54, 47, 38, 0.085);
+  --cafe-espresso: #4c382b;
+  --cafe-shadow: 0 14px 34px rgba(48, 39, 29, 0.055);
+  --cafe-lift-shadow: 0 20px 48px rgba(48, 39, 29, 0.08);
 }
 
 html,
 body {
   background:
     linear-gradient(180deg, #fffefb 0%, #fbf9f4 50%, #f6f0e7 100%),
-    var(--guest-bg);
+    var(--cafe-bg);
 }
 
 .app-shell {
   background:
-    linear-gradient(180deg, var(--guest-warm-white) 0%, var(--guest-ivory) 64%, #f8f2e9 100%);
+    linear-gradient(180deg, var(--cafe-warm-white) 0%, var(--cafe-ivory) 64%, #f8f2e9 100%);
 }
 
 .site-header {
@@ -3914,9 +3914,9 @@ body {
 
 .brand-mark,
 .header-cart-link {
-  border-color: var(--guest-line);
+  border-color: var(--cafe-line);
   background: linear-gradient(145deg, #ffffff, #fbf6ec);
-  color: var(--guest-espresso);
+  color: var(--cafe-espresso);
   box-shadow: 0 9px 22px rgba(48, 39, 29, 0.055);
 }
 
@@ -3929,7 +3929,7 @@ body {
 .drink-card h3,
 .app-status-card h2,
 .account-card h2 {
-  color: var(--guest-ink);
+  color: var(--cafe-ink);
 }
 
 .brand small,
@@ -3940,13 +3940,13 @@ body {
 .app-status-card p,
 .account-card p,
 .loyalty-card p:not(.eyebrow) {
-  color: var(--guest-muted);
+  color: var(--cafe-muted);
 }
 
 .eyebrow,
 .drink-card-title span,
 .section-heading a {
-  color: var(--guest-sage);
+  color: var(--cafe-sage);
 }
 
 .app-welcome-panel,
@@ -3957,9 +3957,9 @@ body {
 .confirmation-panel,
 .compact-info-row,
 .cart-review li {
-  border-color: var(--guest-line);
+  border-color: var(--cafe-line);
   background: rgba(255, 254, 250, 0.9);
-  box-shadow: var(--guest-shadow);
+  box-shadow: var(--cafe-shadow);
 }
 
 .home-page .app-welcome-panel,
@@ -3990,7 +3990,7 @@ body {
 .home-order-status a,
 .drink-card button,
 .quick-product-card button {
-  background: var(--guest-espresso);
+  background: var(--cafe-espresso);
 }
 
 .primary-button {
@@ -4004,13 +4004,13 @@ body {
 .modifier-options label.selected,
 .status-icon,
 .account-avatar {
-  background: var(--guest-sage-soft);
+  background: var(--cafe-sage-soft);
   color: #65745d;
 }
 
 .home-order-status,
 .app-order-strip {
-  border-color: var(--guest-line);
+  border-color: var(--cafe-line);
   background: rgba(255, 254, 250, 0.94);
   box-shadow: 0 12px 28px rgba(48, 39, 29, 0.065);
 }
@@ -4018,9 +4018,9 @@ body {
 .category-pill-card,
 .compact-item-list .item-row,
 .app-product-card {
-  border-color: var(--guest-line);
-  background: var(--guest-warm-white);
-  box-shadow: var(--guest-shadow);
+  border-color: var(--cafe-line);
+  background: var(--cafe-warm-white);
+  box-shadow: var(--cafe-shadow);
 }
 
 .category-pill-card {
@@ -4030,12 +4030,12 @@ body {
 
 .drink-card-title strong,
 .secondary-button {
-  background: var(--guest-oak-soft);
-  color: var(--guest-espresso);
+  background: var(--cafe-oak-soft);
+  color: var(--cafe-espresso);
 }
 
 .modifier-options label {
-  border-color: var(--guest-line);
+  border-color: var(--cafe-line);
   background: rgba(255, 254, 250, 0.96);
   color: #5f574e;
   box-shadow: 0 6px 16px rgba(48, 39, 29, 0.035);
@@ -4056,7 +4056,7 @@ body {
 }
 
 .bottom-nav {
-  border-color: var(--guest-line);
+  border-color: var(--cafe-line);
   background: rgba(255, 254, 250, 0.96);
 }
 
@@ -4105,7 +4105,7 @@ body {
     min-height: 42px;
     border: 1px solid transparent;
     border-radius: 999px;
-    color: var(--guest-muted);
+    color: var(--cafe-muted);
     font-size: 0.88rem;
     font-weight: 850;
     padding: 0 13px;
@@ -4118,7 +4118,7 @@ body {
   .desktop-nav a:hover,
   .desktop-nav a.active {
     border-color: rgba(127, 141, 117, 0.18);
-    background: var(--guest-sage-soft);
+    background: var(--cafe-sage-soft);
     color: #65745d;
   }
 
@@ -4319,23 +4319,23 @@ body {
   }
 }
 
-/* Real Guest House interior alignment */
+/* Boutique cafe interior alignment */
 :root {
-  --gh-wall: #fffdf8;
-  --gh-ivory: #faf7f0;
-  --gh-oak: #ead6b5;
-  --gh-oak-soft: #f6eddf;
-  --gh-sage: #617461;
-  --gh-sage-soft: #e8ece1;
-  --gh-green: #4e5f4f;
-  --gh-olive: #566b57;
-  --gh-eucalyptus: #6b7d67;
-  --gh-charcoal: #262622;
-  --gh-charcoal-soft: #3a3933;
-  --gh-muted: #6d685f;
-  --gh-line: rgba(38, 38, 34, 0.085);
-  --gh-shadow: 0 12px 32px rgba(42, 38, 31, 0.052);
-  --gh-lift: 0 20px 48px rgba(42, 38, 31, 0.075);
+  --cedar-wall: #fffdf8;
+  --cedar-ivory: #faf7f0;
+  --cedar-oak: #ead6b5;
+  --cedar-oak-soft: #f6eddf;
+  --cedar-sage: #617461;
+  --cedar-sage-soft: #e8ece1;
+  --cedar-green: #4e5f4f;
+  --cedar-olive: #566b57;
+  --cedar-eucalyptus: #6b7d67;
+  --cedar-charcoal: #262622;
+  --cedar-charcoal-soft: #3a3933;
+  --cedar-muted: #6d685f;
+  --cedar-line: rgba(38, 38, 34, 0.085);
+  --cedar-shadow: 0 12px 32px rgba(42, 38, 31, 0.052);
+  --cedar-lift: 0 20px 48px rgba(42, 38, 31, 0.075);
 }
 
 html,
@@ -4361,20 +4361,17 @@ body {
 }
 
 .brand-mark {
-  overflow: hidden;
   width: 42px;
   height: 42px;
   border: 0;
   border-radius: 50%;
-  background: var(--gh-green);
+  background: var(--cedar-green);
+  color: #fffdf8;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   box-shadow: 0 10px 24px rgba(38, 38, 34, 0.08);
-}
-
-.brand-mark img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .brand strong,
@@ -4387,7 +4384,7 @@ body {
 .app-status-card h2,
 .account-card h2,
 .loyalty-card h2 {
-  color: var(--gh-charcoal);
+  color: var(--cedar-charcoal);
 }
 
 .brand small,
@@ -4402,13 +4399,13 @@ body {
 .cart-review li span,
 .cart-review li small,
 .cart-total-row span {
-  color: var(--gh-muted);
+  color: var(--cedar-muted);
 }
 
 .eyebrow,
 .drink-card-title span,
 .section-heading a {
-  color: var(--gh-sage);
+  color: var(--cedar-sage);
 }
 
 .app-welcome-panel,
@@ -4421,9 +4418,9 @@ body {
 .cart-review li,
 .app-product-card,
 .compact-item-list .item-row {
-  border-color: var(--gh-line);
+  border-color: var(--cedar-line);
   background: rgba(255, 253, 248, 0.92);
-  box-shadow: var(--gh-shadow);
+  box-shadow: var(--cedar-shadow);
 }
 
 .home-page .app-welcome-panel {
@@ -4440,7 +4437,7 @@ body {
   background-size: cover;
   box-shadow:
     inset 0 -54px 64px rgba(38, 38, 34, 0.1),
-    var(--gh-shadow);
+    var(--cedar-shadow);
 }
 
 .ordering-top-card {
@@ -4456,7 +4453,7 @@ body {
 .home-order-status a,
 .drink-card button,
 .quick-product-card button {
-  background: var(--gh-charcoal);
+  background: var(--cedar-charcoal);
   color: #fffdf8;
 }
 
@@ -4466,8 +4463,8 @@ body {
 
 .secondary-button,
 .drink-card-title strong {
-  background: var(--gh-oak-soft);
-  color: var(--gh-charcoal);
+  background: var(--cedar-oak-soft);
+  color: var(--cedar-charcoal);
 }
 
 .welcome-actions span,
@@ -4476,23 +4473,23 @@ body {
 .bottom-nav a.active,
 .status-icon,
 .account-avatar {
-  background: var(--gh-sage-soft);
-  color: var(--gh-olive);
+  background: var(--cedar-sage-soft);
+  color: var(--cedar-olive);
 }
 
 .home-order-status,
 .app-order-strip,
 .bottom-nav {
-  border-color: var(--gh-line);
+  border-color: var(--cedar-line);
   background: rgba(255, 253, 248, 0.95);
   box-shadow: 0 12px 28px rgba(42, 38, 31, 0.06);
 }
 
 .category-pill-card {
-  border-color: var(--gh-line);
+  border-color: var(--cedar-line);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(246, 237, 223, 0.42));
-  box-shadow: var(--gh-shadow);
+  box-shadow: var(--cedar-shadow);
 }
 
 .app-content-block,
@@ -4544,7 +4541,7 @@ body {
   border: 1px solid rgba(108, 123, 93, 0.22);
   border-radius: 999px;
   background: rgba(252, 253, 247, 0.92);
-  color: var(--gh-olive);
+  color: var(--cedar-olive);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -4585,7 +4582,7 @@ body {
 
 .drink-card button.is-added {
   background: #eef4e8;
-  color: var(--gh-olive);
+  color: var(--cedar-olive);
   box-shadow:
     inset 0 0 0 1px rgba(108, 123, 93, 0.22),
     0 8px 18px rgba(76, 90, 64, 0.1);
@@ -4658,15 +4655,15 @@ body {
 }
 
 .modifier-options label {
-  border-color: var(--gh-line);
+  border-color: var(--cedar-line);
   background: rgba(255, 253, 248, 0.96);
-  color: var(--gh-charcoal-soft);
+  color: var(--cedar-charcoal-soft);
   box-shadow: 0 5px 14px rgba(42, 38, 31, 0.03);
 }
 
 .modifier-options label.selected {
   border-color: rgba(38, 38, 34, 0.22);
-  background: var(--gh-charcoal);
+  background: var(--cedar-charcoal);
   color: #fffdf8;
   box-shadow: 0 9px 20px rgba(38, 38, 34, 0.13);
 }
@@ -4781,7 +4778,7 @@ body {
 
   .app-product-card {
     border-radius: 24px;
-    box-shadow: var(--gh-shadow);
+    box-shadow: var(--cedar-shadow);
   }
 }
 
@@ -4875,11 +4872,11 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  color: var(--gh-sage, var(--premium-sage));
+  color: var(--cedar-sage, var(--premium-sage));
 }
 
 .favorite-item-action strong {
-  color: var(--gh-sage, var(--premium-sage));
+  color: var(--cedar-sage, var(--premium-sage));
   font-size: 0.95rem;
 }
 
@@ -4935,7 +4932,7 @@ body {
 }
 
 .pickup-timing-panel {
-  border-color: var(--gh-line, rgba(108, 123, 93, 0.2));
+  border-color: var(--cedar-line, rgba(108, 123, 93, 0.2));
   border-radius: 24px;
   box-shadow: 0 12px 26px rgba(42, 38, 31, 0.045);
   gap: 14px;
@@ -4943,12 +4940,12 @@ body {
 
 .pickup-timing-heading span,
 .cart-summary-detail span {
-  color: var(--gh-sage, var(--sage-ink));
+  color: var(--cedar-sage, var(--sage-ink));
 }
 
 .pickup-timing-heading h2,
 .cart-summary-detail strong {
-  color: var(--gh-charcoal, var(--ink));
+  color: var(--cedar-charcoal, var(--ink));
 }
 
 .pickup-time-options {
@@ -4981,7 +4978,7 @@ body {
 
 .pickup-time-options label:hover {
   border-color: rgba(111, 125, 102, 0.34);
-  color: var(--gh-charcoal, var(--ink));
+  color: var(--cedar-charcoal, var(--ink));
   transform: translateY(-1px);
 }
 
@@ -5010,14 +5007,14 @@ body {
 }
 
 .custom-pickup-time label {
-  color: var(--gh-sage, var(--sage-ink));
+  color: var(--cedar-sage, var(--sage-ink));
   font-size: 0.84rem;
   font-weight: 900;
 }
 
 .custom-pickup-time input {
   min-height: 42px;
-  color: var(--gh-charcoal, var(--ink));
+  color: var(--cedar-charcoal, var(--ink));
   background: rgba(255, 253, 248, 0.94);
   border: 1px solid rgba(79, 56, 40, 0.14);
   border-radius: 999px;

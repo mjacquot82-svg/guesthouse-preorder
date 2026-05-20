@@ -1,6 +1,6 @@
 export const businessConfig = {
-  businessName: "The Guest House",
-  tagline: "Café & Pantry",
+  businessName: "Cedar & Oak",
+  tagline: "Boutique Café",
   description:
     "Order ahead from our café menu and pick up your drinks when they’re ready.",
   primaryAction: "Start an Order",
