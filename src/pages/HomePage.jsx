@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { Plus, ShoppingBag } from "lucide-react";
-import { getCategoryById, menuCategories } from "../data/catalog.js";
+import { getCategoryById } from "../data/catalog.js";
 import { useCatalogProducts } from "../stores/catalogStore.js";
 
 function formatPrice(price) {
@@ -29,13 +29,6 @@ export default function HomePage() {
   const [cart, setCart] = useState(getStoredCart);
   const [lastAdded, setLastAdded] = useState("");
   const availableProducts = products.filter((product) => product.available);
-  const quickCategories = menuCategories
-    .map((category) => ({
-      ...category,
-      count: availableProducts.filter((product) => product.category === category.id).length,
-    }))
-    .filter((category) => category.count)
-    .slice(0, 6);
   const popularItems = availableProducts.filter((product) => product.featured).slice(0, 4);
   const quickAddItems = [
     ...popularItems,
@@ -79,8 +72,8 @@ export default function HomePage() {
       <div className="welcome-panel app-welcome-panel">
         <div>
           <p className="eyebrow">Coffee bar</p>
-          <h1>Freshly crafted café favorites</h1>
-          <p>Explore seasonal drinks, bakery case treats, and calm everyday rituals.</p>
+          <h1>Fresh café rituals, made easy</h1>
+          <p>Seasonal pours, bakery favorites, and quiet coffee bar classics.</p>
         </div>
         <div className="cafe-hero-image" aria-hidden="true" />
         <div className="welcome-actions">
@@ -101,25 +94,9 @@ export default function HomePage() {
         </Link>
       </div>
 
-      <section className="content-block app-content-block" aria-labelledby="quick-order-heading">
-        <div className="section-heading">
-          <h2 id="quick-order-heading">Browse by mood</h2>
-          <Link to="/menu">View all</Link>
-        </div>
-
-        <div className="category-pill-grid">
-          {quickCategories.map((category) => (
-            <Link className="category-pill-card" to="/menu" key={category.name}>
-              <strong>{category.name}</strong>
-              <span>{category.count}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       <section className="content-block app-content-block quick-add-block" aria-labelledby="quick-add-heading">
         <div className="section-heading">
-          <h2 id="quick-add-heading">Quick add</h2>
+          <h2 id="quick-add-heading">Featured drinks</h2>
           <Link to="/menu">Customize</Link>
         </div>
 
@@ -140,7 +117,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="content-block app-content-block" aria-labelledby="popular-heading">
+      <section className="content-block app-content-block cafe-favorites-block" aria-labelledby="popular-heading">
         <div className="section-heading">
           <h2 id="popular-heading">Café favorites</h2>
         </div>
@@ -155,6 +132,19 @@ export default function HomePage() {
               </div>
               <strong>{formatPrice(item.price)}</strong>
             </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="content-block app-content-block loyalty-card" aria-labelledby="loyalty-heading">
+        <div>
+          <p className="eyebrow">Stamp card</p>
+          <h2 id="loyalty-heading">Two visits from a house pour</h2>
+          <p>Keep ordering your usual and collect stamps toward a complimentary drink.</p>
+        </div>
+        <div className="stamp-row" aria-label="6 of 8 stamps collected">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <span className={index < 6 ? "filled" : ""} key={index} />
           ))}
         </div>
       </section>
