@@ -14,6 +14,7 @@ import { useAdminSession } from "../stores/adminAuthStore.js";
 
 const adminLinks = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/admin/catalog", label: "Catalog", icon: Store },
   { to: "/admin/orders", label: "Orders", icon: ReceiptText },
   { to: "/admin/daily-special", label: "Daily Special", icon: Sandwich },

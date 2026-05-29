@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout.jsx";
 import AdminLayout from "./admin/AdminLayout.jsx";
+import AnalyticsPage from "./admin/AnalyticsPage.jsx";
 import AdminDashboard from "./admin/AdminDashboard.jsx";
 import AdminLogin from "./admin/AdminLogin.jsx";
 import CategoriesPage from "./admin/CategoriesPage.jsx";
@@ -36,6 +37,7 @@ export default function App() {
       <Route path="admin/login" element={<AdminLogin />} />
       <Route path="admin" element={<AdminLayout />}>
         <Route index element={<AdminDashboard />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
         <Route path="catalog" element={<ProductsPage />} />
         <Route path="orders" element={<AdminOrdersPage />} />
         <Route path="daily-special" element={<DailySpecialPage />} />
