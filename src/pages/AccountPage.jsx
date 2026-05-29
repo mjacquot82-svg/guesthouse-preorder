@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { BadgePercent, Coffee, Gift, History, LogOut, UserRound } from "lucide-react";
 import { useCustomerSession } from "../stores/customerAuthStore.js";
@@ -13,6 +13,20 @@ export default function AccountPage() {
     phoneNumber: customer?.phoneNumber || "",
   }));
   const [status, setStatus] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!customer || isSubmitting) {
+      return;
+    }
+
+    setForm({
+      firstName: customer.firstName || "",
+      lastName: customer.lastName || "",
+      email: customer.email || "",
+      phoneNumber: customer.phoneNumber || "",
+    });
+  }, [customer, isSubmitting]);
 
   if (!isAuthenticated) {
     return <Navigate to="/account/login" replace state={{ from: "/account" }} />;
@@ -22,7 +36,7 @@ export default function AccountPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim() || !form.phoneNumber.trim()) {
@@ -30,7 +44,9 @@ export default function AccountPage() {
       return;
     }
 
-    const result = updateProfile(form);
+    setIsSubmitting(true);
+    const result = await updateProfile(form);
+    setIsSubmitting(false);
     setStatus(result.ok ? "Profile saved." : result.error);
   }
 
@@ -102,7 +118,7 @@ export default function AccountPage() {
         </label>
 
         <div className="account-profile-actions">
-          <button className="primary-button" type="submit">
+          <button className="primary-button" type="submit" disabled={isSubmitting}>
             Save profile
           </button>
           <button className="secondary-button" type="button" onClick={handleLogout}>

@@ -11,13 +11,14 @@ export default function AccountLoginPage() {
   const [password, setPassword] = useState("");
   const [stayLoggedIn, setStayLoggedIn] = useState(true);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const redirectTo = location.state?.from || "/account";
 
   if (isAuthenticated) {
     return <Navigate to={redirectTo} replace />;
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!email.trim() || !password) {
@@ -25,9 +26,11 @@ export default function AccountLoginPage() {
       return;
     }
 
-    const result = login(email, password, stayLoggedIn);
+    setIsSubmitting(true);
+    const result = await login(email, password, stayLoggedIn);
 
     if (!result.ok) {
+      setIsSubmitting(false);
       setError(result.error);
       return;
     }
@@ -74,7 +77,7 @@ export default function AccountLoginPage() {
           <span>Stay logged in</span>
         </label>
 
-        <button className="primary-button" type="submit">
+        <button className="primary-button" type="submit" disabled={isSubmitting}>
           Log in
         </button>
         {error ? <p className="form-status">{error}</p> : null}

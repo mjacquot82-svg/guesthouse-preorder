@@ -15,6 +15,7 @@ export default function CreateAccountPage() {
     stayLoggedIn: true,
   });
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (isAuthenticated) {
     return <Navigate to="/account" replace />;
@@ -24,7 +25,7 @@ export default function CreateAccountPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (
@@ -38,9 +39,11 @@ export default function CreateAccountPage() {
       return;
     }
 
-    const result = signUp(form);
+    setIsSubmitting(true);
+    const result = await signUp(form);
 
     if (!result.ok) {
+      setIsSubmitting(false);
       setError(result.error);
       return;
     }
@@ -116,7 +119,7 @@ export default function CreateAccountPage() {
           <span>Stay logged in</span>
         </label>
 
-        <button className="primary-button" type="submit">
+        <button className="primary-button" type="submit" disabled={isSubmitting}>
           Create account
         </button>
         {error ? <p className="form-status">{error}</p> : null}
