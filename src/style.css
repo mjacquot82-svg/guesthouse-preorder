@@ -5029,6 +5029,79 @@ body {
   padding-bottom: 4px;
 }
 
+.pickup-legend {
+  position: sticky;
+  top: 76px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(190px, 1fr));
+  gap: 10px;
+  border: 1px solid rgba(111, 125, 102, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.96);
+  box-shadow: 0 10px 24px rgba(42, 38, 31, 0.055);
+  padding: 10px;
+}
+
+.pickup-legend-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+}
+
+.pickup-legend-item > span {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  margin-top: 3px;
+  border-radius: 50%;
+}
+
+.pickup-legend-item.future > span,
+.pickup-future {
+  border-color: rgba(57, 124, 72, 0.3);
+}
+
+.pickup-legend-item.future > span {
+  background: #2f9e44;
+}
+
+.pickup-legend-item.approaching > span,
+.pickup-approaching {
+  border-color: rgba(180, 124, 22, 0.42);
+}
+
+.pickup-legend-item.approaching > span {
+  background: #f0b429;
+}
+
+.pickup-legend-item.passed > span,
+.pickup-passed {
+  border-color: rgba(181, 60, 47, 0.44);
+}
+
+.pickup-legend-item.passed > span {
+  background: #c24136;
+}
+
+.pickup-legend-item strong {
+  display: block;
+  color: var(--ink);
+  font-size: 0.84rem;
+}
+
+.pickup-legend-item p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.pickup-order-board {
+  grid-template-columns: minmax(300px, 1.35fr) minmax(260px, 0.8fr);
+}
+
 .admin-order-column {
   min-width: 190px;
   border: 1px solid rgba(111, 125, 102, 0.16);
@@ -5083,6 +5156,20 @@ body {
   text-align: left;
 }
 
+.pickup-future {
+  box-shadow: inset 4px 0 0 #2f9e44;
+}
+
+.pickup-approaching {
+  background: #fff8e1;
+  box-shadow: inset 4px 0 0 #f0b429;
+}
+
+.pickup-passed {
+  background: #fff2ef;
+  box-shadow: inset 4px 0 0 #c24136;
+}
+
 .admin-order-card.selected,
 .admin-order-card:hover {
   border-color: rgba(95, 109, 84, 0.38);
@@ -5091,15 +5178,21 @@ body {
 
 .admin-order-card span,
 .admin-order-card small,
+.admin-order-card em,
 .admin-order-empty {
   color: var(--muted);
   font-size: 0.78rem;
 }
 
-.admin-order-card small {
+.admin-order-card small,
+.admin-order-card em {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.admin-order-card em {
+  font-style: normal;
 }
 
 .admin-order-card b {
@@ -5118,6 +5211,12 @@ body {
   margin: 8px 0;
   color: var(--ink);
   font-size: 1.08rem;
+}
+
+.admin-order-detail-heading p {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .admin-order-detail {
@@ -5164,9 +5263,20 @@ body {
   padding: 0 12px;
 }
 
+.admin-order-actions .primary-order-action {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fffefa;
+}
+
 .admin-order-actions button:hover {
   background: var(--sage-soft);
   color: var(--sage-ink);
+}
+
+.admin-order-actions .primary-order-action:hover {
+  background: var(--sage-ink);
+  color: #fffefa;
 }
 
 .admin-order-detail .admin-form {
@@ -5192,6 +5302,15 @@ body {
   .confirmation-summary,
   .admin-order-detail-heading {
     display: grid;
+  }
+
+  .pickup-legend,
+  .pickup-order-board {
+    grid-template-columns: 1fr;
+  }
+
+  .pickup-legend {
+    position: static;
   }
 }
 

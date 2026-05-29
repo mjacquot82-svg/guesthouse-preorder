@@ -34,6 +34,7 @@ create table if not exists public.orders (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   status_updated_at timestamptz not null default now(),
+  completed_at timestamptz,
 
   constraint orders_status_valid check (
     status in ('New', 'Preparing', 'Ready for Pickup', 'Completed', 'Cancelled')

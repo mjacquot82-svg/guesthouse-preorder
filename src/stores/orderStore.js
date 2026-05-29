@@ -9,6 +9,7 @@ import {
   normalizeOrder,
   updateOrderStatusInSupabase,
 } from "../services/orderService.js";
+import { emitOrderReadyForPickup } from "../services/orderNotificationHooks.js";
 
 export { ORDER_STATUSES };
 export const ACTIVE_ORDER_STATUSES = ["New", "Preparing", "Ready for Pickup"];
@@ -64,7 +65,13 @@ function createLocalOrder(order) {
 
 function updateLocalOrderStatus(orderId, status) {
   const nextOrders = readLocalOrders().map((order) =>
-    order.id === orderId ? { ...order, status } : order
+    order.id === orderId
+      ? {
+          ...order,
+          status,
+          completedAt: status === "Completed" ? new Date().toISOString() : "",
+        }
+      : order
   );
   writeLocalOrders(nextOrders);
 
@@ -119,20 +126,24 @@ export async function fetchOrderById(orderId) {
 
 export async function createOrder(checkout) {
   const order = buildOrderFromCheckout(checkout);
+  console.info("[orders] createOrder built payload", order);
 
   if (!isSupabaseConfigured) {
+    console.info("[orders] Supabase is not configured; creating local order.");
     return createLocalOrder(order);
   }
 
   try {
+    console.info("[orders] attempting Supabase order create", { orderId: order.id });
     const createdOrder = await createOrderInSupabase(order);
     storeLastOrderId(order.id);
     dispatchOrdersUpdated();
 
+    console.info("[orders] Supabase order create succeeded", createdOrder);
     return createdOrder || order;
   } catch (error) {
-    console.warn("Could not create Supabase order. Falling back to local order:", error);
-    return createLocalOrder(order);
+    console.error("[orders] Supabase order create failed", error);
+    throw error;
   }
 }
 
@@ -154,6 +165,16 @@ export async function updateOrderStatus(orderId, status) {
     console.warn("Could not update Supabase order status. Falling back to local order:", error);
     return updateLocalOrderStatus(orderId, status);
   }
+}
+
+export async function markOrderReadyForPickup(orderId) {
+  const updatedOrder = await updateOrderStatus(orderId, "Completed");
+
+  if (updatedOrder) {
+    emitOrderReadyForPickup(updatedOrder);
+  }
+
+  return updatedOrder;
 }
 
 export function useOrders() {
@@ -196,6 +217,16 @@ export function useOrders() {
     [refreshOrders]
   );
 
+  const markReady = useCallback(
+    async (orderId) => {
+      const updatedOrder = await markOrderReadyForPickup(orderId);
+      await refreshOrders();
+
+      return updatedOrder;
+    },
+    [refreshOrders]
+  );
+
   return useMemo(
     () => ({
       orders,
@@ -204,9 +235,10 @@ export function useOrders() {
       activeOrders: orders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status)),
       completedOrders: orders.filter((order) => order.status === "Completed"),
       newOrders: orders.filter((order) => order.status === "New"),
+      markReady,
       updateStatus,
     }),
-    [loading, orders, refreshOrders, updateStatus]
+    [loading, markReady, orders, refreshOrders, updateStatus]
   );
 }
 

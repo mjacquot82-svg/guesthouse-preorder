@@ -198,6 +198,12 @@ export default function CartPage() {
   }
 
   async function placeOrder() {
+    console.info("[checkout] placeOrder called", {
+      cartItems: cart.length,
+      customerId: customer?.id || null,
+      pickupSummary,
+    });
+
     if (!contactFields.name.trim() || !contactFields.email.trim() || !contactFields.phoneNumber.trim()) {
       setCheckoutError("Add a name, email, and phone before placing your order.");
       return;
@@ -219,7 +225,12 @@ export default function CartPage() {
       setCart([]);
       navigate(`/confirmation?order=${order.id}`, { state: { orderId: order.id } });
     } catch (error) {
-      setCheckoutError(error instanceof Error ? error.message : "Could not place your order.");
+      console.error("[checkout] order creation failed", error);
+      setCheckoutError(
+        error instanceof Error
+          ? `Could not place your order: ${error.message}`
+          : "Could not place your order. Please try again."
+      );
     } finally {
       setIsPlacingOrder(false);
     }

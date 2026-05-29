@@ -12,6 +12,7 @@ function requireSupabase() {
 
 function throwIfError(error, context) {
   if (error) {
+    console.error(`[orders:supabase] ${context}`, error);
     throw new Error(`${context}: ${error.message}`);
   }
 }
@@ -62,6 +63,7 @@ export function normalizeOrder(order) {
     customerPhone: order.customerPhone || "",
     createdAt: order.createdAt || new Date().toISOString(),
     updatedAt: order.updatedAt || "",
+    completedAt: order.completedAt || "",
     status: ORDER_STATUSES.includes(order.status) ? order.status : "New",
     subtotal,
     total: Number(order.total ?? subtotal) || 0,
@@ -157,6 +159,7 @@ function fromOrderRows(orderRow, itemRows = [], modifierRows = []) {
     customerPhone: orderRow.customer_phone || "",
     createdAt: orderRow.created_at || "",
     updatedAt: orderRow.updated_at || "",
+    completedAt: orderRow.completed_at || "",
     status: orderRow.status,
     subtotal: orderRow.subtotal,
     total: orderRow.total,
@@ -265,16 +268,21 @@ export async function fetchOrderByIdFromSupabase(orderId) {
 export async function createOrderInSupabase(order) {
   const client = requireSupabase();
   let writesComplete = false;
+  const orderRow = toOrderRow(order);
 
   try {
-    const orderResponse = await client.from("orders").insert(toOrderRow(order)).select("*").single();
+    console.info("[orders:supabase] inserting orders row", orderRow);
+    const orderResponse = await client.from("orders").insert(orderRow).select("*").single();
+    console.info("[orders:supabase] orders insert response", orderResponse);
     throwIfError(orderResponse.error, "Could not create order");
 
     const itemRows = order.items.map((item, index) => toOrderItemRow(order.id, item, index));
+    console.info("[orders:supabase] inserting order_items rows", itemRows);
     const itemsResponse = await client
       .from("order_items")
       .insert(itemRows)
       .select("id, order_id, line_key, sort_order");
+    console.info("[orders:supabase] order_items insert response", itemsResponse);
     throwIfError(itemsResponse.error, "Could not create order items");
 
     const insertedItems = itemsResponse.data || [];
@@ -293,20 +301,31 @@ export async function createOrderInSupabase(order) {
     });
 
     if (modifierRows.length) {
+      console.info("[orders:supabase] inserting order_item_modifiers rows", modifierRows);
       const modifiersResponse = await client.from("order_item_modifiers").insert(modifierRows);
+      console.info("[orders:supabase] order_item_modifiers insert response", modifiersResponse);
       throwIfError(modifiersResponse.error, "Could not create order item modifiers");
     }
 
     writesComplete = true;
 
     try {
-      return await fetchOrderByIdFromSupabase(order.id);
-    } catch {
+      const createdOrder = await fetchOrderByIdFromSupabase(order.id);
+      console.info("[orders:supabase] fetched created order", createdOrder);
+      return createdOrder;
+    } catch (fetchError) {
+      console.warn("[orders:supabase] created order but could not refetch details", fetchError);
       return order;
     }
   } catch (error) {
+    console.error("[orders:supabase] create order transaction failed", {
+      orderId: order.id,
+      error,
+    });
+
     if (!writesComplete) {
-      await client.from("orders").delete().eq("id", order.id);
+      const cleanupResponse = await client.from("orders").delete().eq("id", order.id);
+      console.info("[orders:supabase] cleanup response after failed create", cleanupResponse);
     }
 
     throw error;
@@ -315,9 +334,13 @@ export async function createOrderInSupabase(order) {
 
 export async function updateOrderStatusInSupabase(orderId, status) {
   const client = requireSupabase();
+  const updates = {
+    status,
+    completed_at: status === "Completed" ? new Date().toISOString() : null,
+  };
   const { data, error } = await client
     .from("orders")
-    .update({ status })
+    .update(updates)
     .eq("id", orderId)
     .select("*")
     .maybeSingle();
