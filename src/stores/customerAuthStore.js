@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  DEFAULT_COMMUNICATION_PREFERENCES,
   fetchCustomerByEmailFromSupabase,
   fetchCustomerByIdFromSupabase,
   migrateCustomerProfilesToSupabase,
@@ -201,6 +202,7 @@ export function useCustomerSession() {
       lastName: lastName.trim(),
       email: normalizedEmail,
       phoneNumber: phoneNumber.trim(),
+      ...DEFAULT_COMMUNICATION_PREFERENCES,
     };
     const account = {
       profile,
@@ -328,6 +330,14 @@ export function useCustomerSession() {
       lastName: nextProfile.lastName.trim(),
       email: normalizedEmail,
       phoneNumber: nextProfile.phoneNumber.trim(),
+      receiveLunchSpecials:
+        nextProfile.receiveLunchSpecials ?? customer.receiveLunchSpecials ?? true,
+      receivePromotions:
+        nextProfile.receivePromotions ?? customer.receivePromotions ?? true,
+      receivePickupNotifications:
+        nextProfile.receivePickupNotifications ?? customer.receivePickupNotifications ?? true,
+      receiveNewProductAnnouncements:
+        nextProfile.receiveNewProductAnnouncements ?? customer.receiveNewProductAnnouncements ?? true,
     };
     let savedProfile = updatedProfile;
     const nextSession = session ? { ...session, email: normalizedEmail } : session;

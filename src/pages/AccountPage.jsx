@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
-import { BadgePercent, Coffee, Gift, History, LogOut, UserRound } from "lucide-react";
+import { Bell, Coffee, Gift, History, LogOut, Megaphone, UserRound } from "lucide-react";
 import { useCustomerSession } from "../stores/customerAuthStore.js";
 
 export default function AccountPage() {
@@ -11,6 +11,10 @@ export default function AccountPage() {
     lastName: customer?.lastName || "",
     email: customer?.email || "",
     phoneNumber: customer?.phoneNumber || "",
+    receiveLunchSpecials: customer?.receiveLunchSpecials ?? true,
+    receivePromotions: customer?.receivePromotions ?? true,
+    receivePickupNotifications: customer?.receivePickupNotifications ?? true,
+    receiveNewProductAnnouncements: customer?.receiveNewProductAnnouncements ?? true,
   }));
   const [status, setStatus] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,6 +29,10 @@ export default function AccountPage() {
       lastName: customer.lastName || "",
       email: customer.email || "",
       phoneNumber: customer.phoneNumber || "",
+      receiveLunchSpecials: customer.receiveLunchSpecials ?? true,
+      receivePromotions: customer.receivePromotions ?? true,
+      receivePickupNotifications: customer.receivePickupNotifications ?? true,
+      receiveNewProductAnnouncements: customer.receiveNewProductAnnouncements ?? true,
     });
   }, [customer, isSubmitting]);
 
@@ -117,6 +125,55 @@ export default function AccountPage() {
           />
         </label>
 
+        <div className="communication-preferences-section">
+          <div className="communication-preferences-heading">
+            <span className="account-avatar" aria-hidden="true">
+              <Bell size={22} strokeWidth={2.4} />
+            </span>
+            <div>
+              <h3>Communication Preferences</h3>
+              <p>Choose which Cedar & Oak updates you want to receive.</p>
+            </div>
+          </div>
+
+          <div className="communication-preferences-grid">
+            <label className="communication-preference-row">
+              <input
+                checked={form.receiveLunchSpecials}
+                type="checkbox"
+                onChange={(event) => updateField("receiveLunchSpecials", event.target.checked)}
+              />
+              <span>Receive Lunch Specials</span>
+            </label>
+            <label className="communication-preference-row">
+              <input
+                checked={form.receivePromotions}
+                type="checkbox"
+                onChange={(event) => updateField("receivePromotions", event.target.checked)}
+              />
+              <span>Receive Promotions</span>
+            </label>
+            <label className="communication-preference-row">
+              <input
+                checked={form.receivePickupNotifications}
+                type="checkbox"
+                onChange={(event) => updateField("receivePickupNotifications", event.target.checked)}
+              />
+              <span>Receive Pickup Notifications</span>
+            </label>
+            <label className="communication-preference-row">
+              <input
+                checked={form.receiveNewProductAnnouncements}
+                type="checkbox"
+                onChange={(event) =>
+                  updateField("receiveNewProductAnnouncements", event.target.checked)
+                }
+              />
+              <span>Receive New Product Announcements</span>
+            </label>
+          </div>
+        </div>
+
         <div className="account-profile-actions">
           <button className="primary-button" type="submit" disabled={isSubmitting}>
             Save profile
@@ -146,9 +203,9 @@ export default function AccountPage() {
           <strong>Ready later</strong>
         </div>
         <div className="compact-info-row content-block app-content-block">
-          <BadgePercent size={18} strokeWidth={2.4} />
+          <Megaphone size={18} strokeWidth={2.4} />
           <span>Rewards and promos</span>
-          <strong>Ready later</strong>
+          <strong>{form.receivePromotions ? "On" : "Off"}</strong>
         </div>
       </div>
 

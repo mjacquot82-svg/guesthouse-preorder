@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Coffee, FolderTree, ReceiptText } from "lucide-react";
+import { BellRing, CheckCircle2, Coffee, FolderTree, Megaphone, ReceiptText } from "lucide-react";
+import { getCommunicationPreferenceSummary } from "../services/customerService.js";
 import { useCatalogCategories, useCatalogProducts } from "../stores/catalogStore.js";
 import { useOrders } from "../stores/orderStore.js";
 
@@ -7,8 +9,37 @@ export default function AdminDashboard() {
   const { products } = useCatalogProducts();
   const { categories } = useCatalogCategories();
   const { activeOrders, newOrders, waitingForPickupOrders } = useOrders();
+  const [communicationSummary, setCommunicationSummary] = useState(null);
+  const [communicationSummaryError, setCommunicationSummaryError] = useState("");
   const activeCount = products.filter((product) => product.active).length;
   const inactiveCount = products.length - activeCount;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCommunicationSummary() {
+      try {
+        const summary = await getCommunicationPreferenceSummary();
+
+        if (isMounted) {
+          setCommunicationSummary(summary);
+          setCommunicationSummaryError("");
+        }
+      } catch (error) {
+        if (isMounted) {
+          setCommunicationSummaryError(
+            error instanceof Error ? error.message : "Could not load subscriber counts."
+          );
+        }
+      }
+    }
+
+    loadCommunicationSummary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <section className="admin-page">
@@ -51,6 +82,36 @@ export default function AdminDashboard() {
           <strong>{products.length}</strong>
           <p>{activeCount} active, {inactiveCount} inactive across {categories.length} categories</p>
         </article>
+      </div>
+
+      <div className="admin-panel admin-communication-summary">
+        <div>
+          <p className="eyebrow">Customer communication</p>
+          <h2>Subscriber Summary</h2>
+        </div>
+        <div className="admin-communication-grid">
+          <div className="admin-communication-item">
+            <Coffee size={18} strokeWidth={2.35} aria-hidden="true" />
+            <span>Lunch Special Subscribers</span>
+            <strong>{communicationSummary?.lunchSpecialSubscribers ?? "-"}</strong>
+          </div>
+          <div className="admin-communication-item">
+            <Megaphone size={18} strokeWidth={2.35} aria-hidden="true" />
+            <span>Promotion Subscribers</span>
+            <strong>{communicationSummary?.promotionSubscribers ?? "-"}</strong>
+          </div>
+          <div className="admin-communication-item">
+            <BellRing size={18} strokeWidth={2.35} aria-hidden="true" />
+            <span>Pickup Notification Subscribers</span>
+            <strong>{communicationSummary?.pickupNotificationSubscribers ?? "-"}</strong>
+          </div>
+          <div className="admin-communication-item">
+            <FolderTree size={18} strokeWidth={2.35} aria-hidden="true" />
+            <span>New Product Announcement Subscribers</span>
+            <strong>{communicationSummary?.newProductAnnouncementSubscribers ?? "-"}</strong>
+          </div>
+        </div>
+        {communicationSummaryError ? <p className="form-status">{communicationSummaryError}</p> : null}
       </div>
     </section>
   );
