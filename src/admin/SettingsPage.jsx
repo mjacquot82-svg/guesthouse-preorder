@@ -1,10 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { verifySupabaseConnection } from "../lib/supabase.js";
 import { useAdminSettings } from "../stores/adminSettingsStore.js";
 
 export default function SettingsPage() {
   const { settings, saveSettings } = useAdminSettings();
   const [formSettings, setFormSettings] = useState(settings);
   const [status, setStatus] = useState("");
+  const [supabaseStatus, setSupabaseStatus] = useState({
+    connected: false,
+    checked: false,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    verifySupabaseConnection().then((result) => {
+      if (isMounted) {
+        setSupabaseStatus({ connected: result.connected, checked: true });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   function updateField(field, value) {
     setFormSettings((current) => ({ ...current, [field]: value }));
@@ -73,6 +92,25 @@ export default function SettingsPage() {
           </div>
           {status ? <p className="form-status">{status}</p> : null}
         </form>
+      </section>
+
+      <section className="admin-panel admin-settings-panel" aria-labelledby="supabase-diagnostic-heading">
+        <div className="admin-diagnostic-heading">
+          <div>
+            <p className="eyebrow">Temporary diagnostic</p>
+            <h2 id="supabase-diagnostic-heading">Supabase connection</h2>
+          </div>
+          <span
+            className={`connection-status ${supabaseStatus.connected ? "connected" : "not-connected"}`}
+          >
+            {supabaseStatus.connected ? "Supabase Connected" : "Supabase Not Connected"}
+          </span>
+        </div>
+        <p className="admin-diagnostic-note">
+          {supabaseStatus.checked
+            ? "This check verifies the configured Supabase URL and anon key only."
+            : "Checking configured Supabase client..."}
+        </p>
       </section>
     </section>
   );

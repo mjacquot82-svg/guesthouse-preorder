@@ -8,24 +8,13 @@ import {
   useCatalogModifierGroups,
   useCatalogProducts,
 } from "../stores/catalogStore.js";
+import { getStoredCart, storeCart } from "../stores/cartStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   }).format(price);
-}
-
-function getStoredCart() {
-  try {
-    return JSON.parse(window.localStorage.getItem("cafe-cart")) || [];
-  } catch {
-    return [];
-  }
-}
-
-function storeCart(cart) {
-  window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
 function getDefaultSelections(product, modifierGroups) {

@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom";
-import { Boxes, Coffee, FolderTree, SlidersHorizontal } from "lucide-react";
+import { CheckCircle2, Coffee, FolderTree, ReceiptText } from "lucide-react";
 import { useCatalogCategories, useCatalogProducts } from "../stores/catalogStore.js";
+import { useOrders } from "../stores/orderStore.js";
 
 export default function AdminDashboard() {
   const { products } = useCatalogProducts();
   const { categories } = useCatalogCategories();
+  const { activeOrders, completedOrders, newOrders } = useOrders();
   const activeCount = products.filter((product) => product.active).length;
   const inactiveCount = products.length - activeCount;
 
@@ -19,32 +21,35 @@ export default function AdminDashboard() {
         <Link className="primary-button" to="/admin/catalog">
           Manage catalog
         </Link>
+        <Link className="secondary-button" to="/admin/orders">
+          View orders
+        </Link>
       </div>
 
       <div className="admin-metric-grid">
         <article className="admin-metric-card">
+          <ReceiptText size={20} strokeWidth={2.35} aria-hidden="true" />
+          <span>New Orders</span>
+          <strong>{newOrders.length}</strong>
+          <p>Awaiting owner review</p>
+        </article>
+        <article className="admin-metric-card">
           <Coffee size={20} strokeWidth={2.35} aria-hidden="true" />
-          <span>Products</span>
-          <strong>{products.length}</strong>
-          <p>{activeCount} active, {inactiveCount} inactive</p>
+          <span>Active Orders</span>
+          <strong>{activeOrders.length}</strong>
+          <p>New, preparing, or ready</p>
+        </article>
+        <article className="admin-metric-card">
+          <CheckCircle2 size={20} strokeWidth={2.35} aria-hidden="true" />
+          <span>Completed Orders</span>
+          <strong>{completedOrders.length}</strong>
+          <p>Finished pickup orders</p>
         </article>
         <article className="admin-metric-card">
           <FolderTree size={20} strokeWidth={2.35} aria-hidden="true" />
-          <span>Categories</span>
-          <strong>{categories.length}</strong>
-          <p>Editable menu organization</p>
-        </article>
-        <article className="admin-metric-card">
-          <Boxes size={20} strokeWidth={2.35} aria-hidden="true" />
-          <span>Future models</span>
-          <strong>6</strong>
-          <p>Variants, modifiers, accounts, loyalty, orders</p>
-        </article>
-        <article className="admin-metric-card">
-          <SlidersHorizontal size={20} strokeWidth={2.35} aria-hidden="true" />
-          <span>Settings</span>
-          <strong>Draft</strong>
-          <p>Business details stored locally</p>
+          <span>Catalog</span>
+          <strong>{products.length}</strong>
+          <p>{activeCount} active, {inactiveCount} inactive across {categories.length} categories</p>
         </article>
       </div>
     </section>

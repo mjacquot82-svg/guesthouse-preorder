@@ -1,3 +1,27 @@
+const CART_STORAGE_KEY = "cafe-cart";
+const CART_UPDATED_EVENT = "cedar-oak-cart-updated";
+
+export function getStoredCart() {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    return JSON.parse(window.localStorage.getItem(CART_STORAGE_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+export function storeCart(cart) {
+  window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  window.dispatchEvent(new CustomEvent(CART_UPDATED_EVENT));
+}
+
+export function clearCart() {
+  storeCart([]);
+}
+
 export function addToCart(cart, product) {
   const existing = cart.find((item) => item.id === product.id);
 
@@ -16,4 +40,9 @@ export function removeFromCart(cart, productId) {
 
 export function getCartTotal(cart) {
   return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+}
+
+export function replaceCart(cart) {
+  storeCart(cart);
+  return cart;
 }

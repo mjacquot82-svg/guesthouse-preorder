@@ -238,8 +238,10 @@ h3 {
 }
 
 .primary-button {
+  border: 0;
   background: #5f563f;
   color: #fffaf4;
+  cursor: pointer;
 }
 
 .secondary-button {
@@ -4883,6 +4885,298 @@ body {
   font-size: 0.9rem;
 }
 
+.order-notes-field {
+  display: grid;
+  gap: 8px;
+  color: var(--cafe-ink, var(--ink));
+  font-size: 0.86rem;
+  font-weight: 850;
+}
+
+.order-notes-field textarea {
+  width: 100%;
+  border: 1px solid rgba(79, 56, 40, 0.16);
+  border-radius: 12px;
+  background: #fffefa;
+  color: var(--ink);
+  font: inherit;
+  resize: vertical;
+  padding: 10px 12px;
+}
+
+.confirmation-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.confirmation-icon,
+.status-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+}
+
+.confirmation-summary,
+.order-history-heading,
+.admin-order-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.confirmation-summary,
+.order-item-list li,
+.admin-order-items li {
+  border: 1px solid rgba(104, 69, 47, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 250, 242, 0.82);
+  padding: 11px 12px;
+}
+
+.confirmation-summary span,
+.order-history-card span,
+.admin-order-detail-heading span,
+.admin-order-notes span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.confirmation-actions .primary-button,
+.confirmation-actions .secondary-button,
+.cart-review .primary-button,
+.order-history-card .secondary-button {
+  margin-top: 0;
+}
+
+.order-item-list,
+.admin-order-items {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.order-item-list li,
+.admin-order-items li,
+.order-history-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.order-history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.order-history-card {
+  align-items: stretch;
+}
+
+.order-history-main {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.order-history-card h2 {
+  margin: 2px 0 0;
+}
+
+.order-history-card p,
+.admin-order-detail-heading p,
+.admin-order-notes p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.order-history-card details {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.order-history-card summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--sage-ink);
+  font-weight: 850;
+}
+
+.admin-page-header {
+  flex-wrap: wrap;
+}
+
+.admin-order-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(160px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.admin-order-column {
+  min-width: 160px;
+  border: 1px solid rgba(111, 125, 102, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 253, 248, 0.72);
+  padding: 10px;
+}
+
+.admin-order-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.admin-order-column-header h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.admin-order-column-header span {
+  min-width: 26px;
+  border-radius: 999px;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-align: center;
+  padding: 4px 8px;
+}
+
+.admin-order-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-order-card {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  border: 1px solid rgba(104, 69, 47, 0.12);
+  border-radius: 8px;
+  background: #fffefa;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 10px;
+  text-align: left;
+}
+
+.admin-order-card.selected,
+.admin-order-card:hover {
+  border-color: rgba(95, 109, 84, 0.38);
+  background: var(--sage-wash);
+}
+
+.admin-order-card span,
+.admin-order-card small,
+.admin-order-empty {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.admin-order-card small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-order-card b {
+  color: var(--sage-ink);
+}
+
+.admin-order-detail {
+  display: grid;
+  gap: 16px;
+}
+
+.order-status-pill {
+  border-radius: 999px;
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+  font-size: 0.78rem;
+  padding: 7px 10px;
+  white-space: nowrap;
+}
+
+.status-cancelled {
+  background: #f4ddd7;
+  color: #8b3f2f;
+}
+
+.status-completed {
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+}
+
+.admin-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-order-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  border: 1px solid rgba(104, 69, 47, 0.12);
+  border-radius: 8px;
+  background: #fffefa;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 850;
+  padding: 0 12px;
+}
+
+.admin-order-actions button:hover {
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+}
+
+.admin-order-detail .admin-form {
+  max-width: 260px;
+}
+
+.admin-order-items li span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.admin-order-notes {
+  display: grid;
+  gap: 6px;
+  border-top: 1px solid rgba(111, 125, 102, 0.16);
+  padding-top: 14px;
+}
+
+@media (max-width: 720px) {
+  .order-history-card,
+  .confirmation-summary,
+  .admin-order-detail-heading {
+    display: grid;
+  }
+}
+
 @media (max-width: 520px) {
   .account-form-grid,
   .checkout-contact-grid {
@@ -5788,6 +6082,43 @@ body {
 
 .admin-settings-panel {
   max-width: 680px;
+}
+
+.admin-diagnostic-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-diagnostic-heading h2 {
+  margin-bottom: 0;
+}
+
+.connection-status {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(166, 96, 74, 0.24);
+  border-radius: 999px;
+  background: rgba(166, 96, 74, 0.1);
+  color: var(--cafe-red);
+  font-size: 0.8rem;
+  font-weight: 900;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.connection-status.connected {
+  border-color: rgba(111, 125, 102, 0.28);
+  background: var(--sage-soft);
+  color: var(--sage-ink);
+}
+
+.admin-diagnostic-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 @media (max-width: 900px) {

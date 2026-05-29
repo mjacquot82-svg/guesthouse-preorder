@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   ListPlus,
   LogOut,
+  ReceiptText,
   Settings,
   Store,
 } from "lucide-react";
@@ -13,6 +14,7 @@ import { useAdminSession } from "../stores/adminAuthStore.js";
 const adminLinks = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/admin/catalog", label: "Catalog", icon: Store },
+  { to: "/admin/orders", label: "Orders", icon: ReceiptText },
   { to: "/admin/categories", label: "Categories", icon: FolderTree },
   { to: "/admin/modifiers", label: "Modifiers", icon: ListPlus },
   { to: "/admin/settings", label: "Settings", icon: Settings },

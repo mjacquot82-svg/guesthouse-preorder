@@ -114,11 +114,11 @@ export default function AccountPage() {
       </form>
 
       <div className="account-settings-list">
-        <div className="compact-info-row content-block app-content-block">
+        <Link className="compact-info-row content-block app-content-block" to="/account/orders">
           <History size={18} strokeWidth={2.4} />
           <span>Order history</span>
-          <strong>Ready later</strong>
-        </div>
+          <strong>View</strong>
+        </Link>
         <div className="compact-info-row content-block app-content-block">
           <Coffee size={18} strokeWidth={2.4} />
           <span>Favorite orders</span>

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Minus, Plus, Trash2, UserRound } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ClipboardList, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import { useCustomerSession } from "../stores/customerAuthStore.js";
+import { clearCart, getStoredCart, storeCart } from "../stores/cartStore.js";
+import { createOrder } from "../stores/orderStore.js";
 
 const quickPickupOptions = [
   {
@@ -36,18 +38,6 @@ function formatPrice(price) {
     style: "currency",
     currency: "USD",
   }).format(price);
-}
-
-function getStoredCart() {
-  try {
-    return JSON.parse(window.localStorage.getItem("cafe-cart")) || [];
-  } catch {
-    return [];
-  }
-}
-
-function storeCart(cart) {
-  window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
 function getStoredCheckoutContact() {
@@ -131,11 +121,14 @@ function getCustomPickupDate(timeValue) {
 }
 
 export default function CartPage() {
+  const navigate = useNavigate();
   const { customer } = useCustomerSession();
   const [cart, setCart] = useState(getStoredCart);
   const [pickupTime, setPickupTime] = useState(getStoredPickupTime);
   const [customPickupTime, setCustomPickupTime] = useState(getStoredCustomPickupTime);
   const [checkoutContact, setCheckoutContact] = useState(getStoredCheckoutContact);
+  const [orderNotes, setOrderNotes] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [cart]
@@ -201,6 +194,25 @@ export default function CartPage() {
 
     setCheckoutContact(nextContact);
     storeCheckoutContact(nextContact);
+  }
+
+  function placeOrder() {
+    if (!contactFields.name.trim() || !contactFields.email.trim() || !contactFields.phoneNumber.trim()) {
+      setCheckoutError("Add a name, email, and phone before placing your order.");
+      return;
+    }
+
+    const order = createOrder({
+      cart,
+      customer,
+      contact: contactFields,
+      notes: orderNotes.trim(),
+      pickupSummary,
+    });
+
+    clearCart();
+    setCart([]);
+    navigate(`/confirmation?order=${order.id}`, { state: { orderId: order.id } });
   }
 
   if (!cart.length) {
@@ -358,13 +370,24 @@ export default function CartPage() {
           <span>Preferred pickup time</span>
           <strong>{pickupSummary}</strong>
         </div>
+        <label className="order-notes-field">
+          <span>Order notes</span>
+          <textarea
+            rows={3}
+            placeholder="Milk preference, pastry warming, or pickup notes"
+            value={orderNotes}
+            onChange={(event) => setOrderNotes(event.target.value)}
+          />
+        </label>
         <div className="cart-total-row">
           <span>Estimated total</span>
           <strong>{formatPrice(total)}</strong>
         </div>
-        <Link className="primary-button" to="/confirmation">
+        {checkoutError ? <p className="form-status">{checkoutError}</p> : null}
+        <button className="primary-button" type="button" onClick={placeOrder}>
+          <ClipboardList size={17} strokeWidth={2.4} />
           Place order
-        </Link>
+        </button>
       </div>
     </section>
   );
