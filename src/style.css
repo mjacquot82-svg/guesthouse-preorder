@@ -5417,6 +5417,53 @@ body {
   font-weight: 700;
 }
 
+.compact-check-grid {
+  align-items: center;
+}
+
+.modifier-option-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(120px, 0.7fr) auto auto;
+  gap: 10px;
+  align-items: end;
+  border: 1px solid rgba(111, 125, 102, 0.16);
+  border-radius: 8px;
+  background: rgba(242, 245, 235, 0.42);
+  padding: 10px;
+}
+
+.modifier-option-actions {
+  align-self: center;
+}
+
+.modifier-option-list {
+  display: grid;
+  gap: 8px;
+}
+
+.modifier-option-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  border: 1px solid rgba(111, 125, 102, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.58);
+  padding: 10px;
+}
+
+.modifier-option-row strong,
+.modifier-option-row span {
+  display: block;
+}
+
+.modifier-option-row span,
+.modifier-group-row .admin-row-meta span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
 .variant-editor-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1.35fr) minmax(110px, 0.7fr) auto auto;
@@ -5589,6 +5636,8 @@ body {
 
   .admin-form-grid,
   .admin-list-row,
+  .modifier-option-form,
+  .modifier-option-row,
   .variant-editor-row {
     grid-template-columns: 1fr;
   }

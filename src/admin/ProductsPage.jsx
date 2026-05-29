@@ -418,6 +418,7 @@ export default function ProductsPage() {
                         <span>
                           {group.name}
                           <small>
+                            {group.active ?? true ? "Active" : "Inactive"} ·{" "}
                             {group.required ? "Required" : "Optional"} · min {group.minSelections} · max{" "}
                             {group.maxSelections || optionCount} · {optionCount} options
                           </small>

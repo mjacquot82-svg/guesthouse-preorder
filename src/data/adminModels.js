@@ -26,6 +26,8 @@ export const productVariantModel = {
 export const modifierGroupModel = {
   id: "",
   name: "",
+  description: "",
+  active: true,
   selectionType: "single",
   required: false,
   minSelections: 0,

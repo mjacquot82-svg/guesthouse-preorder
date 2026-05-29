@@ -11,6 +11,8 @@ export const modifierGroups = [
   {
     id: "milk",
     name: "Milk",
+    description: "Choose a milk for espresso and tea drinks.",
+    active: true,
     type: "single",
     selectionType: "single",
     required: true,
@@ -27,6 +29,8 @@ export const modifierGroups = [
   {
     id: "flavour-shots",
     name: "Flavour shots",
+    description: "Add up to three flavoured syrups.",
+    active: true,
     type: "multiple",
     selectionType: "multiple",
     required: false,
@@ -41,6 +45,8 @@ export const modifierGroups = [
   {
     id: "extras",
     name: "Extras",
+    description: "Optional finishing touches and espresso add-ons.",
+    active: true,
     type: "multiple",
     selectionType: "multiple",
     required: false,
@@ -54,6 +60,8 @@ export const modifierGroups = [
   {
     id: "toast",
     name: "Toast",
+    description: "Simple bakery add-ons.",
+    active: true,
     type: "single",
     selectionType: "single",
     required: false,
@@ -253,6 +261,7 @@ export function getModifierGroupsForProduct(product, availableModifierGroups = m
     .filter((groupId) => groupId !== "size")
     .map((groupId) => availableModifierGroups.find((group) => group.id === groupId))
     .filter(Boolean)
+    .filter((group) => group.active ?? true)
     .map((group) => ({
       ...group,
       type: group.selectionType || group.type || "single",

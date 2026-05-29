@@ -47,7 +47,7 @@ function readStoredModifierGroups() {
     const groups = stored ? JSON.parse(stored) : modifierGroups;
     return groups.map(normalizeModifierGroup).filter((group) => group.id !== SIZE_MODIFIER_GROUP_ID);
   } catch {
-    return modifierGroups.map(normalizeModifierGroup);
+    return modifierGroups.map(normalizeModifierGroup).filter((group) => group.id !== SIZE_MODIFIER_GROUP_ID);
   }
 }
 
@@ -143,7 +143,8 @@ function normalizeModifierOption(option, index) {
 }
 
 function normalizeModifierGroup(group) {
-  const selectionType = group.selectionType || group.type || "single";
+  const selectionType =
+    group.selectionType || group.type || (Number(group.maxSelections) > 1 ? "multiple" : "single");
   const isMultiple = selectionType === "multiple";
   const options = Array.isArray(group.options)
     ? group.options.map(normalizeModifierOption)
@@ -152,6 +153,8 @@ function normalizeModifierGroup(group) {
   return {
     id: group.id,
     name: group.name?.trim() || "Untitled modifier group",
+    description: group.description?.trim() || "",
+    active: group.active ?? true,
     type: selectionType,
     selectionType,
     required: Boolean(group.required),

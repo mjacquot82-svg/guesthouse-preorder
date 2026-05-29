@@ -4,6 +4,7 @@ import AdminLayout from "./admin/AdminLayout.jsx";
 import AdminDashboard from "./admin/AdminDashboard.jsx";
 import AdminLogin from "./admin/AdminLogin.jsx";
 import CategoriesPage from "./admin/CategoriesPage.jsx";
+import ModifiersPage from "./admin/ModifiersPage.jsx";
 import ProductsPage from "./admin/ProductsPage.jsx";
 import SettingsPage from "./admin/SettingsPage.jsx";
 import CartPage from "./pages/CartPage.jsx";
@@ -29,6 +30,7 @@ export default function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="catalog" element={<ProductsPage />} />
         <Route path="categories" element={<CategoriesPage />} />
+        <Route path="modifiers" element={<ModifiersPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
