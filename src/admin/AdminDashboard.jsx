@@ -1,38 +1,51 @@
 import { Link } from "react-router-dom";
-import { useCatalogProducts } from "../stores/catalogStore.js";
-
-const metrics = [
-  { label: "Open orders", value: "0", note: "Awaiting live queue" },
-  { label: "Today revenue", value: "$0", note: "Pending payment integration" },
-];
+import { Boxes, Coffee, FolderTree, SlidersHorizontal } from "lucide-react";
+import { useCatalogCategories, useCatalogProducts } from "../stores/catalogStore.js";
 
 export default function AdminDashboard() {
   const { products } = useCatalogProducts();
-  const availableCount = products.filter((product) => product.available).length;
+  const { categories } = useCatalogCategories();
+  const activeCount = products.filter((product) => product.active).length;
+  const inactiveCount = products.length - activeCount;
 
   return (
-    <section className="page-section">
-      <div className="page-heading">
-        <h1>Admin</h1>
-        <p>Keep cafe orders, menu items, and availability easy to scan.</p>
-        <Link className="secondary-button" to="/admin/products">
-          Manage products
+    <section className="admin-page">
+      <div className="admin-page-header">
+        <div>
+          <p className="eyebrow">Coffee shop owner</p>
+          <h1>Dashboard</h1>
+          <p>Manage menu data from one local admin foundation.</p>
+        </div>
+        <Link className="primary-button" to="/admin/catalog">
+          Manage catalog
         </Link>
       </div>
 
-      <div className="dashboard-grid">
-        <article className="metric-card">
-          <span>Menu items</span>
+      <div className="admin-metric-grid">
+        <article className="admin-metric-card">
+          <Coffee size={20} strokeWidth={2.35} aria-hidden="true" />
+          <span>Products</span>
           <strong>{products.length}</strong>
-          <p>{availableCount} currently available</p>
+          <p>{activeCount} active, {inactiveCount} inactive</p>
         </article>
-        {metrics.map((metric) => (
-          <article className="metric-card" key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-            <p>{metric.note}</p>
-          </article>
-        ))}
+        <article className="admin-metric-card">
+          <FolderTree size={20} strokeWidth={2.35} aria-hidden="true" />
+          <span>Categories</span>
+          <strong>{categories.length}</strong>
+          <p>Editable menu organization</p>
+        </article>
+        <article className="admin-metric-card">
+          <Boxes size={20} strokeWidth={2.35} aria-hidden="true" />
+          <span>Future models</span>
+          <strong>6</strong>
+          <p>Variants, modifiers, accounts, loyalty, orders</p>
+        </article>
+        <article className="admin-metric-card">
+          <SlidersHorizontal size={20} strokeWidth={2.35} aria-hidden="true" />
+          <span>Settings</span>
+          <strong>Draft</strong>
+          <p>Business details stored locally</p>
+        </article>
       </div>
     </section>
   );

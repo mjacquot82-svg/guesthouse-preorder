@@ -1,8 +1,7 @@
 import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { ChevronRight, ShoppingBag } from "lucide-react";
-import { getCategoryById } from "../data/catalog.js";
-import { useCatalogProducts } from "../stores/catalogStore.js";
+import { useCatalogCategories, useCatalogProducts } from "../stores/catalogStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -22,11 +21,16 @@ function getStoredCart() {
 
 export default function HomePage() {
   const { products } = useCatalogProducts();
+  const { categories } = useCatalogCategories();
   const [cart] = useState(getStoredCart);
-  const availableProducts = products.filter((product) => product.available);
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories]
+  );
+  const availableProducts = products.filter((product) => product.active ?? product.available);
   const popularItems = availableProducts.filter((product) => product.featured).slice(0, 4);
   const coffeeCount = availableProducts.filter((product) =>
-    ["coffee", "espresso", "tea", "iced-drinks"].includes(product.category)
+    ["coffee", "tea", "cold-drinks"].includes(product.category)
   ).length;
   const cartCount = useMemo(
     () => cart.reduce((total, item) => total + item.quantity, 0),
@@ -80,7 +84,7 @@ export default function HomePage() {
               <div className={`item-thumb item-thumb-${item.image}`} aria-hidden="true" />
               <div>
                 <h3>{item.name}</h3>
-                <p>{getCategoryById(item.category)?.name || "Available now"}</p>
+                <p>{categoryById.get(item.category)?.name || "Available now"}</p>
               </div>
               <span className="favorite-item-action">
                 <strong>{formatPrice(item.price)}</strong>

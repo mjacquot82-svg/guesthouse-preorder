@@ -1,8 +1,11 @@
 import { Route, Routes } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout.jsx";
+import AdminLayout from "./admin/AdminLayout.jsx";
 import AdminDashboard from "./admin/AdminDashboard.jsx";
-import OrdersPage from "./admin/OrdersPage.jsx";
+import AdminLogin from "./admin/AdminLogin.jsx";
+import CategoriesPage from "./admin/CategoriesPage.jsx";
 import ProductsPage from "./admin/ProductsPage.jsx";
+import SettingsPage from "./admin/SettingsPage.jsx";
 import CartPage from "./pages/CartPage.jsx";
 import ConfirmationPage from "./pages/ConfirmationPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
@@ -20,9 +23,13 @@ export default function App() {
         <Route path="orders" element={<OrdersPageMobile />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="confirmation" element={<ConfirmationPage />} />
-        <Route path="admin" element={<AdminDashboard />} />
-        <Route path="admin/orders" element={<OrdersPage />} />
-        <Route path="admin/products" element={<ProductsPage />} />
+      </Route>
+      <Route path="admin/login" element={<AdminLogin />} />
+      <Route path="admin" element={<AdminLayout />}>
+        <Route index element={<AdminDashboard />} />
+        <Route path="catalog" element={<ProductsPage />} />
+        <Route path="categories" element={<CategoriesPage />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );

@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
-  getCategoryById,
   getModifierGroupsForProduct,
-  menuCategories,
 } from "../data/catalog.js";
-import { useCatalogProducts } from "../stores/catalogStore.js";
+import { useCatalogCategories, useCatalogProducts } from "../stores/catalogStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -66,11 +64,13 @@ function getCartLineId(product, selectedOptions) {
   return optionSignature ? `${product.id}__${optionSignature}` : product.id;
 }
 
-function groupProductsByCategory(products) {
-  return menuCategories
+function groupProductsByCategory(products, categories) {
+  return categories
     .map((category) => ({
       ...category,
-      items: products.filter((product) => product.category === category.id && product.available),
+      items: products.filter(
+        (product) => product.category === category.id && (product.active ?? product.available)
+      ),
     }))
     .filter((section) => section.items.length);
 }
@@ -130,12 +130,17 @@ function ProductModifiers({ product, selections, onChange }) {
 
 export default function MenuPage() {
   const { products } = useCatalogProducts();
+  const { categories } = useCatalogCategories();
   const [searchParams, setSearchParams] = useSearchParams();
-  const sections = useMemo(() => groupProductsByCategory(products), [products]);
+  const sections = useMemo(() => groupProductsByCategory(products, categories), [products, categories]);
+  const categoryById = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories]
+  );
   const firstSection = sections[0]?.id || "";
   const targetProductId = searchParams.get("product") || "";
   const targetProduct = products.find(
-    (product) => product.id === targetProductId && product.available
+    (product) => product.id === targetProductId && (product.active ?? product.available)
   );
   const [activeSection, setActiveSection] = useState(firstSection);
   const [cart, setCart] = useState(getStoredCart);
@@ -192,7 +197,7 @@ export default function MenuPage() {
     ? activeSection
     : firstSection;
   const activeMenuSection = sections.find((section) => section.id === activeSectionId);
-  const availableItems = products.filter((product) => product.available);
+  const availableItems = products.filter((product) => product.active ?? product.available);
   const featuredItems = availableItems.filter((product) => product.featured);
 
   const cartCount = useMemo(
@@ -224,7 +229,7 @@ export default function MenuPage() {
     const selectedOptions = getSelectedOptions(product, selections);
     const configuredPrice = getConfiguredPrice(product, selections);
     const cartLineId = getCartLineId(product, selectedOptions);
-    const category = getCategoryById(product.category);
+    const category = categoryById.get(product.category);
     const cartItem = {
       id: cartLineId,
       productId: product.id,
@@ -341,7 +346,7 @@ export default function MenuPage() {
                   const selections = getSelections(item);
                   const quantity = getItemQuantity(item);
                   const price = getConfiguredPrice(item, selections);
-                  const category = getCategoryById(item.category);
+                  const category = categoryById.get(item.category);
                   const cartLineId = getCartLineId(item, getSelectedOptions(item, selections));
                   const isAdded = addedLineId === cartLineId;
 
