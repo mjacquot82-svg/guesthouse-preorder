@@ -3,7 +3,11 @@ import { Link, useSearchParams } from "react-router-dom";
 import {
   getModifierGroupsForProduct,
 } from "../data/catalog.js";
-import { useCatalogCategories, useCatalogProducts } from "../stores/catalogStore.js";
+import {
+  useCatalogCategories,
+  useCatalogModifierGroups,
+  useCatalogProducts,
+} from "../stores/catalogStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -24,44 +28,89 @@ function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
-function getDefaultSelections(product) {
-  return getModifierGroupsForProduct(product).reduce((selections, group) => {
-    const defaultOption = group.options[0]?.id;
+function getDefaultSelections(product, modifierGroups) {
+  return getModifierGroupsForProduct(product, modifierGroups).reduce((selections, group) => {
+    const selectionType = group.selectionType || group.type;
+    const defaultOption = group.required || group.minSelections > 0 ? group.options[0]?.id : "";
+
     return {
       ...selections,
-      [group.id]: group.type === "multiple" ? [] : defaultOption || "",
+      [group.id]: selectionType === "multiple" ? [] : defaultOption || "",
     };
   }, {});
 }
 
-function getSelectedOptions(product, selections) {
-  return getModifierGroupsForProduct(product).flatMap((group) => {
+function getSelectedOptions(product, selections, modifierGroups) {
+  return getModifierGroupsForProduct(product, modifierGroups).flatMap((group) => {
     const selectedValue = selections[group.id];
     const selectedIds = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
 
     return selectedIds
       .map((optionId) => {
         const option = group.options.find((item) => item.id === optionId);
-        return option ? { groupId: group.id, groupName: group.name, ...option } : null;
+        return option
+          ? {
+              groupId: group.id,
+              groupName: group.name,
+              ...option,
+              priceDelta: Number(option.priceDelta ?? option.priceAdjustment) || 0,
+            }
+          : null;
       })
       .filter(Boolean);
   });
 }
 
-function getConfiguredPrice(product, selections) {
-  return getSelectedOptions(product, selections).reduce(
+function getActiveVariants(product) {
+  return (product.variants || [])
+    .filter((variant) => variant.active)
+    .sort((a, b) => (Number(a.sortOrder) || 0) - (Number(b.sortOrder) || 0));
+}
+
+function getSelectedVariant(product, variantId) {
+  return getActiveVariants(product).find((variant) => variant.id === variantId) || null;
+}
+
+function getDisplayPrice(product, selectedVariant) {
+  const activeVariants = getActiveVariants(product);
+
+  if (!activeVariants.length) {
+    if (product.variants?.length) {
+      return "Unavailable";
+    }
+
+    return formatPrice(product.price);
+  }
+
+  if (selectedVariant) {
+    return formatPrice(selectedVariant.price);
+  }
+
+  const prices = activeVariants.map((variant) => Number(variant.price) || 0);
+  const minPrice = Math.min(...prices);
+  const maxPrice = Math.max(...prices);
+
+  return minPrice === maxPrice ? formatPrice(minPrice) : `${formatPrice(minPrice)} - ${formatPrice(maxPrice)}`;
+}
+
+function getConfiguredPrice(product, selections, selectedVariant, modifierGroups) {
+  const basePrice = selectedVariant ? selectedVariant.price : product.price;
+
+  return getSelectedOptions(product, selections, modifierGroups).reduce(
     (sum, option) => sum + (Number(option.priceDelta) || 0),
-    product.price
+    basePrice
   );
 }
 
-function getCartLineId(product, selectedOptions) {
+function getCartLineId(product, selectedOptions, selectedVariant) {
   const optionSignature = selectedOptions
     .map((option) => `${option.groupId}:${option.id}`)
     .sort()
     .join("|");
+  const variantSignature = selectedVariant ? `variant:${selectedVariant.id}` : "";
+  const signature = [variantSignature, optionSignature].filter(Boolean).join("|");
 
-  return optionSignature ? `${product.id}__${optionSignature}` : product.id;
+  return signature ? `${product.id}__${signature}` : product.id;
 }
 
 function groupProductsByCategory(products, categories) {
@@ -75,34 +124,64 @@ function groupProductsByCategory(products, categories) {
     .filter((section) => section.items.length);
 }
 
-function ProductModifiers({ product, selections, onChange }) {
-  const modifierGroups = getModifierGroupsForProduct(product);
+function hasValidRequiredSelections(product, selections, modifierGroups) {
+  return getModifierGroupsForProduct(product, modifierGroups).every((group) => {
+    const minSelections = Number(group.minSelections ?? (group.required ? 1 : 0)) || 0;
 
-  if (!modifierGroups.length) {
+    if (!minSelections) {
+      return true;
+    }
+
+    const selectedValue = selections[group.id];
+    const selectedIds = Array.isArray(selectedValue) ? selectedValue : [selectedValue].filter(Boolean);
+
+    return selectedIds.length >= minSelections;
+  });
+}
+
+function ProductModifiers({ product, selections, modifierGroups, onChange }) {
+  const attachedModifierGroups = getModifierGroupsForProduct(product, modifierGroups);
+
+  if (!attachedModifierGroups.length) {
     return null;
   }
 
   return (
-    <div className="modifier-stack">
-      {modifierGroups.map((group) => (
+    <>
+      {attachedModifierGroups.map((group) => {
+        const selectionType = group.selectionType || group.type;
+        const maxSelections = Number(group.maxSelections) || 0;
+        const selectedValue = selections[group.id];
+        const selectedCount = Array.isArray(selectedValue)
+          ? selectedValue.length
+          : selectedValue
+            ? 1
+            : 0;
+
+        return (
         <fieldset key={group.id} className="modifier-group">
-          <legend>{group.name}</legend>
+          <legend>{group.name}{group.required ? "" : " (optional)"}</legend>
           <div className="modifier-options">
             {group.options.map((option) => {
-              const selectedValue = selections[group.id];
               const isSelected = Array.isArray(selectedValue)
                 ? selectedValue.includes(option.id)
                 : selectedValue === option.id;
+              const selectionLimitReached =
+                selectionType === "multiple" &&
+                maxSelections > 0 &&
+                selectedCount >= maxSelections &&
+                !isSelected;
 
               return (
                 <label key={option.id} className={isSelected ? "selected" : ""}>
                   <input
                     checked={isSelected}
+                    disabled={selectionLimitReached}
                     name={`${product.id}-${group.id}`}
-                    type={group.type === "multiple" ? "checkbox" : "radio"}
+                    type={selectionType === "multiple" ? "checkbox" : "radio"}
                     value={option.id}
                     onChange={(event) => {
-                      if (group.type === "multiple") {
+                      if (selectionType === "multiple") {
                         const current = Array.isArray(selectedValue) ? selectedValue : [];
                         onChange(
                           group.id,
@@ -123,14 +202,53 @@ function ProductModifiers({ product, selections, onChange }) {
             })}
           </div>
         </fieldset>
-      ))}
-    </div>
+        );
+      })}
+    </>
+  );
+}
+
+function ProductVariants({ product, selectedVariantId, onChange }) {
+  const variants = getActiveVariants(product);
+
+  if (!variants.length) {
+    if (product.variants?.length) {
+      return <p className="variant-unavailable-note">No active variants available.</p>;
+    }
+
+    return null;
+  }
+
+  return (
+    <fieldset className="modifier-group variant-selector">
+      <legend>Choose Size</legend>
+      <div className="modifier-options">
+        {variants.map((variant) => {
+          const isSelected = selectedVariantId === variant.id;
+
+          return (
+            <label key={variant.id} className={isSelected ? "selected" : ""}>
+              <input
+                checked={isSelected}
+                name={`${product.id}-variant`}
+                type="radio"
+                value={variant.id}
+                onChange={() => onChange(variant.id)}
+              />
+              <span>{variant.name}</span>
+              <small>{formatPrice(variant.price)}</small>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 
 export default function MenuPage() {
   const { products } = useCatalogProducts();
   const { categories } = useCatalogCategories();
+  const { modifierGroups } = useCatalogModifierGroups();
   const [searchParams, setSearchParams] = useSearchParams();
   const sections = useMemo(() => groupProductsByCategory(products, categories), [products, categories]);
   const categoryById = useMemo(
@@ -149,6 +267,7 @@ export default function MenuPage() {
   const [bagIsUpdating, setBagIsUpdating] = useState(false);
   const [spotlightProductId, setSpotlightProductId] = useState("");
   const [selectionsByProduct, setSelectionsByProduct] = useState({});
+  const [variantsByProduct, setVariantsByProduct] = useState({});
   const addedResetTimer = useRef(null);
   const bagPulseTimer = useRef(null);
   const spotlightTimer = useRef(null);
@@ -211,7 +330,7 @@ export default function MenuPage() {
   );
 
   function getSelections(product) {
-    return selectionsByProduct[product.id] || getDefaultSelections(product);
+    return selectionsByProduct[product.id] || getDefaultSelections(product, modifierGroups);
   }
 
   function updateSelection(productId, groupId, value) {
@@ -224,26 +343,50 @@ export default function MenuPage() {
     }));
   }
 
+  function updateVariantSelection(productId, variantId) {
+    setVariantsByProduct((current) => ({
+      ...current,
+      [productId]: variantId,
+    }));
+  }
+
   function addItem(product) {
     const selections = getSelections(product);
-    const selectedOptions = getSelectedOptions(product, selections);
-    const configuredPrice = getConfiguredPrice(product, selections);
-    const cartLineId = getCartLineId(product, selectedOptions);
+    const selectedVariant = getSelectedVariant(product, variantsByProduct[product.id]);
+
+    if (product.variants?.length && !selectedVariant) {
+      return;
+    }
+
+    if (!hasValidRequiredSelections(product, selections, modifierGroups)) {
+      return;
+    }
+
+    const selectedOptions = getSelectedOptions(product, selections, modifierGroups);
+    const configuredPrice = getConfiguredPrice(product, selections, selectedVariant, modifierGroups);
+    const cartLineId = getCartLineId(product, selectedOptions, selectedVariant);
     const category = categoryById.get(product.category);
     const cartItem = {
       id: cartLineId,
       productId: product.id,
+      variantId: selectedVariant?.id || "",
       name: product.name,
+      variantName: selectedVariant?.name || "",
+      variantPrice: selectedVariant?.price ?? null,
       description: product.description,
       price: configuredPrice,
-      basePrice: product.price,
+      finalPrice: configuredPrice,
+      basePrice: selectedVariant?.price ?? product.price,
       category: category?.name || product.category,
-      options: selectedOptions.map((option) => ({
+      selectedModifiers: selectedOptions.map((option) => ({
+        groupId: option.groupId,
         groupName: option.groupName,
+        optionId: option.id,
         name: option.name,
         priceDelta: option.priceDelta,
       })),
     };
+    cartItem.options = cartItem.selectedModifiers;
     const nextCart = cart.some((item) => item.id === cartLineId)
       ? cart.map((item) =>
           item.id === cartLineId ? { ...item, quantity: item.quantity + 1 } : item
@@ -274,7 +417,17 @@ export default function MenuPage() {
 
   function getItemQuantity(product) {
     const selections = getSelections(product);
-    const cartLineId = getCartLineId(product, getSelectedOptions(product, selections));
+    const selectedVariant = getSelectedVariant(product, variantsByProduct[product.id]);
+
+    if (product.variants?.length && !selectedVariant) {
+      return 0;
+    }
+
+    const cartLineId = getCartLineId(
+      product,
+      getSelectedOptions(product, selections, modifierGroups),
+      selectedVariant
+    );
     return cart.find((item) => item.id === cartLineId)?.quantity || 0;
   }
 
@@ -344,10 +497,18 @@ export default function MenuPage() {
               <ul className="drink-card-grid">
                 {activeMenuSection.items.map((item) => {
                   const selections = getSelections(item);
+                  const selectedVariant = getSelectedVariant(item, variantsByProduct[item.id]);
+                  const hasVariants = (item.variants?.length || 0) > 0;
                   const quantity = getItemQuantity(item);
-                  const price = getConfiguredPrice(item, selections);
+                  const price = selectedVariant
+                    ? getConfiguredPrice(item, selections, selectedVariant, modifierGroups)
+                    : null;
                   const category = categoryById.get(item.category);
-                  const cartLineId = getCartLineId(item, getSelectedOptions(item, selections));
+                  const cartLineId = getCartLineId(
+                    item,
+                    getSelectedOptions(item, selections, modifierGroups),
+                    selectedVariant
+                  );
                   const isAdded = addedLineId === cartLineId;
 
                   const isSpotlighted = spotlightProductId === item.id;
@@ -366,27 +527,41 @@ export default function MenuPage() {
                             <span>{category?.name || "Cafe"}</span>
                             <h3>{item.name}</h3>
                           </div>
-                          <strong>{formatPrice(price)}</strong>
+                          <strong>{price === null ? getDisplayPrice(item, selectedVariant) : formatPrice(price)}</strong>
                         </div>
                         <p>{item.description}</p>
 
-                        <ProductModifiers
-                          product={item}
-                          selections={selections}
-                          onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
-                        />
+                        <div className="modifier-stack">
+                          <ProductVariants
+                            product={item}
+                            selectedVariantId={variantsByProduct[item.id] || ""}
+                            onChange={(variantId) => updateVariantSelection(item.id, variantId)}
+                          />
+
+                          <ProductModifiers
+                            product={item}
+                            selections={selections}
+                            modifierGroups={modifierGroups}
+                            onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
+                          />
+                        </div>
 
                         <button
                           className={isAdded ? "is-added" : ""}
                           type="button"
+                          disabled={hasVariants && !selectedVariant}
                           onClick={() => addItem(item)}
                         >
                           <span>
-                            {isAdded
-                              ? "✓ Added to order"
-                              : quantity
-                                ? `Add again · ${quantity}`
-                                : "Add to order"}
+                            {hasVariants && !getActiveVariants(item).length
+                              ? "No active variants"
+                              : hasVariants && !selectedVariant
+                                ? "Choose a size"
+                              : isAdded
+                                ? "✓ Added to order"
+                                : quantity
+                                  ? `Add again · ${quantity}`
+                                  : "Add to order"}
                           </span>
                         </button>
                       </div>

@@ -176,6 +176,7 @@ export default function CartPage() {
             <li key={item.id}>
               <div className="cart-item-copy">
                 <strong>{item.name}</strong>
+                {item.variantName ? <small>Size: {item.variantName}</small> : null}
                 {item.options?.length ? (
                   <small>
                     {item.options.map((option) => `${option.groupName}: ${option.name}`).join(", ")}

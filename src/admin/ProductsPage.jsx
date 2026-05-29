@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
 import {
   createProductId,
   useCatalogCategories,
+  useCatalogModifierGroups,
   useCatalogProducts,
 } from "../stores/catalogStore.js";
 
@@ -17,6 +18,7 @@ const emptyProduct = {
   active: true,
   available: true,
   featured: false,
+  variants: [],
   variantIds: [],
   modifierGroupIds: [],
 };
@@ -30,6 +32,7 @@ function formatPrice(price) {
 
 function toFormProduct(product) {
   const basePrice = product.basePrice ?? product.price ?? "";
+  const variants = Array.isArray(product.variants) ? product.variants : [];
 
   return {
     ...emptyProduct,
@@ -38,14 +41,35 @@ function toFormProduct(product) {
     price: String(basePrice),
     active: product.active ?? product.available ?? true,
     available: product.available ?? product.active ?? true,
-    variantIds: product.variantIds || [],
+    variants: variants
+      .map((variant, index) => ({
+        id: variant.id,
+        name: variant.name || "",
+        price: String(variant.price ?? ""),
+        active: variant.active ?? true,
+        sortOrder: Number(variant.sortOrder ?? index) || 0,
+        modifierGroupIds: variant.modifierGroupIds || [],
+      }))
+      .sort((a, b) => a.sortOrder - b.sortOrder),
+    variantIds: variants.map((variant) => variant.id),
     modifierGroupIds: product.modifierGroupIds || [],
   };
+}
+
+function createVariantId(name) {
+  const baseId = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return `${baseId || "variant"}-${Date.now()}`;
 }
 
 export default function ProductsPage() {
   const { products, addProduct, updateProduct, removeProduct } = useCatalogProducts();
   const { categories } = useCatalogCategories();
+  const { modifierGroups } = useCatalogModifierGroups();
   const [selectedProductId, setSelectedProductId] = useState("");
   const [formProduct, setFormProduct] = useState(emptyProduct);
   const [status, setStatus] = useState("");
@@ -73,6 +97,74 @@ export default function ProductsPage() {
     setFormProduct((current) => ({ ...current, [field]: value }));
   }
 
+  function updateModifierGroupSelection(groupId, isSelected) {
+    setFormProduct((current) => {
+      const currentIds = current.modifierGroupIds || [];
+
+      return {
+        ...current,
+        modifierGroupIds: isSelected
+          ? [...new Set([...currentIds, groupId])]
+          : currentIds.filter((id) => id !== groupId),
+      };
+    });
+  }
+
+  function addVariant() {
+    setFormProduct((current) => ({
+      ...current,
+      variants: [
+        ...(current.variants || []),
+        {
+          id: createVariantId("variant"),
+          name: "",
+          price: current.basePrice || "",
+          active: true,
+          sortOrder: current.variants?.length || 0,
+          modifierGroupIds: [],
+        },
+      ],
+    }));
+  }
+
+  function updateVariant(variantId, field, value) {
+    setFormProduct((current) => ({
+      ...current,
+      variants: (current.variants || []).map((variant) =>
+        variant.id === variantId ? { ...variant, [field]: value } : variant
+      ),
+    }));
+  }
+
+  function removeVariant(variantId) {
+    setFormProduct((current) => ({
+      ...current,
+      variants: (current.variants || [])
+        .filter((variant) => variant.id !== variantId)
+        .map((variant, index) => ({ ...variant, sortOrder: index })),
+    }));
+  }
+
+  function moveVariant(variantId, direction) {
+    setFormProduct((current) => {
+      const variants = [...(current.variants || [])];
+      const currentIndex = variants.findIndex((variant) => variant.id === variantId);
+      const nextIndex = currentIndex + direction;
+
+      if (currentIndex < 0 || nextIndex < 0 || nextIndex >= variants.length) {
+        return current;
+      }
+
+      const [variant] = variants.splice(currentIndex, 1);
+      variants.splice(nextIndex, 0, variant);
+
+      return {
+        ...current,
+        variants: variants.map((item, index) => ({ ...item, sortOrder: index })),
+      };
+    });
+  }
+
   function startEdit(product) {
     setSelectedProductId(product.id);
     setFormProduct(toFormProduct(product));
@@ -89,6 +181,14 @@ export default function ProductsPage() {
 
     const productId = selectedProductId || createProductId(formProduct.name);
     const basePrice = Number(formProduct.basePrice);
+    const variants = (formProduct.variants || []).map((variant, index) => ({
+      id: variant.id || createVariantId(variant.name),
+      name: variant.name.trim(),
+      price: Number(variant.price),
+      active: Boolean(variant.active),
+      sortOrder: index,
+      modifierGroupIds: variant.modifierGroupIds || [],
+    }));
     const payload = {
       ...formProduct,
       id: productId,
@@ -98,12 +198,18 @@ export default function ProductsPage() {
       price: basePrice,
       active: Boolean(formProduct.active),
       available: Boolean(formProduct.active),
-      variantIds: formProduct.variantIds || [],
+      variants,
+      variantIds: variants.map((variant) => variant.id),
       modifierGroupIds: formProduct.modifierGroupIds || [],
     };
 
     if (!payload.name || Number.isNaN(payload.basePrice)) {
       setStatus("Add a product name and valid base price.");
+      return;
+    }
+
+    if (variants.some((variant) => !variant.name || Number.isNaN(variant.price))) {
+      setStatus("Each variant needs a name and valid price.");
       return;
     }
 
@@ -210,6 +316,121 @@ export default function ProductsPage() {
               <span>Active product</span>
             </label>
 
+            <section className="variant-editor-section" aria-labelledby="variant-editor-heading">
+              <div className="section-heading">
+                <div>
+                  <h3 id="variant-editor-heading">Variants</h3>
+                  <p>Use variants when a product has separate sizes or prices.</p>
+                </div>
+                <button className="secondary-button" type="button" onClick={addVariant}>
+                  <Plus size={16} strokeWidth={2.35} aria-hidden="true" />
+                  Add variant
+                </button>
+              </div>
+
+              {formProduct.variants?.length ? (
+                <div className="variant-editor-list">
+                  {formProduct.variants.map((variant, index) => (
+                    <article className="variant-editor-row" key={variant.id}>
+                      <div className="variant-sort-actions" aria-label={`Reorder ${variant.name || "variant"}`}>
+                        <button
+                          type="button"
+                          onClick={() => moveVariant(variant.id, -1)}
+                          disabled={index === 0}
+                          aria-label="Move variant up"
+                        >
+                          <ArrowUp size={15} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveVariant(variant.id, 1)}
+                          disabled={index === formProduct.variants.length - 1}
+                          aria-label="Move variant down"
+                        >
+                          <ArrowDown size={15} aria-hidden="true" />
+                        </button>
+                      </div>
+                      <label>
+                        <span>Variant Name</span>
+                        <input
+                          type="text"
+                          value={variant.name}
+                          onChange={(event) => updateVariant(variant.id, "name", event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        <span>Price</span>
+                        <input
+                          min="0"
+                          step="0.01"
+                          type="number"
+                          value={variant.price}
+                          onChange={(event) => updateVariant(variant.id, "price", event.target.value)}
+                        />
+                      </label>
+                      <label className="admin-check-row variant-active-row">
+                        <input
+                          checked={variant.active}
+                          type="checkbox"
+                          onChange={(event) => updateVariant(variant.id, "active", event.target.checked)}
+                        />
+                        <span>Active</span>
+                      </label>
+                      <button
+                        className="icon-button danger-button"
+                        type="button"
+                        onClick={() => removeVariant(variant.id)}
+                        aria-label={`Delete ${variant.name || "variant"}`}
+                      >
+                        <Trash2 size={16} strokeWidth={2.3} aria-hidden="true" />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-variant-note">No variants. Customers will order this product at its base price.</p>
+              )}
+            </section>
+
+            <section className="variant-editor-section" aria-labelledby="modifier-linkage-heading">
+              <div className="section-heading">
+                <div>
+                  <h3 id="modifier-linkage-heading">Modifier groups</h3>
+                  <p>Attach add-ons and customizations to this product.</p>
+                </div>
+              </div>
+
+              {modifierGroups.length ? (
+                <div className="modifier-link-list">
+                  {modifierGroups.map((group) => {
+                    const optionCount = group.options?.length || 0;
+                    const isAttached = formProduct.modifierGroupIds?.includes(group.id);
+
+                    return (
+                      <label className="admin-check-row modifier-link-row" key={group.id}>
+                        <input
+                          checked={isAttached}
+                          type="checkbox"
+                          onChange={(event) =>
+                            updateModifierGroupSelection(group.id, event.target.checked)
+                          }
+                        />
+                        <span>
+                          {group.name}
+                          <small>
+                            {group.required ? "Required" : "Optional"} · min {group.minSelections} · max{" "}
+                            {group.maxSelections || optionCount} · {optionCount} options
+                          </small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="empty-variant-note">No modifier groups are configured yet.</p>
+              )}
+            </section>
+
             <div className="admin-form-actions">
               <button className="primary-button" type="submit">
                 {selectedProduct ? "Save changes" : "Create product"}
@@ -234,6 +455,7 @@ export default function ProductsPage() {
             {sortedProducts.map((product) => {
               const category = categoryById.get(product.category);
               const isActive = product.active ?? product.available;
+              const variantCount = product.variants?.length || 0;
 
               return (
                 <article className="admin-list-row" key={product.id}>
@@ -244,6 +466,7 @@ export default function ProductsPage() {
                   </div>
                   <div className="admin-row-meta">
                     <strong>{formatPrice(product.basePrice ?? product.price)}</strong>
+                    <span>{variantCount} {variantCount === 1 ? "variant" : "variants"}</span>
                     <button
                       className={isActive ? "status-pill available" : "status-pill"}
                       type="button"

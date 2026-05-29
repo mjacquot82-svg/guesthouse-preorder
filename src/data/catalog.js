@@ -9,49 +9,60 @@ export const menuCategories = [
 
 export const modifierGroups = [
   {
-    id: "size",
-    name: "Size",
-    type: "single",
-    required: true,
-    options: [
-      { id: "small", name: "Small", priceDelta: 0 },
-      { id: "medium", name: "Medium", priceDelta: 0.75 },
-      { id: "large", name: "Large", priceDelta: 1.25 },
-    ],
-  },
-  {
     id: "milk",
     name: "Milk",
     type: "single",
-    required: false,
+    selectionType: "single",
+    required: true,
+    minSelections: 1,
+    maxSelections: 1,
     options: [
-      { id: "whole", name: "Whole milk", priceDelta: 0 },
-      { id: "oat", name: "Oat", priceDelta: 0.85 },
-      { id: "almond", name: "Almond", priceDelta: 0.85 },
-      { id: "soy", name: "Soy", priceDelta: 0.85 },
-      { id: "coconut", name: "Coconut", priceDelta: 0.85 },
+      { id: "whole", name: "Whole milk", priceDelta: 0, priceAdjustment: 0, active: true },
+      { id: "oat", name: "Oat milk", priceDelta: 0.85, priceAdjustment: 0.85, active: true },
+      { id: "almond", name: "Almond milk", priceDelta: 0.85, priceAdjustment: 0.85, active: true },
+      { id: "soy", name: "Soy milk", priceDelta: 0.85, priceAdjustment: 0.85, active: true },
+      { id: "coconut", name: "Coconut milk", priceDelta: 0.85, priceAdjustment: 0.85, active: true },
     ],
   },
   {
     id: "flavour-shots",
     name: "Flavour shots",
     type: "multiple",
+    selectionType: "multiple",
     required: false,
+    minSelections: 0,
+    maxSelections: 3,
     options: [
-      { id: "vanilla", name: "Vanilla", priceDelta: 0.75 },
-      { id: "caramel", name: "Caramel", priceDelta: 0.75 },
-      { id: "hazelnut", name: "Hazelnut", priceDelta: 0.75 },
+      { id: "vanilla", name: "Vanilla", priceDelta: 0.75, priceAdjustment: 0.75, active: true },
+      { id: "caramel", name: "Caramel", priceDelta: 0.75, priceAdjustment: 0.75, active: true },
+      { id: "hazelnut", name: "Hazelnut", priceDelta: 0.75, priceAdjustment: 0.75, active: true },
+    ],
+  },
+  {
+    id: "extras",
+    name: "Extras",
+    type: "multiple",
+    selectionType: "multiple",
+    required: false,
+    minSelections: 0,
+    maxSelections: 2,
+    options: [
+      { id: "extra-shot", name: "Extra shot", priceDelta: 1, priceAdjustment: 1, active: true },
+      { id: "whipped-cream", name: "Whipped cream", priceDelta: 0.5, priceAdjustment: 0.5, active: true },
     ],
   },
   {
     id: "toast",
     name: "Toast",
     type: "single",
+    selectionType: "single",
     required: false,
+    minSelections: 0,
+    maxSelections: 1,
     options: [
-      { id: "plain", name: "Plain", priceDelta: 0 },
-      { id: "butter", name: "Butter", priceDelta: 0.35 },
-      { id: "jam", name: "House jam", priceDelta: 0.65 },
+      { id: "plain", name: "Plain", priceDelta: 0, priceAdjustment: 0, active: true },
+      { id: "butter", name: "Butter", priceDelta: 0.35, priceAdjustment: 0.35, active: true },
+      { id: "jam", name: "House jam", priceDelta: 0.65, priceAdjustment: 0.65, active: true },
     ],
   },
 ];
@@ -62,66 +73,119 @@ export const initialCatalogProducts = [
     name: "Drip Coffee",
     description: "Warm, steady, and ready from the counter.",
     price: 3.75,
+    basePrice: 3.75,
     category: "coffee",
     image: "coffee",
     available: true,
     featured: true,
-    modifierGroupIds: ["size", "milk"],
+    variants: [
+      { id: "drip-coffee-small", name: "Small", price: 3.25, active: true, sortOrder: 0 },
+      { id: "drip-coffee-medium", name: "Medium", price: 3.75, active: true, sortOrder: 1 },
+      { id: "drip-coffee-large", name: "Large", price: 4.25, active: true, sortOrder: 2 },
+    ],
+    modifierGroupIds: ["milk", "extras"],
+  },
+  {
+    id: "americano",
+    name: "Americano",
+    description: "Espresso softened with hot water.",
+    price: 4,
+    basePrice: 4,
+    category: "coffee",
+    image: "coffee",
+    available: true,
+    featured: false,
+    variants: [
+      { id: "americano-small", name: "Small", price: 3.5, active: true, sortOrder: 0 },
+      { id: "americano-medium", name: "Medium", price: 4, active: true, sortOrder: 1 },
+      { id: "americano-large", name: "Large", price: 4.5, active: true, sortOrder: 2 },
+    ],
+    modifierGroupIds: ["milk", "flavour-shots", "extras"],
   },
   {
     id: "cold-brew",
     name: "Cold Brew",
     description: "Slow-steeped and poured over ice.",
     price: 4.75,
+    basePrice: 4.75,
     category: "cold-drinks",
     image: "coffee",
     available: true,
     featured: true,
-    modifierGroupIds: ["size", "milk", "flavour-shots"],
+    variants: [
+      { id: "cold-brew-small", name: "Small", price: 4.75, active: true, sortOrder: 0 },
+      { id: "cold-brew-medium", name: "Medium", price: 5.5, active: true, sortOrder: 1 },
+      { id: "cold-brew-large", name: "Large", price: 6.25, active: true, sortOrder: 2 },
+    ],
+    modifierGroupIds: ["milk", "flavour-shots", "extras"],
   },
   {
     id: "latte",
     name: "Latte",
     description: "Velvety milk and a double shot.",
     price: 5.25,
+    basePrice: 5.25,
     category: "coffee",
     image: "coffee",
     available: true,
     featured: true,
-    modifierGroupIds: ["size", "milk", "flavour-shots"],
+    variants: [
+      { id: "latte-small", name: "Small", price: 4.5, active: true, sortOrder: 0 },
+      { id: "latte-medium", name: "Medium", price: 5.25, active: true, sortOrder: 1 },
+      { id: "latte-large", name: "Large", price: 6, active: true, sortOrder: 2 },
+    ],
+    modifierGroupIds: ["milk", "flavour-shots", "extras"],
   },
   {
     id: "cappuccino",
     name: "Cappuccino",
     description: "Foamy, cozy, and balanced.",
     price: 5.25,
+    basePrice: 5.25,
     category: "coffee",
     image: "coffee",
     available: true,
     featured: false,
-    modifierGroupIds: ["size", "milk"],
+    variants: [
+      { id: "cappuccino-small", name: "Small", price: 4.5, active: true, sortOrder: 0 },
+      { id: "cappuccino-medium", name: "Medium", price: 5.25, active: true, sortOrder: 1 },
+      { id: "cappuccino-large", name: "Large", price: 6, active: true, sortOrder: 2 },
+    ],
+    modifierGroupIds: ["milk", "extras"],
   },
   {
     id: "chai-latte",
     name: "Chai Latte",
     description: "Spiced tea with steamed milk.",
     price: 5.25,
+    basePrice: 5.25,
     category: "tea",
     image: "coffee",
     available: true,
     featured: false,
-    modifierGroupIds: ["size", "milk"],
+    variants: [
+      { id: "chai-latte-small", name: "Small", price: 4.75, active: true, sortOrder: 0 },
+      { id: "chai-latte-medium", name: "Medium", price: 5.25, active: true, sortOrder: 1 },
+      { id: "chai-latte-large", name: "Large", price: 5.75, active: true, sortOrder: 2 },
+    ],
+    modifierGroupIds: ["milk", "flavour-shots", "extras"],
   },
   {
     id: "berry-smoothie",
     name: "Berry Smoothie",
     description: "Mixed berries, banana, and yogurt.",
     price: 6.5,
+    basePrice: 6.5,
     category: "cold-drinks",
     image: "water",
     available: true,
     featured: false,
-    modifierGroupIds: ["size"],
+    variants: [
+      { id: "berry-smoothie-small", name: "Small", price: 5.75, active: true, sortOrder: 0 },
+      { id: "berry-smoothie-medium", name: "Medium", price: 6.5, active: true, sortOrder: 1 },
+      { id: "berry-smoothie-large", name: "Large", price: 7.25, active: true, sortOrder: 2 },
+    ],
+    modifierGroupIds: [],
   },
   {
     id: "granola-yogurt",
@@ -184,8 +248,15 @@ export function getCategoryById(categoryId) {
   return menuCategories.find((category) => category.id === categoryId);
 }
 
-export function getModifierGroupsForProduct(product) {
+export function getModifierGroupsForProduct(product, availableModifierGroups = modifierGroups) {
   return (product.modifierGroupIds || [])
-    .map((groupId) => modifierGroups.find((group) => group.id === groupId))
-    .filter(Boolean);
+    .filter((groupId) => groupId !== "size")
+    .map((groupId) => availableModifierGroups.find((group) => group.id === groupId))
+    .filter(Boolean)
+    .map((group) => ({
+      ...group,
+      type: group.selectionType || group.type || "single",
+      options: (group.options || []).filter((option) => option.active ?? true),
+    }))
+    .filter((group) => group.options.length);
 }

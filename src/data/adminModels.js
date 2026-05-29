@@ -6,6 +6,7 @@ export const productModel = {
   basePrice: 0,
   image: "",
   active: true,
+  variants: [],
   variantIds: [],
   modifierGroupIds: [],
   metadata: {},
@@ -15,10 +16,10 @@ export const productVariantModel = {
   id: "",
   productId: "",
   name: "",
-  sku: "",
-  priceDelta: 0,
+  price: 0,
   active: true,
   sortOrder: 0,
+  modifierGroupIds: [],
   metadata: {},
 };
 
@@ -29,18 +30,22 @@ export const modifierGroupModel = {
   required: false,
   minSelections: 0,
   maxSelections: 1,
+  options: [],
   optionIds: [],
   appliesToProductIds: [],
   sortOrder: 0,
+  metadata: {},
 };
 
 export const modifierOptionModel = {
   id: "",
   modifierGroupId: "",
   name: "",
+  priceAdjustment: 0,
   priceDelta: 0,
   active: true,
   sortOrder: 0,
+  metadata: {},
 };
 
 export const customerAccountModel = {
