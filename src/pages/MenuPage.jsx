@@ -8,7 +8,9 @@ import {
   useCatalogModifierGroups,
   useCatalogProducts,
 } from "../stores/catalogStore.js";
-import { getStoredCart, storeCart } from "../stores/cartStore.js";
+import { addToCart, getStoredCart, storeCart } from "../stores/cartStore.js";
+import { buildDailySpecialCartItem, getActiveDailySpecial } from "../services/dailySpecialService.js";
+import { useDailySpecials } from "../stores/dailySpecialStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -238,6 +240,7 @@ export default function MenuPage() {
   const { products } = useCatalogProducts();
   const { categories } = useCatalogCategories();
   const { modifierGroups } = useCatalogModifierGroups();
+  const { dailySpecials } = useDailySpecials();
   const [searchParams, setSearchParams] = useSearchParams();
   const sections = useMemo(() => groupProductsByCategory(products, categories), [products, categories]);
   const categoryById = useMemo(
@@ -246,9 +249,11 @@ export default function MenuPage() {
   );
   const firstSection = sections[0]?.id || "";
   const targetProductId = searchParams.get("product") || "";
+  const targetSpecial = searchParams.get("special") === "active";
   const targetProduct = products.find(
     (product) => product.id === targetProductId && (product.active ?? product.available)
   );
+  const activeDailySpecial = useMemo(() => getActiveDailySpecial(dailySpecials), [dailySpecials]);
   const [activeSection, setActiveSection] = useState(firstSection);
   const [cart, setCart] = useState(getStoredCart);
   const [lastAdded, setLastAdded] = useState("");
@@ -300,6 +305,18 @@ export default function MenuPage() {
       }, 1800);
     });
   }, [activeSection, targetProduct]);
+
+  useEffect(() => {
+    if (!targetSpecial || !activeDailySpecial) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      document
+        .getElementById("daily-special-card")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [activeDailySpecial, targetSpecial]);
 
   const activeSectionId = sections.some((section) => section.id === activeSection)
     ? activeSection
@@ -404,6 +421,30 @@ export default function MenuPage() {
     }, 900);
   }
 
+  function addDailySpecialToCart() {
+    if (!activeDailySpecial) {
+      return;
+    }
+
+    const categoryName = categoryById.get(activeDailySpecial.categoryId)?.name || "Daily Special";
+    const nextCart = addToCart(cart, buildDailySpecialCartItem(activeDailySpecial, categoryName));
+
+    setCart(nextCart);
+    storeCart(nextCart);
+    setLastAdded(activeDailySpecial.title);
+    setBagIsUpdating(false);
+
+    clearTimeout(bagPulseTimer.current);
+
+    requestAnimationFrame(() => {
+      setBagIsUpdating(true);
+    });
+
+    bagPulseTimer.current = setTimeout(() => {
+      setBagIsUpdating(false);
+    }, 900);
+  }
+
   function getItemQuantity(product) {
     const selections = getSelections(product);
     const selectedVariant = getSelectedVariant(product, variantsByProduct[product.id]);
@@ -453,6 +494,29 @@ export default function MenuPage() {
       >
         Added to your café bag
       </div>
+
+      {activeDailySpecial ? (
+        <section
+          className="daily-special-card menu-daily-special"
+          id="daily-special-card"
+          aria-labelledby="menu-daily-special-heading"
+        >
+          <div className="daily-special-media">
+            {activeDailySpecial.imageUrl ? <img src={activeDailySpecial.imageUrl} alt="" /> : null}
+          </div>
+          <div className="daily-special-copy">
+            <p className="eyebrow">Daily Special</p>
+            <h2 id="menu-daily-special-heading">{activeDailySpecial.title}</h2>
+            <p>{activeDailySpecial.description}</p>
+            <strong>{formatPrice(activeDailySpecial.price)}</strong>
+            <div className="daily-special-actions">
+              <button className="primary-button" type="button" onClick={addDailySpecialToCart}>
+                Add daily special
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <div className="menu-category-rail" aria-label="Menu categories">
         {sections.map((section) => (

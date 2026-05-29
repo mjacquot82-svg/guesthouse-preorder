@@ -2,33 +2,29 @@ import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { ChevronRight, ShoppingBag } from "lucide-react";
 import { useCatalogCategories, useCatalogProducts } from "../stores/catalogStore.js";
+import { buildDailySpecialCartItem, getActiveDailySpecial } from "../services/dailySpecialService.js";
+import { useDailySpecials } from "../stores/dailySpecialStore.js";
+import { addToCart, getStoredCart, storeCart } from "../stores/cartStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
   }).format(price);
-}
-
-function getStoredCart() {
-  try {
-    return JSON.parse(window.localStorage.getItem("cafe-cart")) || [];
-  } catch {
-    return [];
-  }
 }
 
 export default function HomePage() {
   const { products } = useCatalogProducts();
   const { categories } = useCatalogCategories();
-  const [cart] = useState(getStoredCart);
+  const { dailySpecials } = useDailySpecials();
+  const [cart, setCart] = useState(getStoredCart);
   const categoryById = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
     [categories]
   );
   const availableProducts = products.filter((product) => product.active ?? product.available);
   const popularItems = availableProducts.filter((product) => product.featured).slice(0, 4);
+  const activeDailySpecial = useMemo(() => getActiveDailySpecial(dailySpecials), [dailySpecials]);
   const coffeeCount = availableProducts.filter((product) =>
     ["coffee", "tea", "cold-drinks"].includes(product.category)
   ).length;
@@ -40,6 +36,17 @@ export default function HomePage() {
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
     [cart]
   );
+
+  function addDailySpecialToCart() {
+    if (!activeDailySpecial) {
+      return;
+    }
+
+    const categoryName = categoryById.get(activeDailySpecial.categoryId)?.name || "Daily Special";
+    const nextCart = addToCart(cart, buildDailySpecialCartItem(activeDailySpecial, categoryName));
+    setCart(nextCart);
+    storeCart(nextCart);
+  }
 
   return (
     <section className="home-page ordering-page">
@@ -67,6 +74,28 @@ export default function HomePage() {
           {cartCount} {cartCount === 1 ? "item" : "items"} · {formatPrice(cartTotal)}
         </Link>
       </div>
+
+      {activeDailySpecial ? (
+        <section className="daily-special-card home-daily-special" aria-labelledby="home-daily-special-heading">
+          <div className="daily-special-media">
+            {activeDailySpecial.imageUrl ? <img src={activeDailySpecial.imageUrl} alt="" /> : null}
+          </div>
+          <div className="daily-special-copy">
+            <p className="eyebrow">Today&apos;s lunch special</p>
+            <h2 id="home-daily-special-heading">{activeDailySpecial.title}</h2>
+            <p>{activeDailySpecial.description}</p>
+            <strong>{formatPrice(activeDailySpecial.price)}</strong>
+            <div className="daily-special-actions">
+              <button className="primary-button" type="button" onClick={addDailySpecialToCart}>
+                Add to cart
+              </button>
+              <Link className="secondary-button" to="/menu?special=active">
+                View details
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section className="content-block app-content-block cafe-favorites-block" aria-labelledby="popular-heading">
         <div className="section-heading">
