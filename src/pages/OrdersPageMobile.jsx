@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Clock3, ReceiptText } from "lucide-react";
 import { useCustomerSession } from "../stores/customerAuthStore.js";
-import { ACTIVE_ORDER_STATUSES, getLastOrderId, useOrders } from "../stores/orderStore.js";
+import { OPEN_ORDER_STATUSES, getLastOrderId, useOrders } from "../stores/orderStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -12,11 +12,11 @@ function formatPrice(price) {
 
 export default function OrdersPageMobile() {
   const { customer } = useCustomerSession();
-  const { activeOrders } = useOrders();
+  const { openOrders } = useOrders();
   const lastOrderId = getLastOrderId();
   const visibleOrders = customer
-    ? activeOrders.filter((order) => order.customerId === customer.id)
-    : activeOrders.filter((order) => order.id === lastOrderId);
+    ? openOrders.filter((order) => order.customerId === customer.id)
+    : openOrders.filter((order) => order.id === lastOrderId);
 
   return (
     <section className="page-section ordering-page app-simple-page">
@@ -64,7 +64,7 @@ export default function OrdersPageMobile() {
 
       <div className="content-block app-content-block compact-info-row">
         <Clock3 size={18} strokeWidth={2.4} />
-        <span>Pickup statuses: {ACTIVE_ORDER_STATUSES.join(", ")}</span>
+        <span>Pickup statuses: {OPEN_ORDER_STATUSES.join(", ")}</span>
       </div>
     </section>
   );

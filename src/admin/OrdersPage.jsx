@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Clock3, Phone, Volume2 } from "lucide-react";
-import { ACTIVE_ORDER_STATUSES, useOrders } from "../stores/orderStore.js";
+import { CheckCircle2, Clock3, PackageCheck, Phone, Volume2 } from "lucide-react";
+import {
+  ACTIVE_ORDER_STATUSES,
+  ARCHIVED_ORDER_STATUS,
+  WAITING_FOR_PICKUP_STATUS,
+  useOrders,
+} from "../stores/orderStore.js";
 
 const PICKUP_APPROACHING_THRESHOLD_MINUTES = 15;
 const NEW_ORDER_HIGHLIGHT_MS = 30000;
@@ -70,7 +75,10 @@ function getPickupDate(order) {
 }
 
 function getPickupLabel(order) {
-  return order.pickupSummary || formatOrderTime(order.createdAt);
+  const pickupSummary = String(order.pickupSummary || "").trim();
+  const pickupTime = pickupSummary.replace(/^Ready around\s+/i, "");
+
+  return `Pickup ${pickupTime || formatOrderTime(order.createdAt)}`;
 }
 
 function getOrderSummary(order) {
@@ -183,7 +191,7 @@ export default function OrdersPage() {
     },
     [playNotificationSound]
   );
-  const { orders, markReady } = useOrders({
+  const { orders, markPickedUp, markReady } = useOrders({
     realtime: true,
     onRealtimeNewOrder: handleRealtimeNewOrder,
   });
@@ -192,21 +200,31 @@ export default function OrdersPage() {
       active: orders
         .filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status))
         .sort(sortByPickupTime),
-      completed: orders.filter((order) => order.status === "Completed").sort(sortByCreatedAtDesc),
+      waitingForPickup: orders
+        .filter((order) => order.status === WAITING_FOR_PICKUP_STATUS)
+        .sort(sortByPickupTime),
+      archived: orders.filter((order) => order.status === ARCHIVED_ORDER_STATUS).sort(sortByCreatedAtDesc),
     }),
     [orders]
   );
   const selectedOrder =
     orders.find((order) => order.id === selectedOrderId) ||
     groupedOrders.active[0] ||
-    groupedOrders.completed[0] ||
+    groupedOrders.waitingForPickup[0] ||
+    groupedOrders.archived[0] ||
     null;
   const selectedOrderIsActive = selectedOrder
     ? ACTIVE_ORDER_STATUSES.includes(selectedOrder.status)
     : false;
+  const selectedOrderIsWaiting = selectedOrder?.status === WAITING_FOR_PICKUP_STATUS;
 
   async function markSelectedOrderReady(order) {
     await markReady(order.id);
+    setSelectedOrderId("");
+  }
+
+  async function markSelectedOrderPickedUp(order) {
+    await markPickedUp(order.id);
     setSelectedOrderId("");
   }
 
@@ -271,8 +289,8 @@ export default function OrdersPage() {
                 >
                   <b className="admin-order-pickup">{getPickupLabel(order)}</b>
                   <strong>{order.customerName || "Guest order"}</strong>
-                  <small>{getOrderSummary(order)}</small>
-                  {order.notes ? <em>{order.notes}</em> : null}
+                  <small className="admin-order-summary">{getOrderSummary(order)}</small>
+                  {order.notes ? <em className="admin-order-card-note">Note: {order.notes}</em> : null}
                   <b>{formatPrice(order.total)}</b>
                 </button>
               ))
@@ -282,17 +300,17 @@ export default function OrdersPage() {
           </div>
         </section>
 
-        <section className="admin-order-column completed">
+        <section className="admin-order-column waiting">
           <div className="admin-order-column-header">
-            <h2>Completed Orders</h2>
-            <span>{groupedOrders.completed.length}</span>
+            <h2>Waiting For Pickup</h2>
+            <span>{groupedOrders.waitingForPickup.length}</span>
           </div>
 
           <div className="admin-order-stack">
-            {groupedOrders.completed.length ? (
-              groupedOrders.completed.map((order) => (
+            {groupedOrders.waitingForPickup.length ? (
+              groupedOrders.waitingForPickup.map((order) => (
                 <button
-                  className={`admin-order-card completed-order-card${
+                  className={`admin-order-card waiting-order-card pickup-${getPickupUrgency(order)}${
                     selectedOrder?.id === order.id ? " selected" : ""
                   }`}
                   type="button"
@@ -301,15 +319,42 @@ export default function OrdersPage() {
                 >
                   <b className="admin-order-pickup">{getPickupLabel(order)}</b>
                   <strong>{order.customerName || "Guest order"}</strong>
-                  <span>
-                    Completed {order.completedAt ? formatOrderTime(order.completedAt) : "recently"}
-                  </span>
-                  <small>{getOrderSummary(order)}</small>
+                  <small className="admin-order-summary">{getOrderSummary(order)}</small>
+                  {order.notes ? <em className="admin-order-card-note">Note: {order.notes}</em> : null}
                   <b>{formatPrice(order.total)}</b>
                 </button>
               ))
             ) : (
-              <p className="admin-order-empty">No completed orders</p>
+              <p className="admin-order-empty">No orders waiting for pickup</p>
+            )}
+          </div>
+        </section>
+
+        <section className="admin-order-column archived">
+          <div className="admin-order-column-header">
+            <h2>Archived Orders</h2>
+            <span>{groupedOrders.archived.length}</span>
+          </div>
+
+          <div className="admin-order-stack">
+            {groupedOrders.archived.length ? (
+              groupedOrders.archived.map((order) => (
+                <button
+                  className={`admin-order-card archived-order-card${
+                    selectedOrder?.id === order.id ? " selected" : ""
+                  }`}
+                  type="button"
+                  key={order.id}
+                  onClick={() => setSelectedOrderId(order.id)}
+                >
+                  <b className="admin-order-pickup">{getPickupLabel(order)}</b>
+                  <strong>{order.customerName || "Guest order"}</strong>
+                  <span>Picked up {order.completedAt ? formatOrderTime(order.completedAt) : "recently"}</span>
+                  <small className="admin-order-summary">{getOrderSummary(order)}</small>
+                </button>
+              ))
+            ) : (
+              <p className="admin-order-empty">No archived orders</p>
             )}
           </div>
         </section>
@@ -332,21 +377,35 @@ export default function OrdersPage() {
             </div>
             {selectedOrder.completedAt ? (
               <strong className="order-status-pill status-completed">
-                Completed {formatOrderTime(selectedOrder.completedAt)}
+                Picked up {formatOrderTime(selectedOrder.completedAt)}
               </strong>
+            ) : selectedOrderIsWaiting ? (
+              <strong className="order-status-pill status-ready">Waiting for pickup</strong>
             ) : null}
           </div>
 
-          {selectedOrderIsActive ? (
+          {selectedOrderIsActive || selectedOrderIsWaiting ? (
             <div className="admin-order-actions">
-              <button
-                className="primary-order-action"
-                type="button"
-                onClick={() => markSelectedOrderReady(selectedOrder)}
-              >
-                <CheckCircle2 size={17} strokeWidth={2.4} />
-                Order Ready
-              </button>
+              {selectedOrderIsActive ? (
+                <button
+                  className="primary-order-action"
+                  type="button"
+                  onClick={() => markSelectedOrderReady(selectedOrder)}
+                >
+                  <CheckCircle2 size={17} strokeWidth={2.4} />
+                  Order Ready
+                </button>
+              ) : null}
+              {selectedOrderIsWaiting ? (
+                <button
+                  className="primary-order-action"
+                  type="button"
+                  onClick={() => markSelectedOrderPickedUp(selectedOrder)}
+                >
+                  <PackageCheck size={17} strokeWidth={2.4} />
+                  Picked Up
+                </button>
+              ) : null}
             </div>
           ) : null}
 

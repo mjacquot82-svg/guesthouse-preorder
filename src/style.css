@@ -5099,7 +5099,7 @@ body {
 }
 
 .pickup-order-board {
-  grid-template-columns: minmax(300px, 1.35fr) minmax(260px, 0.8fr);
+  grid-template-columns: minmax(320px, 1.2fr) minmax(300px, 1fr) minmax(260px, 0.8fr);
 }
 
 .admin-order-column {
@@ -5111,6 +5111,10 @@ body {
 }
 
 .admin-order-column.active {
+  min-width: 260px;
+}
+
+.admin-order-column.waiting {
   min-width: 260px;
 }
 
@@ -5145,7 +5149,7 @@ body {
 
 .admin-order-card {
   display: grid;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
   border: 1px solid rgba(104, 69, 47, 0.12);
   border-radius: 8px;
@@ -5229,7 +5233,9 @@ body {
 }
 
 .admin-order-card em {
+  border-top: 1px solid rgba(111, 125, 102, 0.14);
   font-style: normal;
+  padding-top: 7px;
 }
 
 .admin-order-card b {
@@ -5238,7 +5244,26 @@ body {
 
 .admin-order-card .admin-order-pickup {
   color: var(--ink);
-  font-size: 1rem;
+  font-size: 1.2rem;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.admin-order-card > strong {
+  color: var(--ink);
+  font-size: 0.96rem;
+  line-height: 1.2;
+}
+
+.admin-order-card .admin-order-summary {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.admin-order-card .admin-order-card-note {
+  color: #6f4a25;
+  font-size: 0.8rem;
 }
 
 .admin-order-detail-pickup {
@@ -5278,6 +5303,11 @@ body {
 .status-completed {
   background: var(--sage-soft);
   color: var(--sage-ink);
+}
+
+.status-ready {
+  background: #fff4cc;
+  color: #77530f;
 }
 
 .admin-order-actions {

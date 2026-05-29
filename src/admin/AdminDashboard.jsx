@@ -6,7 +6,7 @@ import { useOrders } from "../stores/orderStore.js";
 export default function AdminDashboard() {
   const { products } = useCatalogProducts();
   const { categories } = useCatalogCategories();
-  const { activeOrders, completedOrders, newOrders } = useOrders();
+  const { activeOrders, newOrders, waitingForPickupOrders } = useOrders();
   const activeCount = products.filter((product) => product.active).length;
   const inactiveCount = products.length - activeCount;
 
@@ -37,13 +37,13 @@ export default function AdminDashboard() {
           <Coffee size={20} strokeWidth={2.35} aria-hidden="true" />
           <span>Active Orders</span>
           <strong>{activeOrders.length}</strong>
-          <p>New, preparing, or ready</p>
+          <p>Still being prepared</p>
         </article>
         <article className="admin-metric-card">
           <CheckCircle2 size={20} strokeWidth={2.35} aria-hidden="true" />
-          <span>Completed Orders</span>
-          <strong>{completedOrders.length}</strong>
-          <p>Finished pickup orders</p>
+          <span>Waiting For Pickup</span>
+          <strong>{waitingForPickupOrders.length}</strong>
+          <p>Ready and on the counter</p>
         </article>
         <article className="admin-metric-card">
           <FolderTree size={20} strokeWidth={2.35} aria-hidden="true" />

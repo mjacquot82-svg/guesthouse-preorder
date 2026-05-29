@@ -12,7 +12,10 @@ import {
 import { emitOrderReadyForPickup } from "../services/orderNotificationHooks.js";
 
 export { ORDER_STATUSES };
-export const ACTIVE_ORDER_STATUSES = ["New", "Preparing", "Ready for Pickup"];
+export const ACTIVE_ORDER_STATUSES = ["New", "Preparing"];
+export const WAITING_FOR_PICKUP_STATUS = "Ready for Pickup";
+export const ARCHIVED_ORDER_STATUS = "Completed";
+export const OPEN_ORDER_STATUSES = [...ACTIVE_ORDER_STATUSES, WAITING_FOR_PICKUP_STATUS];
 
 const ORDERS_STORAGE_KEY = "cedar-oak-orders";
 const LAST_ORDER_KEY = "cedar-oak-last-order-id";
@@ -168,13 +171,17 @@ export async function updateOrderStatus(orderId, status) {
 }
 
 export async function markOrderReadyForPickup(orderId) {
-  const updatedOrder = await updateOrderStatus(orderId, "Completed");
+  const updatedOrder = await updateOrderStatus(orderId, WAITING_FOR_PICKUP_STATUS);
 
   if (updatedOrder) {
     emitOrderReadyForPickup(updatedOrder);
   }
 
   return updatedOrder;
+}
+
+export async function markOrderPickedUp(orderId) {
+  return updateOrderStatus(orderId, ARCHIVED_ORDER_STATUS);
 }
 
 export function useOrders({ realtime = false, onRealtimeNewOrder } = {}) {
@@ -285,18 +292,32 @@ export function useOrders({ realtime = false, onRealtimeNewOrder } = {}) {
     [refreshOrders]
   );
 
+  const markPickedUp = useCallback(
+    async (orderId) => {
+      const updatedOrder = await markOrderPickedUp(orderId);
+      await refreshOrders();
+
+      return updatedOrder;
+    },
+    [refreshOrders]
+  );
+
   return useMemo(
     () => ({
       orders,
       loading,
       refreshOrders,
       activeOrders: orders.filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status)),
-      completedOrders: orders.filter((order) => order.status === "Completed"),
+      waitingForPickupOrders: orders.filter((order) => order.status === WAITING_FOR_PICKUP_STATUS),
+      openOrders: orders.filter((order) => OPEN_ORDER_STATUSES.includes(order.status)),
+      archivedOrders: orders.filter((order) => order.status === ARCHIVED_ORDER_STATUS),
+      completedOrders: orders.filter((order) => order.status === ARCHIVED_ORDER_STATUS),
       newOrders: orders.filter((order) => order.status === "New"),
       markReady,
+      markPickedUp,
       updateStatus,
     }),
-    [loading, markReady, orders, refreshOrders, updateStatus]
+    [loading, markPickedUp, markReady, orders, refreshOrders, updateStatus]
   );
 }
 
