@@ -52,9 +52,10 @@ export const modifierOptionModel = {
 
 export const customerAccountModel = {
   id: "",
-  name: "",
+  firstName: "",
+  lastName: "",
   email: "",
-  phone: "",
+  phoneNumber: "",
   preferences: {},
   createdAt: "",
 };

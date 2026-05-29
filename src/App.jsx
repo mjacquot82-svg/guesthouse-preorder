@@ -13,6 +13,8 @@ import HomePage from "./pages/HomePage.jsx";
 import MenuPage from "./pages/MenuPage.jsx";
 import OrdersPageMobile from "./pages/OrdersPageMobile.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
+import AccountLoginPage from "./pages/AccountLoginPage.jsx";
+import CreateAccountPage from "./pages/CreateAccountPage.jsx";
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
         <Route path="cart" element={<CartPage />} />
         <Route path="orders" element={<OrdersPageMobile />} />
         <Route path="account" element={<AccountPage />} />
+        <Route path="account/login" element={<AccountLoginPage />} />
+        <Route path="account/create" element={<CreateAccountPage />} />
         <Route path="confirmation" element={<ConfirmationPage />} />
       </Route>
       <Route path="admin/login" element={<AdminLogin />} />

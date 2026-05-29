@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Home, ReceiptText, Search, ShoppingBag, UserRound } from "lucide-react";
+import { Home, LogIn, LogOut, ReceiptText, Search, ShoppingBag, UserRound } from "lucide-react";
+import { useCustomerSession } from "../stores/customerAuthStore.js";
 
 const primaryLinks = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -10,6 +11,12 @@ const primaryLinks = [
 ];
 
 export default function AppLayout() {
+  const { isAuthenticated, logout } = useCustomerSession();
+  const accountLink = isAuthenticated
+    ? { to: "/account", label: "Account", icon: UserRound }
+    : { to: "/account/login", label: "Login", icon: LogIn };
+  const navLinks = [...primaryLinks.slice(0, 4), accountLink];
+
   return (
     <div className="app-shell">
       <header className="site-header">
@@ -29,7 +36,7 @@ export default function AppLayout() {
           </NavLink>
 
           <nav className="desktop-nav" aria-label="Desktop ordering navigation">
-            {primaryLinks.slice(0, 4).map((link) => {
+            {navLinks.map((link) => {
               const Icon = link.icon;
               return (
                 <NavLink key={link.to} to={link.to} end={link.end}>
@@ -38,6 +45,12 @@ export default function AppLayout() {
                 </NavLink>
               );
             })}
+            {isAuthenticated ? (
+              <button className="nav-logout-button" type="button" onClick={logout}>
+                <LogOut size={17} strokeWidth={2.35} />
+                <span>Logout</span>
+              </button>
+            ) : null}
           </nav>
         </div>
       </header>
@@ -46,8 +59,11 @@ export default function AppLayout() {
         <Outlet />
       </main>
 
-      <nav className="bottom-nav" aria-label="Mobile ordering navigation">
-        {primaryLinks.map((link) => {
+      <nav
+        className={`bottom-nav${isAuthenticated ? " authenticated-bottom-nav" : ""}`}
+        aria-label="Mobile ordering navigation"
+      >
+        {navLinks.map((link) => {
           const Icon = link.icon;
           return (
             <NavLink key={link.to} to={link.to} end={link.end}>
@@ -56,6 +72,12 @@ export default function AppLayout() {
             </NavLink>
           );
         })}
+        {isAuthenticated ? (
+          <button className="nav-logout-button" type="button" onClick={logout}>
+            <LogOut size={20} strokeWidth={2.35} />
+            <span>Logout</span>
+          </button>
+        ) : null}
       </nav>
     </div>
   );

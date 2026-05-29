@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2, UserRound } from "lucide-react";
+import { useCustomerSession } from "../stores/customerAuthStore.js";
 
 const quickPickupOptions = [
   {
@@ -47,6 +48,28 @@ function getStoredCart() {
 
 function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
+}
+
+function getStoredCheckoutContact() {
+  try {
+    return (
+      JSON.parse(window.localStorage.getItem("cedar-oak-checkout-contact")) || {
+        name: "",
+        email: "",
+        phoneNumber: "",
+      }
+    );
+  } catch {
+    return {
+      name: "",
+      email: "",
+      phoneNumber: "",
+    };
+  }
+}
+
+function storeCheckoutContact(contact) {
+  window.localStorage.setItem("cedar-oak-checkout-contact", JSON.stringify(contact));
 }
 
 function getStoredPickupTime() {
@@ -108,9 +131,11 @@ function getCustomPickupDate(timeValue) {
 }
 
 export default function CartPage() {
+  const { customer } = useCustomerSession();
   const [cart, setCart] = useState(getStoredCart);
   const [pickupTime, setPickupTime] = useState(getStoredPickupTime);
   const [customPickupTime, setCustomPickupTime] = useState(getStoredCustomPickupTime);
+  const [checkoutContact, setCheckoutContact] = useState(getStoredCheckoutContact);
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [cart]
@@ -125,6 +150,23 @@ export default function CartPage() {
     const readyTime = new Date(Date.now() + selectedQuickPickupTime.minutes * 60 * 1000);
     return `Ready around ${formatReadyTime(readyTime)}`;
   }, [customPickupTime, pickupTime, selectedQuickPickupTime]);
+  const contactFields = customer
+    ? {
+        name: `${customer.firstName} ${customer.lastName}`.trim(),
+        email: customer.email,
+        phoneNumber: customer.phoneNumber,
+      }
+    : checkoutContact;
+
+  useEffect(() => {
+    if (!customer) return;
+
+    setCheckoutContact({
+      name: `${customer.firstName} ${customer.lastName}`.trim(),
+      email: customer.email,
+      phoneNumber: customer.phoneNumber,
+    });
+  }, [customer]);
 
   function updateQuantity(itemId, nextQuantity) {
     const nextCart =
@@ -147,6 +189,18 @@ export default function CartPage() {
     setCustomPickupTime(value);
     storeCustomPickupTime(value);
     updatePickupTime("custom");
+  }
+
+  function updateCheckoutContact(field, value) {
+    if (customer) return;
+
+    const nextContact = {
+      ...checkoutContact,
+      [field]: value,
+    };
+
+    setCheckoutContact(nextContact);
+    storeCheckoutContact(nextContact);
   }
 
   if (!cart.length) {
@@ -252,6 +306,53 @@ export default function CartPage() {
               onFocus={() => updatePickupTime("custom")}
             />
           </div>
+        </div>
+        <div className="checkout-contact-panel">
+          <div className="checkout-contact-heading">
+            <span className="account-avatar" aria-hidden="true">
+              <UserRound size={20} strokeWidth={2.4} />
+            </span>
+            <div>
+              <span>Checkout contact</span>
+              <h2>{customer ? "Using your account profile" : "How should we contact you?"}</h2>
+            </div>
+          </div>
+          <div className="checkout-contact-grid">
+            <label>
+              <span>Name</span>
+              <input
+                autoComplete="name"
+                readOnly={Boolean(customer)}
+                value={contactFields.name}
+                onChange={(event) => updateCheckoutContact("name", event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Email</span>
+              <input
+                autoComplete="email"
+                readOnly={Boolean(customer)}
+                type="email"
+                value={contactFields.email}
+                onChange={(event) => updateCheckoutContact("email", event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Phone</span>
+              <input
+                autoComplete="tel"
+                readOnly={Boolean(customer)}
+                type="tel"
+                value={contactFields.phoneNumber}
+                onChange={(event) => updateCheckoutContact("phoneNumber", event.target.value)}
+              />
+            </label>
+          </div>
+          {!customer ? (
+            <Link className="checkout-login-link" to="/account/login" state={{ from: "/cart" }}>
+              Log in to prefill from your account
+            </Link>
+          ) : null}
         </div>
         <div className="cart-summary-detail">
           <span>Preferred pickup time</span>
