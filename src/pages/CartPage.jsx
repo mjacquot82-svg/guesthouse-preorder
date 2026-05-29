@@ -129,6 +129,7 @@ export default function CartPage() {
   const [checkoutContact, setCheckoutContact] = useState(getStoredCheckoutContact);
   const [orderNotes, setOrderNotes] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const total = useMemo(
     () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [cart]
@@ -196,23 +197,32 @@ export default function CartPage() {
     storeCheckoutContact(nextContact);
   }
 
-  function placeOrder() {
+  async function placeOrder() {
     if (!contactFields.name.trim() || !contactFields.email.trim() || !contactFields.phoneNumber.trim()) {
       setCheckoutError("Add a name, email, and phone before placing your order.");
       return;
     }
 
-    const order = createOrder({
-      cart,
-      customer,
-      contact: contactFields,
-      notes: orderNotes.trim(),
-      pickupSummary,
-    });
+    setCheckoutError("");
+    setIsPlacingOrder(true);
 
-    clearCart();
-    setCart([]);
-    navigate(`/confirmation?order=${order.id}`, { state: { orderId: order.id } });
+    try {
+      const order = await createOrder({
+        cart,
+        customer,
+        contact: contactFields,
+        notes: orderNotes.trim(),
+        pickupSummary,
+      });
+
+      clearCart();
+      setCart([]);
+      navigate(`/confirmation?order=${order.id}`, { state: { orderId: order.id } });
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Could not place your order.");
+    } finally {
+      setIsPlacingOrder(false);
+    }
   }
 
   if (!cart.length) {
@@ -384,9 +394,9 @@ export default function CartPage() {
           <strong>{formatPrice(total)}</strong>
         </div>
         {checkoutError ? <p className="form-status">{checkoutError}</p> : null}
-        <button className="primary-button" type="button" onClick={placeOrder}>
+        <button className="primary-button" type="button" disabled={isPlacingOrder} onClick={placeOrder}>
           <ClipboardList size={17} strokeWidth={2.4} />
-          Place order
+          {isPlacingOrder ? "Placing order" : "Place order"}
         </button>
       </div>
     </section>

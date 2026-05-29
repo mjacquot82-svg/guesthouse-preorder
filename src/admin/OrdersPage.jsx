@@ -1,13 +1,11 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, CookingPot, PackageCheck, XCircle } from "lucide-react";
-import { ORDER_STATUSES, useOrders } from "../stores/orderStore.js";
+import { CheckCircle2, Clock3, XCircle } from "lucide-react";
+import { ACTIVE_ORDER_STATUSES, ORDER_STATUSES, useOrders } from "../stores/orderStore.js";
 
-const statusColumns = [
-  "New",
-  "Preparing",
-  "Ready for Pickup",
-  "Completed",
-  "Cancelled",
+const workflowGroups = [
+  { id: "active", title: "Active Orders" },
+  { id: "completed", title: "Completed" },
+  { id: "cancelled", title: "Cancelled" },
 ];
 
 function formatPrice(price) {
@@ -26,21 +24,63 @@ function formatOrderTime(date) {
   }).format(new Date(date));
 }
 
+function getPickupDate(order) {
+  const createdAt = new Date(order.createdAt);
+  const match = String(order.pickupSummary || "").match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+
+  if (!match || Number.isNaN(createdAt.getTime())) {
+    return createdAt;
+  }
+
+  const [, rawHours, rawMinutes, period] = match;
+  let hours = Number(rawHours);
+  const minutes = Number(rawMinutes);
+
+  if (period.toLowerCase() === "pm" && hours < 12) {
+    hours += 12;
+  }
+
+  if (period.toLowerCase() === "am" && hours === 12) {
+    hours = 0;
+  }
+
+  const pickupDate = new Date(createdAt);
+  pickupDate.setHours(hours, minutes, 0, 0);
+
+  return pickupDate;
+}
+
+function getPickupLabel(order) {
+  return order.pickupSummary || formatOrderTime(order.createdAt);
+}
+
+function sortByCreatedAtDesc(a, b) {
+  return new Date(b.createdAt) - new Date(a.createdAt);
+}
+
+function sortByPickupTime(a, b) {
+  return getPickupDate(a) - getPickupDate(b) || sortByCreatedAtDesc(a, b);
+}
+
 export default function OrdersPage() {
   const { orders, updateStatus } = useOrders();
   const [selectedOrderId, setSelectedOrderId] = useState("");
-  const selectedOrder = orders.find((order) => order.id === selectedOrderId) || orders[0] || null;
-  const ordersByStatus = useMemo(
-    () =>
-      statusColumns.reduce(
-        (groups, status) => ({
-          ...groups,
-          [status]: orders.filter((order) => order.status === status),
-        }),
-        {}
-      ),
+  const groupedOrders = useMemo(
+    () => ({
+      active: orders
+        .filter((order) => ACTIVE_ORDER_STATUSES.includes(order.status))
+        .sort(sortByPickupTime),
+      completed: orders.filter((order) => order.status === "Completed").sort(sortByCreatedAtDesc),
+      cancelled: orders.filter((order) => order.status === "Cancelled").sort(sortByCreatedAtDesc),
+    }),
     [orders]
   );
+  const selectedOrder =
+    orders.find((order) => order.id === selectedOrderId) ||
+    groupedOrders.active[0] ||
+    groupedOrders.completed[0] ||
+    groupedOrders.cancelled[0] ||
+    null;
 
   function setStatus(order, status) {
     updateStatus(order.id, status);
@@ -53,29 +93,30 @@ export default function OrdersPage() {
         <div>
           <p className="eyebrow">Cafe operations</p>
           <h1>Orders</h1>
-          <p>Review incoming orders, move prep status, and close pickup orders.</p>
+          <p>Work active pickup orders first, then close or cancel when needed.</p>
         </div>
       </div>
 
       <div className="admin-order-board">
-        {statusColumns.map((status) => (
-          <section className="admin-order-column" key={status}>
+        {workflowGroups.map((group) => (
+          <section className={`admin-order-column ${group.id}`} key={group.id}>
             <div className="admin-order-column-header">
-              <h2>{status === "Ready for Pickup" ? "Ready" : status}</h2>
-              <span>{ordersByStatus[status]?.length || 0}</span>
+              <h2>{group.title}</h2>
+              <span>{groupedOrders[group.id]?.length || 0}</span>
             </div>
 
             <div className="admin-order-stack">
-              {ordersByStatus[status]?.length ? (
-                ordersByStatus[status].map((order) => (
+              {groupedOrders[group.id]?.length ? (
+                groupedOrders[group.id].map((order) => (
                   <button
                     className={`admin-order-card${selectedOrder?.id === order.id ? " selected" : ""}`}
                     type="button"
                     key={order.id}
                     onClick={() => setSelectedOrderId(order.id)}
                   >
-                    <span>{formatOrderTime(order.createdAt)}</span>
+                    <b className="admin-order-pickup">{getPickupLabel(order)}</b>
                     <strong>{order.customerName || "Guest order"}</strong>
+                    <span>{order.status} - ordered {formatOrderTime(order.createdAt)}</span>
                     <small>{order.items.map((item) => item.productName).join(", ")}</small>
                     <b>{formatPrice(order.total)}</b>
                   </button>
@@ -94,6 +135,10 @@ export default function OrdersPage() {
             <div>
               <span>Order #{selectedOrder.id.slice(0, 8)}</span>
               <h2>{selectedOrder.customerName || "Guest order"}</h2>
+              <strong className="admin-order-detail-pickup">
+                <Clock3 size={18} strokeWidth={2.4} />
+                {getPickupLabel(selectedOrder)}
+              </strong>
               <p>
                 {selectedOrder.customerEmail} {selectedOrder.customerPhone ? `- ${selectedOrder.customerPhone}` : ""}
               </p>
@@ -104,14 +149,6 @@ export default function OrdersPage() {
           </div>
 
           <div className="admin-order-actions">
-            <button type="button" onClick={() => setStatus(selectedOrder, "Preparing")}>
-              <CookingPot size={17} strokeWidth={2.4} />
-              Preparing
-            </button>
-            <button type="button" onClick={() => setStatus(selectedOrder, "Ready for Pickup")}>
-              <PackageCheck size={17} strokeWidth={2.4} />
-              Mark Ready
-            </button>
             <button type="button" onClick={() => setStatus(selectedOrder, "Completed")}>
               <CheckCircle2 size={17} strokeWidth={2.4} />
               Complete
@@ -123,7 +160,7 @@ export default function OrdersPage() {
           </div>
 
           <label className="admin-form">
-            <span>Status</span>
+            <span>Internal status</span>
             <select
               value={selectedOrder.status}
               onChange={(event) => setStatus(selectedOrder, event.target.value)}

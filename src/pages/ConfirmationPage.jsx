@@ -1,6 +1,6 @@
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
-import { getLastOrderId, getOrderById } from "../stores/orderStore.js";
+import { getLastOrderId, useOrder } from "../stores/orderStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -13,7 +13,7 @@ export default function ConfirmationPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const orderId = location.state?.orderId || searchParams.get("order") || getLastOrderId();
-  const order = orderId ? getOrderById(orderId) : null;
+  const { order, loading } = useOrder(orderId);
 
   return (
     <section className="page-section compact-section ordering-page">
@@ -44,6 +44,8 @@ export default function ConfirmationPage() {
               ))}
             </ul>
           </>
+        ) : loading ? (
+          <p>Loading your order details.</p>
         ) : (
           <p>Your order has been received.</p>
         )}

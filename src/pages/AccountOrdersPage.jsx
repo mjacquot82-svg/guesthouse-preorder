@@ -27,7 +27,7 @@ function getOrderSummary(order) {
 export default function AccountOrdersPage() {
   const navigate = useNavigate();
   const { customer, isAuthenticated } = useCustomerSession();
-  const orders = useCustomerOrders(customer?.id);
+  const { orders } = useCustomerOrders(customer?.id);
 
   if (!isAuthenticated) {
     return <Navigate to="/account/login" replace state={{ from: "/account/orders" }} />;

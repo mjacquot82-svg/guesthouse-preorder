@@ -5023,18 +5023,22 @@ body {
 
 .admin-order-board {
   display: grid;
-  grid-template-columns: repeat(5, minmax(160px, 1fr));
+  grid-template-columns: minmax(260px, 1.4fr) repeat(2, minmax(190px, 0.8fr));
   gap: 10px;
   overflow-x: auto;
   padding-bottom: 4px;
 }
 
 .admin-order-column {
-  min-width: 160px;
+  min-width: 190px;
   border: 1px solid rgba(111, 125, 102, 0.16);
   border-radius: 8px;
   background: rgba(255, 253, 248, 0.72);
   padding: 10px;
+}
+
+.admin-order-column.active {
+  min-width: 260px;
 }
 
 .admin-order-column-header {
@@ -5068,7 +5072,7 @@ body {
 
 .admin-order-card {
   display: grid;
-  gap: 5px;
+  gap: 6px;
   width: 100%;
   border: 1px solid rgba(104, 69, 47, 0.12);
   border-radius: 8px;
@@ -5100,6 +5104,20 @@ body {
 
 .admin-order-card b {
   color: var(--sage-ink);
+}
+
+.admin-order-card .admin-order-pickup {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.admin-order-detail-pickup {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0;
+  color: var(--ink);
+  font-size: 1.08rem;
 }
 
 .admin-order-detail {
