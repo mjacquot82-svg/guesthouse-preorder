@@ -80,7 +80,7 @@ export function getActiveDailySpecial(specials, now = new Date()) {
 export function buildDailySpecialCartItem(special, categoryName = "Daily Special") {
   return {
     id: `daily-special-${special.id}`,
-    productId: special.id,
+    productId: "",
     specialId: special.id,
     name: special.title,
     description: special.description,

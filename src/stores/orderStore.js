@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { isSupabaseConfigured } from "../lib/supabase.js";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { isSupabaseConfigured, supabase } from "../lib/supabase.js";
 import {
   ORDER_STATUSES,
   buildOrderFromCheckout,
@@ -177,9 +177,11 @@ export async function markOrderReadyForPickup(orderId) {
   return updatedOrder;
 }
 
-export function useOrders() {
+export function useOrders({ realtime = false, onRealtimeNewOrder } = {}) {
   const [orders, setOrders] = useState(() => (isSupabaseConfigured ? [] : getOrders()));
   const [loading, setLoading] = useState(Boolean(isSupabaseConfigured));
+  const knownOrderIdsRef = useRef(new Set());
+  const refreshTimeoutRef = useRef(null);
 
   const refreshOrders = useCallback(async () => {
     setLoading(true);
@@ -206,6 +208,62 @@ export function useOrders() {
       window.removeEventListener(ORDERS_UPDATED_EVENT, handleOrdersUpdate);
     };
   }, [refreshOrders]);
+
+  useEffect(() => {
+    orders.forEach((order) => {
+      knownOrderIdsRef.current.add(order.id);
+    });
+  }, [orders]);
+
+  useEffect(() => {
+    if (!realtime || !isSupabaseConfigured || !supabase) {
+      return undefined;
+    }
+
+    function scheduleRefresh(delay = 350) {
+      window.clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = window.setTimeout(() => {
+        refreshOrders();
+      }, delay);
+    }
+
+    const channel = supabase
+      .channel("admin-orders-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const orderId = payload.new?.id;
+            const status = payload.new?.status;
+            const isKnownOrder = orderId ? knownOrderIdsRef.current.has(orderId) : true;
+
+            if (orderId) {
+              knownOrderIdsRef.current.add(orderId);
+            }
+
+            if (orderId && !isKnownOrder && ACTIVE_ORDER_STATUSES.includes(status)) {
+              onRealtimeNewOrder?.(orderId);
+            }
+
+            scheduleRefresh(750);
+            return;
+          }
+
+          scheduleRefresh(150);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      window.clearTimeout(refreshTimeoutRef.current);
+      supabase.removeChannel(channel);
+    };
+  }, [onRealtimeNewOrder, realtime, refreshOrders]);
 
   const updateStatus = useCallback(
     async (orderId, status) => {

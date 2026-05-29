@@ -120,10 +120,12 @@ function toOrderRow(order) {
 }
 
 function toOrderItemRow(orderId, item, index = 0) {
+  const isDailySpecial = item.cartItem?.source === "daily_special" || Boolean(item.cartItem?.specialId);
+
   return {
     order_id: orderId,
     line_key: item.id || "",
-    product_id: item.productId || null,
+    product_id: isDailySpecial ? null : item.productId || null,
     variant_id: item.variantId || null,
     product_name: item.productName,
     variant_name: item.variantName || "",

@@ -5156,6 +5156,43 @@ body {
   text-align: left;
 }
 
+.admin-order-card.new-order-highlight {
+  animation: new-order-pulse 1.4s ease-in-out infinite;
+  border-color: rgba(47, 158, 68, 0.58);
+  background: #f2f9ec;
+}
+
+@keyframes new-order-pulse {
+  0%,
+  100% {
+    box-shadow: inset 4px 0 0 #2f9e44, 0 0 0 rgba(47, 158, 68, 0);
+  }
+
+  50% {
+    box-shadow: inset 4px 0 0 #2f9e44, 0 0 0 4px rgba(47, 158, 68, 0.14);
+  }
+}
+
+.admin-sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  border: 1px solid rgba(95, 109, 84, 0.26);
+  border-radius: 999px;
+  background: #fffefa;
+  color: var(--sage-ink);
+  cursor: pointer;
+  padding: 0 12px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.admin-sound-toggle.enabled {
+  background: var(--sage-soft);
+}
+
 .pickup-future {
   box-shadow: inset 4px 0 0 #2f9e44;
 }

@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
-import { CheckCircle2, Clock3, Phone } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CheckCircle2, Clock3, Phone, Volume2 } from "lucide-react";
 import { ACTIVE_ORDER_STATUSES, useOrders } from "../stores/orderStore.js";
 
 const PICKUP_APPROACHING_THRESHOLD_MINUTES = 15;
+const NEW_ORDER_HIGHLIGHT_MS = 30000;
 
 const pickupLegend = [
   {
@@ -106,8 +107,86 @@ function formatModifiers(item) {
 }
 
 export default function OrdersPage() {
-  const { orders, markReady } = useOrders();
+  const audioContextRef = useRef(null);
+  const alertedOrderIdsRef = useRef(new Set());
+  const highlightTimersRef = useRef(new Map());
+  const [highlightedOrderIds, setHighlightedOrderIds] = useState(() => new Set());
   const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [soundReady, setSoundReady] = useState(false);
+  const playNotificationSound = useCallback(() => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContext) {
+      return;
+    }
+
+    const audioContext = audioContextRef.current || new AudioContext();
+    audioContextRef.current = audioContext;
+
+    if (audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(660, audioContext.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.22, audioContext.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.32);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.34);
+  }, []);
+  const enableNotificationSound = useCallback(() => {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContext) {
+      return;
+    }
+
+    const audioContext = audioContextRef.current || new AudioContext();
+    audioContextRef.current = audioContext;
+    audioContext.resume().then(() => setSoundReady(true)).catch(() => {});
+  }, []);
+  const handleRealtimeNewOrder = useCallback(
+    (orderId) => {
+      if (alertedOrderIdsRef.current.has(orderId)) {
+        return;
+      }
+
+      alertedOrderIdsRef.current.add(orderId);
+      setHighlightedOrderIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.add(orderId);
+        return nextIds;
+      });
+
+      window.clearTimeout(highlightTimersRef.current.get(orderId));
+      highlightTimersRef.current.set(
+        orderId,
+        window.setTimeout(() => {
+          setHighlightedOrderIds((currentIds) => {
+            const nextIds = new Set(currentIds);
+            nextIds.delete(orderId);
+            return nextIds;
+          });
+          highlightTimersRef.current.delete(orderId);
+        }, NEW_ORDER_HIGHLIGHT_MS)
+      );
+
+      playNotificationSound();
+    },
+    [playNotificationSound]
+  );
+  const { orders, markReady } = useOrders({
+    realtime: true,
+    onRealtimeNewOrder: handleRealtimeNewOrder,
+  });
   const groupedOrders = useMemo(
     () => ({
       active: orders
@@ -131,6 +210,14 @@ export default function OrdersPage() {
     setSelectedOrderId("");
   }
 
+  useEffect(() => {
+    return () => {
+      highlightTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+      highlightTimersRef.current.clear();
+      audioContextRef.current?.close?.();
+    };
+  }, []);
+
   return (
     <section className="admin-page admin-orders-page">
       <div className="admin-page-header">
@@ -139,6 +226,16 @@ export default function OrdersPage() {
           <h1>Orders</h1>
           <p>Keep this screen open to work pickups by requested time.</p>
         </div>
+        <button
+          className={`admin-sound-toggle${soundReady ? " enabled" : ""}`}
+          type="button"
+          onClick={enableNotificationSound}
+          title="Enable order notification sound"
+          aria-label="Enable order notification sound"
+        >
+          <Volume2 size={17} strokeWidth={2.4} />
+          {soundReady ? "Sound on" : "Enable sound"}
+        </button>
       </div>
 
       <section className="pickup-legend" aria-label="Pickup timing color legend">
@@ -166,6 +263,7 @@ export default function OrdersPage() {
                 <button
                   className={`admin-order-card pickup-${getPickupUrgency(order)}${
                     selectedOrder?.id === order.id ? " selected" : ""
+                  }${highlightedOrderIds.has(order.id) ? " new-order-highlight" : ""
                   }`}
                   type="button"
                   key={order.id}
