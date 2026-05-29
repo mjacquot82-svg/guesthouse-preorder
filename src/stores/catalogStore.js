@@ -1,14 +1,27 @@
 import { useEffect, useState } from "react";
 import { initialCatalogProducts, menuCategories, modifierGroups } from "../data/catalog.js";
+import {
+  deleteCategoryFromSupabase,
+  deleteModifierGroupFromSupabase,
+  deleteProductFromSupabase,
+  fetchMenuCatalogFromSupabase,
+  replaceModifierGroupsInSupabase,
+  replaceProductsInSupabase,
+  seedMenuCatalogInSupabase,
+  syncMenuCatalogToSupabase,
+  upsertCategoriesToSupabase,
+} from "../services/menuCatalogService.js";
 
 const CATALOG_STORAGE_KEY = "cafe-catalog-products";
 const CATEGORY_STORAGE_KEY = "cafe-catalog-categories";
 const MODIFIER_GROUP_STORAGE_KEY = "cafe-catalog-modifier-groups";
+const MENU_SYNC_PENDING_KEY = "cafe-menu-supabase-sync-pending";
 const CATALOG_UPDATED_EVENT = "cafe-catalog-updated";
 const CATEGORY_UPDATED_EVENT = "cafe-categories-updated";
 const MODIFIER_GROUP_UPDATED_EVENT = "cafe-modifier-groups-updated";
 
 const SIZE_MODIFIER_GROUP_ID = "size";
+let catalogLoadPromise = null;
 
 function readStoredProducts() {
   if (typeof window === "undefined") {
@@ -64,6 +77,117 @@ function writeStoredCategories(categories) {
 function writeStoredModifierGroups(groups) {
   window.localStorage.setItem(MODIFIER_GROUP_STORAGE_KEY, JSON.stringify(groups));
   window.dispatchEvent(new CustomEvent(MODIFIER_GROUP_UPDATED_EVENT));
+}
+
+function hasPendingSupabaseSync() {
+  return typeof window !== "undefined" && window.localStorage.getItem(MENU_SYNC_PENDING_KEY) === "true";
+}
+
+function markPendingSupabaseSync() {
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(MENU_SYNC_PENDING_KEY, "true");
+  }
+}
+
+function clearPendingSupabaseSync() {
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(MENU_SYNC_PENDING_KEY);
+  }
+}
+
+function readLocalCatalog() {
+  return {
+    products: readStoredProducts(),
+    categories: readStoredCategories().map(normalizeCategory),
+    modifierGroups: readStoredModifierGroups(),
+  };
+}
+
+function writeLocalCatalog({ products, categories, modifierGroups }) {
+  writeStoredCategories(categories.map(normalizeCategory));
+  writeStoredModifierGroups(modifierGroups.map(normalizeModifierGroup));
+  writeStoredProducts(products.map(normalizeProduct));
+}
+
+function isEmptySupabaseCatalog(catalog) {
+  return (
+    catalog.categories.length === 0 &&
+    catalog.products.length === 0 &&
+    catalog.modifierGroups.length === 0
+  );
+}
+
+function logCatalogSyncError(error) {
+  console.warn(
+    "Menu catalog Supabase sync failed. Falling back to the cached local catalog.",
+    error
+  );
+}
+
+async function loadMenuCatalogFromSource() {
+  try {
+    if (hasPendingSupabaseSync()) {
+      await syncMenuCatalogToSupabase(readLocalCatalog());
+      clearPendingSupabaseSync();
+    }
+
+    let catalog = await fetchMenuCatalogFromSupabase();
+
+    if (isEmptySupabaseCatalog(catalog)) {
+      const localCatalog = readLocalCatalog();
+      await seedMenuCatalogInSupabase(localCatalog);
+      catalog = await fetchMenuCatalogFromSupabase();
+    }
+
+    const normalizedCatalog = {
+      products: catalog.products.map(normalizeProduct),
+      categories: catalog.categories.map(normalizeCategory),
+      modifierGroups: catalog.modifierGroups.map(normalizeModifierGroup),
+    };
+    writeLocalCatalog(normalizedCatalog);
+    return normalizedCatalog;
+  } catch (error) {
+    logCatalogSyncError(error);
+    return readLocalCatalog();
+  }
+}
+
+function loadMenuCatalog() {
+  if (!catalogLoadPromise) {
+    catalogLoadPromise = loadMenuCatalogFromSource().finally(() => {
+      catalogLoadPromise = null;
+    });
+  }
+
+  return catalogLoadPromise;
+}
+
+function saveProductsToSupabase(products) {
+  replaceProductsInSupabase(products).catch((error) => {
+    markPendingSupabaseSync();
+    logCatalogSyncError(error);
+  });
+}
+
+function saveCategoriesToSupabase(categories) {
+  upsertCategoriesToSupabase(categories).catch((error) => {
+    markPendingSupabaseSync();
+    logCatalogSyncError(error);
+  });
+}
+
+function saveModifierGroupsToSupabase(groups) {
+  replaceModifierGroupsInSupabase(groups).catch((error) => {
+    markPendingSupabaseSync();
+    logCatalogSyncError(error);
+  });
+}
+
+function deleteFromSupabase(operation) {
+  operation().catch((error) => {
+    markPendingSupabaseSync();
+    logCatalogSyncError(error);
+  });
 }
 
 function createSizeVariant(product, name, price, sortOrder) {
@@ -210,15 +334,21 @@ export function getCatalogModifierGroups() {
 }
 
 export function saveCatalogProducts(products) {
-  writeStoredProducts(products.map(normalizeProduct));
+  const normalizedProducts = products.map(normalizeProduct);
+  writeStoredProducts(normalizedProducts);
+  saveProductsToSupabase(normalizedProducts);
 }
 
 export function saveCatalogCategories(categories) {
-  writeStoredCategories(categories.map(normalizeCategory));
+  const normalizedCategories = categories.map(normalizeCategory);
+  writeStoredCategories(normalizedCategories);
+  saveCategoriesToSupabase(normalizedCategories);
 }
 
 export function saveCatalogModifierGroups(groups) {
-  writeStoredModifierGroups(groups.map(normalizeModifierGroup));
+  const normalizedGroups = groups.map(normalizeModifierGroup);
+  writeStoredModifierGroups(normalizedGroups);
+  saveModifierGroupsToSupabase(normalizedGroups);
 }
 
 export function useCatalogProducts() {
@@ -228,6 +358,10 @@ export function useCatalogProducts() {
     function handleCatalogUpdate() {
       setProducts(readStoredProducts());
     }
+
+    loadMenuCatalog().then((catalog) => {
+      setProducts(catalog.products);
+    });
 
     window.addEventListener("storage", handleCatalogUpdate);
     window.addEventListener(CATALOG_UPDATED_EVENT, handleCatalogUpdate);
@@ -259,6 +393,7 @@ export function useCatalogProducts() {
 
   function removeProduct(productId) {
     replaceProducts(products.filter((product) => product.id !== productId));
+    deleteFromSupabase(() => deleteProductFromSupabase(productId));
   }
 
   return {
@@ -275,8 +410,12 @@ export function useCatalogCategories() {
 
   useEffect(() => {
     function handleCategoryUpdate() {
-      setCategories(readStoredCategories());
+      setCategories(readStoredCategories().map(normalizeCategory));
     }
+
+    loadMenuCatalog().then((catalog) => {
+      setCategories(catalog.categories);
+    });
 
     window.addEventListener("storage", handleCategoryUpdate);
     window.addEventListener(CATEGORY_UPDATED_EVENT, handleCategoryUpdate);
@@ -307,6 +446,7 @@ export function useCatalogCategories() {
 
   function removeCategory(categoryId) {
     replaceCategories(categories.filter((category) => category.id !== categoryId));
+    deleteFromSupabase(() => deleteCategoryFromSupabase(categoryId));
   }
 
   return {
@@ -325,6 +465,10 @@ export function useCatalogModifierGroups() {
     function handleModifierGroupUpdate() {
       setGroups(readStoredModifierGroups());
     }
+
+    loadMenuCatalog().then((catalog) => {
+      setGroups(catalog.modifierGroups);
+    });
 
     window.addEventListener("storage", handleModifierGroupUpdate);
     window.addEventListener(MODIFIER_GROUP_UPDATED_EVENT, handleModifierGroupUpdate);
@@ -357,6 +501,7 @@ export function useCatalogModifierGroups() {
 
   function removeModifierGroup(groupId) {
     replaceModifierGroups(groups.filter((group) => group.id !== groupId));
+    deleteFromSupabase(() => deleteModifierGroupFromSupabase(groupId));
   }
 
   return {
