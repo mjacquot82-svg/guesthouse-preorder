@@ -30,6 +30,11 @@ Phase 1C adds only the production catalog domain foundation:
 Phase 1C does not add seed data, catalog APIs, catalog mutation, availability,
 orders, customers, checkout, Clover, payments, or frontend integration.
 
+Phase 1D adds only the deterministic initial Guest House catalog seed. It maps
+the current frontend catalog to the Phase 1C schema, converts prices to integer
+cents, and models drink sizes as product variants. The seed is transactional,
+idempotent, and does not delete records outside the reviewed fixture.
+
 ## Requirements
 
 - Python 3.12
@@ -110,6 +115,18 @@ To verify the reversible Phase 1C migration:
 alembic downgrade base
 alembic upgrade head
 ```
+
+## Seed the Guest House catalog
+
+Apply migrations, set `DATABASE_URL`, and run:
+
+```bash
+python -m app.catalog.seed
+```
+
+Running the command again updates the same stable catalog records without
+duplicating them. Validation and persistence run in one transaction, so a
+failure leaves the database unchanged.
 
 ## Run tests
 
