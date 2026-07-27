@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 
+from app.api.v1.router import router as api_v1_router
 from app.db.engine import create_database_engine
 from app.db.health import database_is_available
 from app.db.session import create_session_factory
@@ -35,6 +36,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
     )
     application.state.db_engine = engine
     application.state.db_session_factory = session_factory
+    application.include_router(api_v1_router)
 
     @application.get("/health/live")
     async def liveness() -> dict[str, str]:

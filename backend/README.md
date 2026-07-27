@@ -35,6 +35,10 @@ the current frontend catalog to the Phase 1C schema, converts prices to integer
 cents, and models drink sizes as product variants. The seed is transactional,
 idempotent, and does not delete records outside the reviewed fixture.
 
+Phase 1E adds only the read-only production catalog API. It assembles published
+categories and products with active variants and modifiers from PostgreSQL.
+The React application is not connected to this endpoint during Phase 1E.
+
 ## Requirements
 
 - Python 3.12
@@ -127,6 +131,18 @@ python -m app.catalog.seed
 Running the command again updates the same stable catalog records without
 duplicating them. Validation and persistence run in one transaction, so a
 failure leaves the database unchanged.
+
+## Read the catalog
+
+With PostgreSQL configured, migrated, and seeded:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/catalog
+```
+
+The endpoint returns one versioned catalog document with deterministic nested
+ordering. It returns only published categories and products and active
+variants, modifier assignments, modifier groups, and modifier options.
 
 ## Run tests
 
