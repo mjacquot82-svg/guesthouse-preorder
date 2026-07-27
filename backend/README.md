@@ -18,6 +18,18 @@ Phase 1B adds:
 - `GET /health/ready`
 - PostgreSQL integration tests
 
+Phase 1C adds only the production catalog domain foundation:
+
+- categories and products
+- optional product variants
+- reusable modifier groups and modifier options
+- product-to-modifier-group assignments
+- SQLAlchemy models and a small repository boundary
+- one reversible Alembic migration with PostgreSQL constraints
+
+Phase 1C does not add seed data, catalog APIs, catalog mutation, availability,
+orders, customers, checkout, Clover, payments, or frontend integration.
+
 ## Requirements
 
 - Python 3.12
@@ -41,7 +53,7 @@ Set a PostgreSQL connection URL before starting:
 export DATABASE_URL="postgresql+psycopg://guesthouse:password@127.0.0.1:5432/guesthouse"
 ```
 
-The database must already exist. Phase 1B does not create application tables.
+The database must already exist. Alembic creates the Phase 1C catalog tables.
 
 ```bash
 uvicorn app.main:app --reload
@@ -92,14 +104,18 @@ alembic upgrade head
 alembic current
 ```
 
-The Phase 1B migration history is intentionally empty. These commands verify
-the migration environment without creating business tables.
+To verify the reversible Phase 1C migration:
+
+```bash
+alembic downgrade base
+alembic upgrade head
+```
 
 ## Run tests
 
-Tests require an isolated PostgreSQL database. Destructive application-table
-operations are not performed in Phase 1B, but the database must not be shared
-with staging or production.
+Tests require an isolated PostgreSQL database. Tests migrate, truncate, and
+roll back catalog tables, so the database must not be shared with staging or
+production.
 
 ```bash
 export TEST_DATABASE_URL="postgresql+psycopg://guesthouse:password@127.0.0.1:5432/guesthouse_test"
