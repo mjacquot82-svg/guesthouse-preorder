@@ -1,7 +1,16 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ClipboardList, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import { resolveCart } from "../services/cartCatalog.js";
+import {
+  buildPendingOrderRequest,
+  clearOrderSubmission,
+  createSubmissionGate,
+  getOrderErrorMessage,
+  prepareOrderSubmission,
+  resolvePickupTimestamp,
+} from "../services/checkoutOrder.js";
+import { createPendingOrder } from "../services/orderApi.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 
 const quickPickupOptions = [
@@ -109,11 +118,29 @@ function getCustomPickupDate(timeValue) {
   return readyTime;
 }
 
+function getLocalDateKey(value = new Date()) {
+  return [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, "0"),
+    String(value.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 export default function CartPage() {
+  const navigate = useNavigate();
   const { status, catalog, reload } = useCustomerCatalog();
   const [cart, setCart] = useState(getStoredCart);
   const [pickupTime, setPickupTime] = useState(getStoredPickupTime);
   const [customPickupTime, setCustomPickupTime] = useState(getStoredCustomPickupTime);
+  const [checkoutContact, setCheckoutContact] = useState({
+    name: "",
+    email: "",
+    phone: "",
+  });
+  const [orderNotes, setOrderNotes] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const submissionGate = useRef(createSubmissionGate());
   const resolvedCart = useMemo(
     () => resolveCart(catalog, cart),
     [catalog, cart]
@@ -130,6 +157,9 @@ export default function CartPage() {
   }, [customPickupTime, pickupTime, selectedQuickPickupTime]);
 
   function updateQuantity(itemId, nextQuantity) {
+    if (submissionGate.current.isInFlight()) {
+      return;
+    }
     const nextCart =
       nextQuantity <= 0
         ? cart.filter((item) => item.id !== itemId)
@@ -137,19 +167,99 @@ export default function CartPage() {
 
     setCart(nextCart);
     storeCart(nextCart);
+    if (!nextCart.length) {
+      clearOrderSubmission();
+    }
   }
 
   function updatePickupTime(value) {
+    if (submissionGate.current.isInFlight()) {
+      return;
+    }
     setPickupTime(value);
     storePickupTime(value);
   }
 
   function updateCustomPickupTime(value) {
-    if (!value) return;
+    if (!value || submissionGate.current.isInFlight()) return;
 
     setCustomPickupTime(value);
     storeCustomPickupTime(value);
     updatePickupTime("custom");
+  }
+
+  function updateCheckoutContact(field, value) {
+    if (submissionGate.current.isInFlight()) {
+      return;
+    }
+    setCheckoutContact((current) => ({ ...current, [field]: value }));
+  }
+
+  function updateOrderNotes(value) {
+    if (submissionGate.current.isInFlight()) {
+      return;
+    }
+    setOrderNotes(value);
+  }
+
+  async function placeOrder() {
+    if (!submissionGate.current.begin()) {
+      return;
+    }
+    if (
+      !checkoutContact.name.trim() ||
+      !checkoutContact.email.trim() ||
+      !checkoutContact.phone.trim()
+    ) {
+      setCheckoutError(
+        "Add a name, email, and phone number before placing your order."
+      );
+      submissionGate.current.end();
+      return;
+    }
+
+    setIsPlacingOrder(true);
+    setCheckoutError("");
+
+    try {
+      const requestedPickupAt = resolvePickupTimestamp({
+        pickupTime,
+        customPickupTime,
+        quickPickupMinutes: selectedQuickPickupTime.minutes,
+      });
+      const request = buildPendingOrderRequest({
+        contact: checkoutContact,
+        idempotencyKey: "",
+        lines: resolvedCart.lines,
+        notes: orderNotes,
+        requestedPickupAt,
+      });
+      const submission = await prepareOrderSubmission(request, {
+        fingerprintPayload: {
+          ...request,
+          requested_pickup_at: {
+            business_date: getLocalDateKey(),
+            custom_time:
+              pickupTime === "custom" ? customPickupTime : null,
+            selection: pickupTime,
+          },
+        },
+      });
+      const order = await createPendingOrder(submission);
+
+      clearOrderSubmission();
+      storeCart([]);
+      setCart([]);
+      navigate(
+        `/confirmation?order=${encodeURIComponent(order.public_token)}`,
+        { state: { order } }
+      );
+    } catch (error) {
+      setCheckoutError(getOrderErrorMessage(error));
+    } finally {
+      submissionGate.current.end();
+      setIsPlacingOrder(false);
+    }
   }
 
   if (!cart.length) {
@@ -227,6 +337,7 @@ export default function CartPage() {
                 {item.resolution === "ready" ? (
                   <div className="quantity-stepper" aria-label={`Quantity for ${item.name}`}>
                     <button
+                      disabled={isPlacingOrder}
                       type="button"
                       aria-label={`Remove one ${item.name}`}
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -235,6 +346,7 @@ export default function CartPage() {
                     </button>
                     <span>{item.quantity}</span>
                     <button
+                      disabled={isPlacingOrder}
                       type="button"
                       aria-label={`Add one ${item.name}`}
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
@@ -245,6 +357,7 @@ export default function CartPage() {
                 ) : null}
                 <button
                   className="remove-cart-item"
+                  disabled={isPlacingOrder}
                   type="button"
                   aria-label={`Remove ${item.name}`}
                   onClick={() => updateQuantity(item.id, 0)}
@@ -268,6 +381,7 @@ export default function CartPage() {
               <label key={option.value} className={option.value === pickupTime ? "selected" : ""}>
                 <input
                   checked={option.value === pickupTime}
+                  disabled={isPlacingOrder}
                   name="pickup-time"
                   type="radio"
                   value={option.value}
@@ -281,6 +395,7 @@ export default function CartPage() {
             <label htmlFor="custom-pickup-time">Ready around...</label>
             <input
               id="custom-pickup-time"
+              disabled={isPlacingOrder}
               min="06:00"
               required
               step="300"
@@ -295,18 +410,91 @@ export default function CartPage() {
           <span>Preferred pickup time</span>
           <strong>{pickupSummary}</strong>
         </div>
+        <div className="checkout-contact-panel">
+          <div className="checkout-contact-heading">
+            <span className="account-avatar" aria-hidden="true">
+              <UserRound size={20} strokeWidth={2.4} />
+            </span>
+            <div>
+              <span>Checkout contact</span>
+              <h2>How should we contact you?</h2>
+            </div>
+          </div>
+          <div className="checkout-contact-grid">
+            <label>
+              <span>Name</span>
+              <input
+                autoComplete="name"
+                disabled={isPlacingOrder}
+                required
+                value={checkoutContact.name}
+                onChange={(event) =>
+                  updateCheckoutContact("name", event.target.value)
+                }
+              />
+            </label>
+            <label>
+              <span>Email</span>
+              <input
+                autoComplete="email"
+                disabled={isPlacingOrder}
+                required
+                type="email"
+                value={checkoutContact.email}
+                onChange={(event) =>
+                  updateCheckoutContact("email", event.target.value)
+                }
+              />
+            </label>
+            <label>
+              <span>Phone</span>
+              <input
+                autoComplete="tel"
+                disabled={isPlacingOrder}
+                required
+                type="tel"
+                value={checkoutContact.phone}
+                onChange={(event) =>
+                  updateCheckoutContact("phone", event.target.value)
+                }
+              />
+            </label>
+          </div>
+        </div>
+        <label className="order-notes-field">
+          <span>Order notes</span>
+          <textarea
+            maxLength={2000}
+            disabled={isPlacingOrder}
+            placeholder="Milk preference, pastry warming, or pickup notes"
+            rows={3}
+            value={orderNotes}
+            onChange={(event) => updateOrderNotes(event.target.value)}
+          />
+        </label>
         <div className="cart-total-row">
           <span>Estimated total</span>
           <strong>{formatPrice(resolvedCart.total)}</strong>
         </div>
+        {checkoutError ? (
+          <p className="form-status checkout-error" role="alert">
+            {checkoutError}
+          </p>
+        ) : null}
         {resolvedCart.hasStaleLines ? (
           <Link className="primary-button" to="/menu">
             Update order
           </Link>
         ) : (
-          <Link className="primary-button" to="/confirmation">
-            Place order
-          </Link>
+          <button
+            className="primary-button"
+            disabled={isPlacingOrder}
+            type="button"
+            onClick={placeOrder}
+          >
+            <ClipboardList size={17} strokeWidth={2.4} />
+            {isPlacingOrder ? "Placing order…" : "Place order"}
+          </button>
         )}
       </div>
     </section>
