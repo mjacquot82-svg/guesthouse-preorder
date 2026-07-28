@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Minus, Plus, Trash2 } from "lucide-react";
+import { resolveCart } from "../services/cartCatalog.js";
+import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 
 const quickPickupOptions = [
   {
@@ -108,12 +110,13 @@ function getCustomPickupDate(timeValue) {
 }
 
 export default function CartPage() {
+  const { status, catalog, reload } = useCustomerCatalog();
   const [cart, setCart] = useState(getStoredCart);
   const [pickupTime, setPickupTime] = useState(getStoredPickupTime);
   const [customPickupTime, setCustomPickupTime] = useState(getStoredCustomPickupTime);
-  const total = useMemo(
-    () => cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    [cart]
+  const resolvedCart = useMemo(
+    () => resolveCart(catalog, cart),
+    [catalog, cart]
   );
   const selectedQuickPickupTime =
     quickPickupOptions.find((option) => option.value === pickupTime) || quickPickupOptions[0];
@@ -163,6 +166,31 @@ export default function CartPage() {
     );
   }
 
+  if (status === "idle" || status === "loading") {
+    return (
+      <section className="page-section compact-section ordering-page">
+        <div className="empty-state" role="status" aria-live="polite">
+          <h1>Checking your café bag</h1>
+          <p>Confirming today’s menu and your customizations.</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <section className="page-section compact-section ordering-page">
+        <div className="empty-state" role="alert">
+          <h1>We couldn’t check your café bag</h1>
+          <p>Please check your connection and try again.</p>
+          <button className="primary-button" type="button" onClick={reload}>
+            Try again
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="page-section ordering-page cart-page">
       <div className="page-heading cart-heading">
@@ -172,7 +200,7 @@ export default function CartPage() {
 
       <div className="content-block cart-review app-cart-review">
         <ul>
-          {cart.map((item) => (
+          {resolvedCart.lines.map((item) => (
             <li key={item.id}>
               <div className="cart-item-copy">
                 <strong>{item.name}</strong>
@@ -184,26 +212,37 @@ export default function CartPage() {
                 <span>
                   {item.quantity} x {formatPrice(item.price)}
                 </span>
+                {item.resolution !== "ready" ? (
+                  <small role="alert">
+                    {item.issues.join(" ")} Remove it or add a current version from the menu.
+                  </small>
+                ) : null}
               </div>
               <div className="cart-line-actions">
-                <strong>{formatPrice(item.price * item.quantity)}</strong>
-                <div className="quantity-stepper" aria-label={`Quantity for ${item.name}`}>
-                  <button
-                    type="button"
-                    aria-label={`Remove one ${item.name}`}
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                  >
-                    <Minus size={16} />
-                  </button>
-                  <span>{item.quantity}</span>
-                  <button
-                    type="button"
-                    aria-label={`Add one ${item.name}`}
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                  >
-                    <Plus size={16} />
-                  </button>
-                </div>
+                <strong>
+                  {item.resolution === "ready"
+                    ? formatPrice(item.price * item.quantity)
+                    : "Unavailable"}
+                </strong>
+                {item.resolution === "ready" ? (
+                  <div className="quantity-stepper" aria-label={`Quantity for ${item.name}`}>
+                    <button
+                      type="button"
+                      aria-label={`Remove one ${item.name}`}
+                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span>{item.quantity}</span>
+                    <button
+                      type="button"
+                      aria-label={`Add one ${item.name}`}
+                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                ) : null}
                 <button
                   className="remove-cart-item"
                   type="button"
@@ -258,11 +297,17 @@ export default function CartPage() {
         </div>
         <div className="cart-total-row">
           <span>Estimated total</span>
-          <strong>{formatPrice(total)}</strong>
+          <strong>{formatPrice(resolvedCart.total)}</strong>
         </div>
-        <Link className="primary-button" to="/confirmation">
-          Place order
-        </Link>
+        {resolvedCart.hasStaleLines ? (
+          <Link className="primary-button" to="/menu">
+            Update order
+          </Link>
+        ) : (
+          <Link className="primary-button" to="/confirmation">
+            Place order
+          </Link>
+        )}
       </div>
     </section>
   );
