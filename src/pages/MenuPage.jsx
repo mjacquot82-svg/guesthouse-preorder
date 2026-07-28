@@ -2,10 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   getCategoryById,
+  getCartLineId,
+  getConfiguredPrice,
+  getDefaultSelections,
   getModifierGroupsForProduct,
-  menuCategories,
-} from "../data/catalog.js";
-import { useCatalogProducts } from "../stores/catalogStore.js";
+  getSelectedOptions,
+  groupProductsByCategory,
+} from "../services/menuCatalog.js";
+import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -24,55 +28,6 @@ function getStoredCart() {
 
 function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
-}
-
-function getDefaultSelections(product) {
-  return getModifierGroupsForProduct(product).reduce((selections, group) => {
-    const defaultOption = group.options[0]?.id;
-    return {
-      ...selections,
-      [group.id]: group.type === "multiple" ? [] : defaultOption || "",
-    };
-  }, {});
-}
-
-function getSelectedOptions(product, selections) {
-  return getModifierGroupsForProduct(product).flatMap((group) => {
-    const selectedValue = selections[group.id];
-    const selectedIds = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
-
-    return selectedIds
-      .map((optionId) => {
-        const option = group.options.find((item) => item.id === optionId);
-        return option ? { groupId: group.id, groupName: group.name, ...option } : null;
-      })
-      .filter(Boolean);
-  });
-}
-
-function getConfiguredPrice(product, selections) {
-  return getSelectedOptions(product, selections).reduce(
-    (sum, option) => sum + (Number(option.priceDelta) || 0),
-    product.price
-  );
-}
-
-function getCartLineId(product, selectedOptions) {
-  const optionSignature = selectedOptions
-    .map((option) => `${option.groupId}:${option.id}`)
-    .sort()
-    .join("|");
-
-  return optionSignature ? `${product.id}__${optionSignature}` : product.id;
-}
-
-function groupProductsByCategory(products) {
-  return menuCategories
-    .map((category) => ({
-      ...category,
-      items: products.filter((product) => product.category === category.id && product.available),
-    }))
-    .filter((section) => section.items.length);
 }
 
 function ProductModifiers({ product, selections, onChange }) {
@@ -129,9 +84,14 @@ function ProductModifiers({ product, selections, onChange }) {
 }
 
 export default function MenuPage() {
-  const { products } = useCatalogProducts();
+  const { status, catalog, reload } = useCustomerCatalog();
+  const categories = catalog?.categories || [];
+  const products = catalog?.products || [];
   const [searchParams, setSearchParams] = useSearchParams();
-  const sections = useMemo(() => groupProductsByCategory(products), [products]);
+  const sections = useMemo(
+    () => groupProductsByCategory(categories, products),
+    [categories, products]
+  );
   const firstSection = sections[0]?.id || "";
   const targetProductId = searchParams.get("product") || "";
   const targetProduct = products.find(
@@ -224,7 +184,7 @@ export default function MenuPage() {
     const selectedOptions = getSelectedOptions(product, selections);
     const configuredPrice = getConfiguredPrice(product, selections);
     const cartLineId = getCartLineId(product, selectedOptions);
-    const category = getCategoryById(product.category);
+    const category = getCategoryById(categories, product.category);
     const cartItem = {
       id: cartLineId,
       productId: product.id,
@@ -271,6 +231,54 @@ export default function MenuPage() {
     const selections = getSelections(product);
     const cartLineId = getCartLineId(product, getSelectedOptions(product, selections));
     return cart.find((item) => item.id === cartLineId)?.quantity || 0;
+  }
+
+  if (status === "idle" || status === "loading") {
+    return (
+      <section className="page-section menu-page app-menu-page">
+        <div className="app-menu-surface">
+          <section className="menu-card menu-card-featured app-menu-card">
+            <div className="empty-menu-note" role="status" aria-live="polite">
+              <h1>Preparing the café menu</h1>
+              <p>Gathering today’s drinks and fresh bites.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <section className="page-section menu-page app-menu-page">
+        <div className="app-menu-surface">
+          <section className="menu-card menu-card-featured app-menu-card">
+            <div className="empty-menu-note" role="alert">
+              <h1>We couldn’t load the café menu</h1>
+              <p>Please check your connection and try again.</p>
+              <button type="button" onClick={reload}>
+                Try again
+              </button>
+            </div>
+          </section>
+        </div>
+      </section>
+    );
+  }
+
+  if (status === "empty") {
+    return (
+      <section className="page-section menu-page app-menu-page">
+        <div className="app-menu-surface">
+          <section className="menu-card menu-card-featured app-menu-card">
+            <div className="empty-menu-note">
+              <h1>No available items</h1>
+              <p>The café menu is being updated. Please check back soon.</p>
+            </div>
+          </section>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -341,7 +349,7 @@ export default function MenuPage() {
                   const selections = getSelections(item);
                   const quantity = getItemQuantity(item);
                   const price = getConfiguredPrice(item, selections);
-                  const category = getCategoryById(item.category);
+                  const category = getCategoryById(categories, item.category);
                   const cartLineId = getCartLineId(item, getSelectedOptions(item, selections));
                   const isAdded = addedLineId === cartLineId;
 
