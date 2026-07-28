@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { ChevronRight, ShoppingBag } from "lucide-react";
-import { getCategoryById } from "../data/catalog.js";
-import { useCatalogProducts } from "../stores/catalogStore.js";
+import {
+  createHomeCatalogView,
+  getHomeCategoryById,
+} from "../services/homeCatalog.js";
+import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -21,13 +24,13 @@ function getStoredCart() {
 }
 
 export default function HomePage() {
-  const { products } = useCatalogProducts();
+  const { status, catalog, reload } = useCustomerCatalog();
+  const {
+    categories,
+    popularItems,
+    coffeeCount,
+  } = createHomeCatalogView(status, catalog);
   const [cart] = useState(getStoredCart);
-  const availableProducts = products.filter((product) => product.available);
-  const popularItems = availableProducts.filter((product) => product.featured).slice(0, 4);
-  const coffeeCount = availableProducts.filter((product) =>
-    ["coffee", "espresso", "tea", "iced-drinks"].includes(product.category)
-  ).length;
   const cartCount = useMemo(
     () => cart.reduce((total, item) => total + item.quantity, 0),
     [cart]
@@ -70,24 +73,60 @@ export default function HomePage() {
         </div>
 
         <div className="item-list compact-item-list">
-          {popularItems.slice(0, 3).map((item) => (
-            <Link
-              className="item-row favorite-item-link"
-              key={item.id}
-              to={`/menu?product=${encodeURIComponent(item.id)}`}
-              aria-label={`Customize ${item.name}`}
-            >
-              <div className={`item-thumb item-thumb-${item.image}`} aria-hidden="true" />
-              <div>
-                <h3>{item.name}</h3>
-                <p>{getCategoryById(item.category)?.name || "Available now"}</p>
-              </div>
-              <span className="favorite-item-action">
-                <strong>{formatPrice(item.price)}</strong>
-                <ChevronRight size={17} strokeWidth={2.2} aria-hidden="true" />
-              </span>
-            </Link>
-          ))}
+          {status === "idle" || status === "loading" ? (
+            <div className="empty-menu-note" role="status" aria-live="polite">
+              <h3>Preparing today’s favorites</h3>
+              <p>Gathering the latest café menu.</p>
+            </div>
+          ) : null}
+
+          {status === "error" ? (
+            <div className="empty-menu-note" role="alert">
+              <h3>We couldn’t load today’s favorites</h3>
+              <p>Please check your connection and try again.</p>
+              <button type="button" onClick={reload}>
+                Try again
+              </button>
+            </div>
+          ) : null}
+
+          {status === "empty" ? (
+            <div className="empty-menu-note">
+              <h3>No café favorites are available right now</h3>
+              <p>The menu is being updated. Please check back soon.</p>
+            </div>
+          ) : null}
+
+          {status === "ready"
+            ? popularItems.slice(0, 3).map((item) => (
+                <Link
+                  className="item-row favorite-item-link"
+                  key={item.id}
+                  to={`/menu?product=${encodeURIComponent(item.id)}`}
+                  aria-label={`Customize ${item.name}`}
+                >
+                  <div
+                    className={`item-thumb item-thumb-${item.image}`}
+                    aria-hidden="true"
+                  />
+                  <div>
+                    <h3>{item.name}</h3>
+                    <p>
+                      {getHomeCategoryById(categories, item.category)?.name ||
+                        "Available now"}
+                    </p>
+                  </div>
+                  <span className="favorite-item-action">
+                    <strong>{formatPrice(item.price)}</strong>
+                    <ChevronRight
+                      size={17}
+                      strokeWidth={2.2}
+                      aria-hidden="true"
+                    />
+                  </span>
+                </Link>
+              ))
+            : null}
         </div>
       </section>
 
