@@ -123,6 +123,17 @@ class Product(CatalogModelValidation, Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    availability: Mapped[ProductAvailability | None] = relationship(
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        uselist=False,
+    )
+    availability_overrides: Mapped[list[ProductAvailabilityOverride]] = relationship(
+        back_populates="product",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class ProductVariant(CatalogModelValidation, Base):
@@ -311,3 +322,7 @@ def validate_modifier_group_selection_rules(
     _: object, __: object, modifier_group: ModifierGroup
 ) -> None:
     modifier_group.validate_selection_rules()
+
+
+# Register relationship targets when catalog models are imported independently.
+from app.availability import models as availability_models  # noqa: E402,F401
