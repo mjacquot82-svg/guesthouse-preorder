@@ -1,15 +1,26 @@
 from collections.abc import Iterator
-from datetime import date
+import hashlib
+import hmac
+import json
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import date, datetime, timedelta, timezone
+from threading import Barrier, Lock
 
 import pytest
 from alembic import command
+from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
+from fastapi.responses import Response
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.availability.models import ProductAvailabilityOverride
+from app.api.v1.clover import create_hosted_checkout, get_settings
 from app.api.v1.orders import get_current_time
+from app.clover.client import CloverClient
+from app.clover.config import CloverSettings
 from app.main import create_app
 from app.orders.models import Order
 from tests.test_migrations import make_alembic_config
@@ -253,6 +264,170 @@ def test_get_order_by_public_token_and_return_not_found(
             "message": "Pending order was not found.",
         }
     }
+
+
+@pytest.mark.postgresql
+def test_clover_checkout_is_idempotent_and_webhook_state_is_monotonic(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, ids = orders_api
+    settings = CloverSettings(
+        app_id="app-id",
+        app_secret="app-secret",
+        token_encryption_key=Fernet.generate_key().decode(),
+        state_secret="s" * 48,
+        webhook_secret="w" * 48,
+        public_app_url="https://api.example.test",
+        frontend_url="https://shop.example.test",
+        merchant_id="merchant-id",
+        ecommerce_private_token="private-token",
+    )
+    client.app.dependency_overrides[get_settings] = lambda: settings
+
+    created = client.post("/api/v1/orders", json=order_payload(ids)).json()
+    with Session(engine) as session:
+        order = session.scalar(
+            select(Order).where(
+                Order.public_access_token == created["public_token"]
+            )
+        )
+        order.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        session.commit()
+
+    calls = 0
+
+    def create_checkout(*_: object, **__: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return {
+            "href": "https://checkout.example.test/session",
+            "checkoutSessionId": "checkout-session",
+            "expirationTime": int(
+                (datetime.now(timezone.utc) + timedelta(minutes=15)).timestamp()
+                * 1000
+            ),
+        }
+
+    monkeypatch.setattr(CloverClient, "create_checkout", create_checkout)
+    path = f"/api/v1/clover/orders/{created['public_token']}/checkout"
+    first = client.post(path)
+    replay = client.post(path)
+
+    assert first.status_code == 200
+    assert replay.json() == first.json()
+    assert calls == 1
+    assert client.get(
+        f"/api/v1/orders/{created['public_token']}"
+    ).json()["status"] == "payment_pending"
+
+    approved_payload = json.dumps(
+        {
+            "type": "PAYMENT",
+            "status": "APPROVED",
+            "merchantId": "merchant-id",
+            "data": "checkout-session",
+        },
+        separators=(",", ":"),
+    ).encode()
+    timestamp = int(time.time())
+    signature = hmac.new(
+        settings.webhook_secret.encode(),
+        str(timestamp).encode() + b"." + approved_payload,
+        hashlib.sha256,
+    ).hexdigest()
+    approved = client.post(
+        "/api/v1/clover/webhooks/hosted-checkout",
+        content=approved_payload,
+        headers={"Clover-Signature": f"t={timestamp},v1={signature}"},
+    )
+    assert approved.status_code == 204
+    assert client.get(
+        f"/api/v1/orders/{created['public_token']}"
+    ).json()["status"] == "paid"
+
+    declined_payload = approved_payload.replace(b"APPROVED", b"DECLINED")
+    declined_signature = hmac.new(
+        settings.webhook_secret.encode(),
+        str(timestamp).encode() + b"." + declined_payload,
+        hashlib.sha256,
+    ).hexdigest()
+    declined = client.post(
+        "/api/v1/clover/webhooks/hosted-checkout",
+        content=declined_payload,
+        headers={"Clover-Signature": f"t={timestamp},v1={declined_signature}"},
+    )
+    assert declined.status_code == 204
+    assert client.get(
+        f"/api/v1/orders/{created['public_token']}"
+    ).json()["status"] == "paid"
+    assert client.post(path).status_code == 409
+    client.app.dependency_overrides.pop(get_settings, None)
+
+
+@pytest.mark.postgresql
+def test_concurrent_clover_checkout_requests_create_one_external_session(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, ids = orders_api
+    settings = CloverSettings(
+        app_id="app-id",
+        app_secret="app-secret",
+        token_encryption_key=Fernet.generate_key().decode(),
+        state_secret="s" * 48,
+        webhook_secret="w" * 48,
+        public_app_url="https://api.example.test",
+        frontend_url="https://shop.example.test",
+        merchant_id="merchant-id",
+        ecommerce_private_token="private-token",
+    )
+    created = client.post("/api/v1/orders", json=order_payload(ids)).json()
+    with Session(engine) as session:
+        order = session.scalar(
+            select(Order).where(
+                Order.public_access_token == created["public_token"]
+            )
+        )
+        order.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        session.commit()
+
+    barrier = Barrier(2)
+    calls = 0
+    calls_lock = Lock()
+
+    def external_checkout(*_: object, **__: object) -> dict[str, object]:
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+        time.sleep(0.2)
+        return {
+            "href": "https://checkout.example.test/session",
+            "checkoutSessionId": "concurrent-session",
+            "expirationTime": int(
+                (datetime.now(timezone.utc) + timedelta(minutes=15)).timestamp()
+                * 1000
+            ),
+        }
+
+    monkeypatch.setattr(CloverClient, "create_checkout", external_checkout)
+
+    def checkout() -> str:
+        barrier.wait(timeout=5)
+        with Session(engine, expire_on_commit=False) as session:
+            result = create_hosted_checkout(
+                created["public_token"],
+                Response(),
+                session,
+                settings,
+            )
+            return result.checkout_session_id
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: checkout(), range(2)))
+
+    assert results == ["concurrent-session", "concurrent-session"]
+    assert calls == 1
 
 
 @pytest.mark.postgresql

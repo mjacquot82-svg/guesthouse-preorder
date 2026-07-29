@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, inspect
 
 from app.availability import models as availability_models  # noqa: F401
 from app.catalog import models as catalog_models  # noqa: F401
+from app.clover import models as clover_models  # noqa: F401
 from app.orders import models as order_models  # noqa: F401
 from app.db.base import Base
 
@@ -27,7 +28,7 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
     config = make_alembic_config(postgresql_url)
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["20260728_03"]
+    assert script.get_heads() == ["20260729_04"]
 
     command.downgrade(config, "base")
     command.upgrade(config, "head")
@@ -36,7 +37,7 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
     try:
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260728_03"
+            assert context.get_current_revision() == "20260729_04"
 
         assert set(inspect(engine).get_table_names()) >= {
             "alembic_version",
@@ -54,6 +55,7 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
             "orders",
             "order_items",
             "order_item_modifiers",
+            "clover_installations",
         }
 
         command.downgrade(config, "base")
@@ -73,6 +75,7 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
                 "orders",
                 "order_items",
                 "order_item_modifiers",
+                "clover_installations",
             }
         )
     finally:

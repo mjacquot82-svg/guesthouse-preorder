@@ -29,7 +29,9 @@ function requireOrder(payload, status) {
     !payload ||
     typeof payload !== "object" ||
     typeof payload.public_token !== "string" ||
-    payload.status !== "pending" ||
+    !["pending", "payment_pending", "paid", "payment_failed"].includes(
+      payload.status
+    ) ||
     !payload.customer ||
     !Array.isArray(payload.items)
   ) {
@@ -73,7 +75,7 @@ async function requestOrder(url, options, fetchImpl) {
 export function createPendingOrder(
   payload,
   {
-    apiBaseUrl = "",
+    apiBaseUrl = import.meta.env?.VITE_API_BASE_URL || "",
     fetchImpl = globalThis.fetch,
     signal,
   } = {}
@@ -96,7 +98,7 @@ export function createPendingOrder(
 export function fetchPendingOrder(
   publicToken,
   {
-    apiBaseUrl = "",
+    apiBaseUrl = import.meta.env?.VITE_API_BASE_URL || "",
     fetchImpl = globalThis.fetch,
     signal,
   } = {}

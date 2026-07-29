@@ -60,7 +60,10 @@ class OrderModelValidation:
 class Order(OrderModelValidation, Base):
     __tablename__ = "orders"
     __table_args__ = (
-        CheckConstraint("status = 'pending'", name="status_pending"),
+        CheckConstraint(
+            "status IN ('pending', 'payment_pending', 'paid', 'payment_failed')",
+            name="status_valid",
+        ),
         CheckConstraint("btrim(idempotency_key) <> ''", name="idempotency_nonblank"),
         CheckConstraint(
             "char_length(request_fingerprint) = 64",
@@ -94,6 +97,17 @@ class Order(OrderModelValidation, Base):
         ),
         CheckConstraint("version >= 1", name="version_positive"),
         CheckConstraint("expires_at > created_at", name="expiry_after_creation"),
+        CheckConstraint(
+            "(clover_merchant_id IS NULL AND "
+            "clover_checkout_session_id IS NULL AND "
+            "clover_checkout_url IS NULL AND "
+            "clover_checkout_expires_at IS NULL) OR "
+            "(clover_merchant_id IS NOT NULL AND "
+            "clover_checkout_session_id IS NOT NULL AND "
+            "clover_checkout_url IS NOT NULL AND "
+            "clover_checkout_expires_at IS NOT NULL)",
+            name="clover_checkout_consistent",
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -119,6 +133,14 @@ class Order(OrderModelValidation, Base):
     subtotal_cents: Mapped[int] = mapped_column(Integer)
     tax_cents: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     total_cents: Mapped[int] = mapped_column(Integer)
+    clover_merchant_id: Mapped[str | None] = mapped_column(String(100))
+    clover_checkout_session_id: Mapped[str | None] = mapped_column(
+        String(200), unique=True
+    )
+    clover_checkout_url: Mapped[str | None] = mapped_column(Text)
+    clover_checkout_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
@@ -140,7 +162,7 @@ class Order(OrderModelValidation, Base):
         try:
             return OrderStatus(value)
         except ValueError as error:
-            raise ValueError("status must be pending.") from error
+            raise ValueError("status is invalid.") from error
 
     @validates("notes")
     def validate_notes(self, _: str, value: str | None) -> str | None:

@@ -70,6 +70,13 @@ uvicorn app.main:app --reload
 
 The backend is available at `http://127.0.0.1:8000`.
 
+## Clover
+
+OAuth v2 and Hosted Checkout configuration is documented in
+`../docs/CLOVER_INTEGRATION_SETUP.md`. Copy `../.env.example`, deploy the API
+behind HTTPS, run `alembic upgrade head`, and configure the resulting
+`PUBLIC_APP_URL` in Clover before connecting a merchant.
+
 Check liveness:
 
 ```bash

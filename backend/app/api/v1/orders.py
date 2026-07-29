@@ -155,8 +155,8 @@ def create_pending_order(
 @router.get(
     "/{public_token}",
     response_model=PendingOrderResponse,
-    summary="Retrieve a pending order",
-    description="Returns an immutable pending-order snapshot by its public token.",
+    summary="Retrieve an order",
+    description="Returns the current order snapshot by its public token.",
     responses={
         404: {
             "model": OrderErrorResponse,

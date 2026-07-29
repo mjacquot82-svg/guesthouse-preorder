@@ -6,6 +6,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.availability import models as availability_models  # noqa: F401
 from app.catalog import models as catalog_models  # noqa: F401
+from app.clover import models as clover_models  # noqa: F401
 from app.orders import models as order_models  # noqa: F401
 from app.db.base import Base
 

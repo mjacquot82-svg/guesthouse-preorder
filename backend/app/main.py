@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 
@@ -36,6 +37,15 @@ def create_app(database_url: str | None = None) -> FastAPI:
     )
     application.state.db_engine = engine
     application.state.db_session_factory = session_factory
+    frontend_url = os.getenv("FRONTEND_URL")
+    allowed_origins = [frontend_url] if frontend_url else []
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=allowed_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["Accept", "Content-Type"],
+    )
     application.include_router(api_v1_router)
 
     @application.get("/health/live")

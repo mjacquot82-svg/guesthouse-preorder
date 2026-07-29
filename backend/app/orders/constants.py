@@ -3,6 +3,9 @@ from enum import Enum
 
 class OrderStatus(str, Enum):
     PENDING = "pending"
+    PAYMENT_PENDING = "payment_pending"
+    PAID = "paid"
+    PAYMENT_FAILED = "payment_failed"
 
 
 DEFAULT_CURRENCY = "USD"

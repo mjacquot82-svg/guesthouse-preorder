@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ClipboardList, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import { resolveCart } from "../services/cartCatalog.js";
 import {
@@ -11,6 +11,7 @@ import {
   resolvePickupTimestamp,
 } from "../services/checkoutOrder.js";
 import { createPendingOrder } from "../services/orderApi.js";
+import { createCloverCheckout } from "../services/cloverService.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 
 const quickPickupOptions = [
@@ -127,7 +128,6 @@ function getLocalDateKey(value = new Date()) {
 }
 
 export default function CartPage() {
-  const navigate = useNavigate();
   const { status, catalog, reload } = useCustomerCatalog();
   const [cart, setCart] = useState(getStoredCart);
   const [pickupTime, setPickupTime] = useState(getStoredPickupTime);
@@ -246,14 +246,9 @@ export default function CartPage() {
         },
       });
       const order = await createPendingOrder(submission);
+      const checkout = await createCloverCheckout(order.public_token);
 
-      clearOrderSubmission();
-      storeCart([]);
-      setCart([]);
-      navigate(
-        `/confirmation?order=${encodeURIComponent(order.public_token)}`,
-        { state: { order } }
-      );
+      window.location.assign(checkout.checkout_url);
     } catch (error) {
       setCheckoutError(getOrderErrorMessage(error));
     } finally {

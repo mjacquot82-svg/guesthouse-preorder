@@ -9,7 +9,7 @@ export class CatalogApiError extends Error {
 }
 
 export async function fetchCatalog({
-  apiBaseUrl = "",
+  apiBaseUrl = import.meta.env?.VITE_API_BASE_URL || "",
   fetchImpl = globalThis.fetch,
   signal,
 } = {}) {
