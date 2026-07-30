@@ -156,6 +156,143 @@ def test_migration_bootstrap_adopts_existing_catalog_without_data_loss(
 
 
 @pytest.mark.postgresql
+def test_migration_bootstrap_reconciles_catalog_and_orders_without_data_loss(
+    postgresql_url: str,
+) -> None:
+    config = make_alembic_config(postgresql_url)
+    command.downgrade(config, "base")
+    command.upgrade(config, "20260728_03")
+
+    engine = create_engine(postgresql_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO categories "
+                    "(slug, name, is_published, sort_order) "
+                    "VALUES ('legacy-category', 'Legacy Category', true, 0)"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO orders "
+                    "(idempotency_key, request_fingerprint, public_access_token, "
+                    "status, guest_name, guest_email, guest_phone, "
+                    "requested_pickup_at, business_timezone, currency, "
+                    "subtotal_cents, tax_cents, total_cents, version, expires_at) "
+                    "VALUES ('legacy-order-key', :fingerprint, 'legacy-token', "
+                    "'pending', 'Legacy Guest', 'legacy@example.com', "
+                    "'+15555550100', now(), 'America/Toronto', 'USD', "
+                    "1250, 0, 1250, 1, now() + interval '1 hour')"
+                ),
+                {"fingerprint": "a" * 64},
+            )
+            connection.execute(
+                text(
+                    "DROP TABLE product_availability_overrides, "
+                    "product_availability, business_closures, business_hours, "
+                    "business_settings"
+                )
+            )
+            connection.execute(text("DROP TABLE alembic_version"))
+
+        migrate_database(postgresql_url)
+
+        inspector = inspect(engine)
+        with engine.connect() as connection:
+            context = MigrationContext.configure(connection)
+            assert context.get_current_revision() == "20260729_04"
+            assert connection.scalar(
+                text(
+                    "SELECT guest_name FROM orders "
+                    "WHERE idempotency_key = 'legacy-order-key'"
+                )
+            ) == "Legacy Guest"
+            assert connection.scalar(
+                text(
+                    "SELECT name FROM categories "
+                    "WHERE slug = 'legacy-category'"
+                )
+            ) == "Legacy Category"
+
+        assert {
+            "business_settings",
+            "business_hours",
+            "business_closures",
+            "product_availability",
+            "product_availability_overrides",
+            "clover_installations",
+        }.issubset(inspector.get_table_names())
+        assert {
+            "clover_merchant_id",
+            "clover_checkout_session_id",
+            "clover_checkout_url",
+            "clover_checkout_expires_at",
+        }.issubset(
+            column["name"] for column in inspector.get_columns("orders")
+        )
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.postgresql
+@pytest.mark.parametrize("interrupted_revision", ["20260727_01", "20260728_02"])
+def test_migration_bootstrap_resumes_interrupted_order_reconciliation(
+    postgresql_url: str,
+    interrupted_revision: str,
+) -> None:
+    config = make_alembic_config(postgresql_url)
+    command.downgrade(config, "base")
+    command.upgrade(config, "20260728_03")
+
+    engine = create_engine(postgresql_url)
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO orders "
+                    "(idempotency_key, request_fingerprint, public_access_token, "
+                    "status, guest_name, guest_email, guest_phone, "
+                    "requested_pickup_at, business_timezone, currency, "
+                    "subtotal_cents, tax_cents, total_cents, version, expires_at) "
+                    "VALUES ('resume-order-key', :fingerprint, 'resume-token', "
+                    "'pending', 'Resume Guest', 'resume@example.com', "
+                    "'+15555550101', now(), 'America/Toronto', 'USD', "
+                    "1250, 0, 1250, 1, now() + interval '1 hour')"
+                ),
+                {"fingerprint": "b" * 64},
+            )
+            connection.execute(text("DROP TABLE alembic_version"))
+
+        if interrupted_revision == "20260727_01":
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "DROP TABLE product_availability_overrides, "
+                        "product_availability, business_closures, business_hours, "
+                        "business_settings"
+                    )
+                )
+            command.stamp(config, "20260727_01")
+        else:
+            command.stamp(config, "20260728_02")
+
+        migrate_database(postgresql_url)
+
+        with engine.connect() as connection:
+            context = MigrationContext.configure(connection)
+            assert context.get_current_revision() == "20260729_04"
+            assert connection.scalar(
+                text(
+                    "SELECT guest_name FROM orders "
+                    "WHERE idempotency_key = 'resume-order-key'"
+                )
+            ) == "Resume Guest"
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.postgresql
 def test_migration_bootstrap_refuses_partial_unversioned_schema(
     postgresql_url: str,
 ) -> None:

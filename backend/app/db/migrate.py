@@ -9,11 +9,15 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.schema import Table
 
+from app.availability import models as availability_models  # noqa: F401
 from app.catalog import models as catalog_models  # noqa: F401
 from app.db.base import Base
+from app.orders import models as order_models  # noqa: F401
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_BASELINE_REVISION = "20260727_01"
+AVAILABILITY_BASELINE_REVISION = "20260728_02"
+ORDER_BASELINE_REVISION = "20260728_03"
 CATALOG_TABLE_NAMES = frozenset(
     {
         "categories",
@@ -24,20 +28,46 @@ CATALOG_TABLE_NAMES = frozenset(
         "product_modifier_groups",
     }
 )
-LATER_MANAGED_TABLE_NAMES = frozenset(
+AVAILABILITY_TABLE_NAMES = frozenset(
     {
         "business_settings",
         "business_hours",
         "business_closures",
         "product_availability",
         "product_availability_overrides",
+    }
+)
+ORDER_TABLE_NAMES = frozenset(
+    {
         "orders",
         "order_items",
         "order_item_modifiers",
+    }
+)
+CLOVER_TABLE_NAMES = frozenset(
+    {
         "clover_installations",
     }
 )
+LEGACY_CATALOG_AND_ORDER_TABLE_NAMES = CATALOG_TABLE_NAMES | ORDER_TABLE_NAMES
+LATER_MANAGED_TABLE_NAMES = (
+    AVAILABILITY_TABLE_NAMES | ORDER_TABLE_NAMES | CLOVER_TABLE_NAMES
+)
 MANAGED_TABLE_NAMES = CATALOG_TABLE_NAMES | LATER_MANAGED_TABLE_NAMES
+ORDER_CLOVER_COLUMN_NAMES = frozenset(
+    {
+        "clover_merchant_id",
+        "clover_checkout_session_id",
+        "clover_checkout_url",
+        "clover_checkout_expires_at",
+    }
+)
+ORDER_HEAD_ONLY_CHECK_NAMES = frozenset(
+    {
+        "ck_orders_status_valid",
+        "ck_orders_clover_checkout_consistent",
+    }
+)
 MIGRATION_LOCK_NAME = "guesthouse_preorder_alembic"
 
 
@@ -68,7 +98,14 @@ def _expected_check_names(table: Table) -> set[str]:
     }
 
 
-def _validate_table(engine: Engine, table_name: str) -> list[str]:
+def _validate_table(
+    engine: Engine,
+    table_name: str,
+    *,
+    excluded_column_names: frozenset[str] = frozenset(),
+    excluded_check_names: frozenset[str] = frozenset(),
+    additional_check_names: frozenset[str] = frozenset(),
+) -> list[str]:
     inspector = inspect(engine)
     expected = Base.metadata.tables[table_name]
     problems: list[str] = []
@@ -76,7 +113,11 @@ def _validate_table(engine: Engine, table_name: str) -> list[str]:
     actual_columns = {
         column["name"]: column for column in inspector.get_columns(table_name)
     }
-    expected_columns = {column.name: column for column in expected.columns}
+    expected_columns = {
+        column.name: column
+        for column in expected.columns
+        if column.name not in excluded_column_names
+    }
     if set(actual_columns) != set(expected_columns):
         problems.append(
             f"{table_name} columns are {sorted(actual_columns)}; expected "
@@ -115,24 +156,31 @@ def _validate_table(engine: Engine, table_name: str) -> list[str]:
     expected_unique = {
         str(constraint.name): tuple(column.name for column in constraint.columns)
         for constraint in expected.constraints
-        if isinstance(constraint, UniqueConstraint) and constraint.name is not None
+        if isinstance(constraint, UniqueConstraint)
+        and constraint.name is not None
+        and not {
+            column.name for column in constraint.columns
+        } & excluded_column_names
     }
-    for name, columns in expected_unique.items():
-        if actual_unique.get(name) != columns:
-            problems.append(
-                f"{table_name} unique constraint {name} does not match the baseline"
-            )
+    if actual_unique != expected_unique:
+        problems.append(
+            f"{table_name} unique constraints are {sorted(actual_unique)}; "
+            f"expected {sorted(expected_unique)}"
+        )
 
     actual_checks = {
         constraint["name"]
         for constraint in inspector.get_check_constraints(table_name)
         if constraint.get("name")
     }
-    for name in _expected_check_names(expected):
-        if name not in actual_checks:
-            problems.append(
-                f"{table_name} check constraint {name} is missing"
-            )
+    expected_checks = (
+        _expected_check_names(expected) - excluded_check_names
+    ) | additional_check_names
+    if actual_checks != expected_checks:
+        problems.append(
+            f"{table_name} check constraints are {sorted(actual_checks)}; "
+            f"expected {sorted(expected_checks)}"
+        )
 
     actual_foreign_keys = {
         constraint["name"]: (
@@ -154,12 +202,15 @@ def _validate_table(engine: Engine, table_name: str) -> list[str]:
         for constraint in expected.constraints
         if isinstance(constraint, ForeignKeyConstraint)
         and constraint.name is not None
+        and not {
+            element.parent.name for element in constraint.elements
+        } & excluded_column_names
     }
-    for name, signature in expected_foreign_keys.items():
-        if actual_foreign_keys.get(name) != signature:
-            problems.append(
-                f"{table_name} foreign key {name} does not match the baseline"
-            )
+    if actual_foreign_keys != expected_foreign_keys:
+        problems.append(
+            f"{table_name} foreign keys are {sorted(actual_foreign_keys)}; "
+            f"expected {sorted(expected_foreign_keys)}"
+        )
 
     actual_indexes = {
         index["name"]: (tuple(index["column_names"]), bool(index["unique"]))
@@ -173,10 +224,15 @@ def _validate_table(engine: Engine, table_name: str) -> list[str]:
         )
         for index in expected.indexes
         if index.name is not None
+        and not {
+            column.name for column in index.columns
+        } & excluded_column_names
     }
-    for name, signature in expected_indexes.items():
-        if actual_indexes.get(name) != signature:
-            problems.append(f"{table_name} index {name} does not match the baseline")
+    if actual_indexes != expected_indexes:
+        problems.append(
+            f"{table_name} indexes are {sorted(actual_indexes)}; "
+            f"expected {sorted(expected_indexes)}"
+        )
 
     return problems
 
@@ -193,6 +249,94 @@ def _validate_catalog_baseline(engine: Engine) -> None:
             "Existing catalog schema cannot be safely adopted as Alembic "
             f"revision {CATALOG_BASELINE_REVISION}:\n- {formatted}"
         )
+
+
+def _validate_order_baseline(engine: Engine) -> None:
+    problems = _validate_table(
+        engine,
+        "orders",
+        excluded_column_names=ORDER_CLOVER_COLUMN_NAMES,
+        excluded_check_names=ORDER_HEAD_ONLY_CHECK_NAMES,
+        additional_check_names=frozenset({"ck_orders_status_pending"}),
+    )
+    problems.extend(
+        problem
+        for table_name in sorted(ORDER_TABLE_NAMES - {"orders"})
+        for problem in _validate_table(engine, table_name)
+    )
+    if problems:
+        formatted = "\n- ".join(problems)
+        raise MigrationBootstrapError(
+            "Existing order schema cannot be safely adopted as Alembic "
+            f"revision {ORDER_BASELINE_REVISION}:\n- {formatted}"
+        )
+
+
+def _validate_availability_baseline(engine: Engine) -> None:
+    problems = [
+        problem
+        for table_name in sorted(AVAILABILITY_TABLE_NAMES)
+        for problem in _validate_table(engine, table_name)
+    ]
+    if problems:
+        formatted = "\n- ".join(problems)
+        raise MigrationBootstrapError(
+            "Existing availability schema cannot be safely adopted as Alembic "
+            f"revision {AVAILABILITY_BASELINE_REVISION}:\n- {formatted}"
+        )
+
+
+def _adopt_catalog_and_order_baselines(engine: Engine, config: Config) -> None:
+    _validate_catalog_baseline(engine)
+    _validate_order_baseline(engine)
+    print(
+        "Existing catalog and order schemas match Alembic revisions "
+        f"{CATALOG_BASELINE_REVISION} and {ORDER_BASELINE_REVISION}."
+    )
+    command.stamp(config, CATALOG_BASELINE_REVISION)
+    command.upgrade(config, AVAILABILITY_BASELINE_REVISION)
+    command.stamp(config, ORDER_BASELINE_REVISION)
+    command.upgrade(config, "head")
+    print(
+        "Missing availability tables created; existing catalog and order data "
+        "preserved; Alembic is at head."
+    )
+
+
+def _resume_catalog_and_order_adoption(
+    engine: Engine,
+    config: Config,
+    revision: str,
+    existing_managed_tables: set[str],
+) -> bool:
+    if (
+        revision == CATALOG_BASELINE_REVISION
+        and existing_managed_tables == LEGACY_CATALOG_AND_ORDER_TABLE_NAMES
+    ):
+        _validate_catalog_baseline(engine)
+        _validate_order_baseline(engine)
+        command.upgrade(config, AVAILABILITY_BASELINE_REVISION)
+        command.stamp(config, ORDER_BASELINE_REVISION)
+        command.upgrade(config, "head")
+        print("Interrupted legacy-schema reconciliation resumed from revision 1.")
+        return True
+
+    expected_revision_2_tables = (
+        LEGACY_CATALOG_AND_ORDER_TABLE_NAMES | AVAILABILITY_TABLE_NAMES
+    )
+    if (
+        revision == AVAILABILITY_BASELINE_REVISION
+        and existing_managed_tables == expected_revision_2_tables
+    ):
+        _validate_catalog_baseline(engine)
+        _validate_availability_baseline(engine)
+        _validate_order_baseline(engine)
+        command.stamp(config, ORDER_BASELINE_REVISION)
+        command.upgrade(config, "head")
+        print("Interrupted legacy-schema reconciliation resumed from revision 2.")
+        return True
+
+    return False
 
 
 def _current_revision(connection: Connection) -> str | None:
@@ -214,16 +358,24 @@ def migrate_database(database_url: str | None = None) -> None:
             )
             try:
                 revision = _current_revision(connection)
+                existing_tables = set(inspect(connection).get_table_names())
+                existing_managed_tables = existing_tables & MANAGED_TABLE_NAMES
                 if revision is not None:
+                    if _resume_catalog_and_order_adoption(
+                        engine, config, revision, existing_managed_tables
+                    ):
+                        return
                     print(f"Alembic revision {revision} found; upgrading to head.")
                     command.upgrade(config, "head")
                     return
 
-                existing_tables = set(inspect(connection).get_table_names())
-                existing_managed_tables = existing_tables & MANAGED_TABLE_NAMES
                 if not existing_managed_tables:
                     print("No managed tables found; creating schema from Alembic.")
                     command.upgrade(config, "head")
+                    return
+
+                if existing_managed_tables == LEGACY_CATALOG_AND_ORDER_TABLE_NAMES:
+                    _adopt_catalog_and_order_baselines(engine, config)
                     return
 
                 if existing_managed_tables != CATALOG_TABLE_NAMES:

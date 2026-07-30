@@ -38,6 +38,14 @@ no Alembic revision, it first verifies their complete revision-1 structure,
 stamps `20260727_01`, and then applies revisions 02 through 04. It refuses
 partial or mismatched schemas without deleting or recreating tables.
 
+It also recognizes the legacy production state containing revision-1 catalog
+tables and revision-3 order tables but no revision-2 availability tables. It
+validates both existing groups before making changes, stamps revision 1,
+creates only the missing revision-2 tables, stamps revision 3 to preserve the
+existing order tables, and then applies the revision-4 Clover changes. Each
+committed stage is retry-safe: if deployment stops at revision 1 or 2, the next
+run revalidates every table present before resuming.
+
 The readiness endpoint executes `SELECT 1` against PostgreSQL. Render will not
 route a deployment as healthy if the Supabase connection is unavailable.
 `/health/live` checks only that the FastAPI process is running.
