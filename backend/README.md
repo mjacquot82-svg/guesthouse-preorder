@@ -74,7 +74,7 @@ The backend is available at `http://127.0.0.1:8000`.
 
 OAuth v2 and Hosted Checkout configuration is documented in
 `../docs/CLOVER_INTEGRATION_SETUP.md`. Copy `../.env.example`, deploy the API
-behind HTTPS, run `alembic upgrade head`, and configure the resulting
+behind HTTPS, run `python -m app.db.migrate`, and configure the resulting
 `PUBLIC_APP_URL` in Clover before connecting a merchant.
 
 Production Render configuration and the Supabase connection procedure are
@@ -119,9 +119,14 @@ cannot be reached.
 Set `DATABASE_URL`, then run:
 
 ```bash
-alembic upgrade head
+python -m app.db.migrate
 alembic current
 ```
+
+The guarded migration command safely adopts an existing, unversioned
+revision-1 catalog schema only after validating it. Direct `alembic upgrade
+head` remains appropriate for development databases already managed by
+Alembic.
 
 To verify the reversible Phase 1C migration:
 

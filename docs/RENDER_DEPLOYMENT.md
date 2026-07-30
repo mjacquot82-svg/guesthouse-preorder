@@ -19,7 +19,7 @@ Web Service manually with these exact settings:
 | Root/working directory | `backend` |
 | Instance type | `Starter` or larger; do not use Free for production payments |
 | Build command | `python -m pip install .` |
-| Pre-deploy command | `alembic upgrade head` |
+| Pre-deploy command | `python -m app.db.migrate` |
 | Start command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
 | Health check path | `/health/ready` |
 | Auto-deploy | Off until the first production smoke test is complete |
@@ -31,6 +31,12 @@ environment variable. Python 3.12.13 is pinned both by the Blueprint's
 `PYTHON_VERSION` environment variable and by `backend/.python-version`, which
 is inside the service root directory and therefore available during Render's
 build.
+
+The guarded migration command runs ordinary Alembic upgrades for empty or
+already-versioned databases. If it finds the six original catalog tables but
+no Alembic revision, it first verifies their complete revision-1 structure,
+stamps `20260727_01`, and then applies revisions 02 through 04. It refuses
+partial or mismatched schemas without deleting or recreating tables.
 
 The readiness endpoint executes `SELECT 1` against PostgreSQL. Render will not
 route a deployment as healthy if the Supabase connection is unavailable.
@@ -162,8 +168,9 @@ Complete OAuth while signed in to the pinned production merchant.
    `render.yaml`; do not create a Render database.
 6. Enter every secret environment variable requested by the Blueprint.
 7. Keep automatic deploys disabled and start the first deployment manually.
-8. Confirm the build completes and `alembic upgrade head` reaches revision
-   `20260729_04`.
+8. Confirm the build completes and `python -m app.db.migrate` either adopts
+   the verified catalog baseline or performs a normal upgrade, reaching
+   revision `20260729_04`.
 9. Confirm the service starts with `app.main:app` and binds Render's `PORT`.
 10. Test `/health/live`; expect HTTP 200 with `"status": "ok"`.
 11. Test `/health/ready`; expect HTTP 200 with `"database": "ok"`.
