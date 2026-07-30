@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: guesthouse-preorder-api
+    runtime: python
+    plan: starter
+    rootDir: backend
+    buildCommand: python -m pip install .
+    preDeployCommand: alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health/ready
+    autoDeployTrigger: "off"
+    domains:
+      - api.ladels.jdsstudio.ca
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.13
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        value: https://ladels.jdsstudio.ca
+      - key: PUBLIC_APP_URL
+        value: https://api.ladels.jdsstudio.ca
+      - key: CLOVER_ENVIRONMENT
+        value: production
+      - key: CLOVER_APP_ID
+        sync: false
+      - key: CLOVER_APP_SECRET
+        sync: false
+      - key: CLOVER_MERCHANT_ID
+        sync: false
+      - key: CLOVER_STATE_SECRET
+        sync: false
+      - key: CLOVER_WEBHOOK_SECRET
+        sync: false
+      - key: CLOVER_TOKEN_ENCRYPTION_KEY
+        sync: false

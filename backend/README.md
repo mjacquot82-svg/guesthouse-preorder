@@ -77,6 +77,9 @@ OAuth v2 and Hosted Checkout configuration is documented in
 behind HTTPS, run `alembic upgrade head`, and configure the resulting
 `PUBLIC_APP_URL` in Clover before connecting a merchant.
 
+Production Render configuration and the Supabase connection procedure are
+documented in `../docs/RENDER_DEPLOYMENT.md`.
+
 Check liveness:
 
 ```bash
