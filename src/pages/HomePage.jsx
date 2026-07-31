@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { ChevronRight, ShoppingBag } from "lucide-react";
+import { ChevronRight, Plus, ShoppingBag } from "lucide-react";
 import {
   createHomeCatalogView,
   getHomeCategoryById,
 } from "../services/homeCatalog.js";
+import {
+  getCartLineId,
+  getConfiguredPrice,
+  getDefaultSelections,
+  getSelectedOptions,
+} from "../services/menuCatalog.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 
 function formatPrice(price) {
@@ -23,6 +29,10 @@ function getStoredCart() {
   }
 }
 
+function storeCart(cart) {
+  window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
+}
+
 export default function HomePage() {
   const { status, catalog, reload } = useCustomerCatalog();
   const {
@@ -30,7 +40,24 @@ export default function HomePage() {
     popularItems,
     coffeeCount,
   } = createHomeCatalogView(status, catalog);
-  const [cart] = useState(getStoredCart);
+  const availableProducts = (catalog?.products || []).filter(
+    (product) => product.available
+  );
+  const quickCategories = categories
+    .map((category) => ({
+      ...category,
+      count: availableProducts.filter(
+        (product) => product.category === category.id
+      ).length,
+    }))
+    .filter((category) => category.count)
+    .slice(0, 6);
+  const quickAddItems = [
+    ...popularItems,
+    ...availableProducts.filter((product) => !product.featured),
+  ].slice(0, 6);
+  const [cart, setCart] = useState(getStoredCart);
+  const [lastAdded, setLastAdded] = useState("");
   const cartCount = useMemo(
     () => cart.reduce((total, item) => total + item.quantity, 0),
     [cart]
@@ -39,6 +66,39 @@ export default function HomePage() {
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
     [cart]
   );
+
+  function addQuickItem(product) {
+    const selections = getDefaultSelections(product);
+    const selectedOptions = getSelectedOptions(product, selections);
+    const configuredPrice = getConfiguredPrice(product, selections);
+    const cartLineId = getCartLineId(product, selectedOptions);
+    const category = getHomeCategoryById(categories, product.category);
+    const cartItem = {
+      id: cartLineId,
+      productId: product.id,
+      name: product.name,
+      description: product.description,
+      price: configuredPrice,
+      basePrice: product.price,
+      category: category?.name || product.category,
+      options: selectedOptions.map((option) => ({
+        groupName: option.groupName,
+        name: option.name,
+        priceDelta: option.priceDelta,
+      })),
+    };
+    const nextCart = cart.some((item) => item.id === cartLineId)
+      ? cart.map((item) =>
+          item.id === cartLineId
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      : [...cart, { ...cartItem, quantity: 1 }];
+
+    setCart(nextCart);
+    storeCart(nextCart);
+    setLastAdded(product.name);
+  }
 
   return (
     <section className="home-page ordering-page">
@@ -60,12 +120,75 @@ export default function HomePage() {
       <div className="home-order-status" aria-live="polite">
         <div>
           <ShoppingBag size={18} strokeWidth={2.4} />
-          <span>Your café bag</span>
+          <span>{lastAdded ? `${lastAdded} added` : "Your café bag"}</span>
         </div>
         <Link to="/cart">
           {cartCount} {cartCount === 1 ? "item" : "items"} · {formatPrice(cartTotal)}
         </Link>
       </div>
+
+      {status === "ready" ? (
+        <section
+          className="content-block app-content-block home-category-block"
+          aria-labelledby="quick-order-heading"
+        >
+          <div className="section-heading">
+            <h2 id="quick-order-heading">Browse the café</h2>
+            <Link to="/menu">View full menu</Link>
+          </div>
+
+          <div className="category-pill-grid">
+            {quickCategories.map((category) => (
+              <Link className="category-pill-card" to="/menu" key={category.id}>
+                <strong>{category.name}</strong>
+                <span>{category.count}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {status === "ready" ? (
+        <section
+          className="content-block app-content-block quick-add-block"
+          aria-labelledby="quick-add-heading"
+        >
+          <div className="section-heading">
+            <h2 id="quick-add-heading">Order a favorite</h2>
+            <Link to="/menu">Customize</Link>
+          </div>
+
+          <div className="quick-product-rail">
+            {quickAddItems.map((item) => (
+              <article className="quick-product-card" key={item.id}>
+                <div
+                  className={`quick-product-image item-thumb-${item.image}`}
+                  aria-hidden="true"
+                />
+                <div className="quick-product-copy">
+                  <span>
+                    {getHomeCategoryById(categories, item.category)?.name ||
+                      "Café"}
+                  </span>
+                  <h3>{item.name}</h3>
+                  <strong>
+                    {formatPrice(
+                      getConfiguredPrice(item, getDefaultSelections(item))
+                    )}
+                  </strong>
+                </div>
+                <button
+                  type="button"
+                  aria-label={`Add ${item.name} with default options`}
+                  onClick={() => addQuickItem(item)}
+                >
+                  <Plus size={18} strokeWidth={2.8} />
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="content-block app-content-block cafe-favorites-block" aria-labelledby="popular-heading">
         <div className="section-heading">
