@@ -17,7 +17,8 @@ function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(price);
 }
 
@@ -44,12 +45,20 @@ export default function HomePage() {
     (product) => product.available
   );
   const quickCategories = categories
-    .map((category) => ({
-      ...category,
-      count: availableProducts.filter(
+    .map((category) => {
+      const categoryProducts = availableProducts.filter(
         (product) => product.category === category.id
-      ).length,
-    }))
+      );
+
+      return {
+        ...category,
+        count: categoryProducts.length,
+        preview: categoryProducts
+          .slice(0, 2)
+          .map((product) => product.name)
+          .join(" · "),
+      };
+    })
     .filter((category) => category.count)
     .slice(0, 6);
   const quickAddItems = [
@@ -140,8 +149,13 @@ export default function HomePage() {
           <div className="category-pill-grid">
             {quickCategories.map((category) => (
               <Link className="category-pill-card" to="/menu" key={category.id}>
-                <strong>{category.name}</strong>
-                <span>{category.count}</span>
+                <span className="category-pill-copy">
+                  <strong>{category.name}</strong>
+                  <small>{category.preview}</small>
+                </span>
+                <span className="category-pill-count">
+                  {category.count} {category.count === 1 ? "item" : "items"}
+                </span>
               </Link>
             ))}
           </div>
