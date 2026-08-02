@@ -1,4 +1,4 @@
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout.jsx";
 import AdminDashboard from "./admin/AdminDashboard.jsx";
 import OrdersPage from "./admin/OrdersPage.jsx";
@@ -9,6 +9,8 @@ import HomePage from "./pages/HomePage.jsx";
 import MenuPage from "./pages/MenuPage.jsx";
 import OrdersPageMobile from "./pages/OrdersPageMobile.jsx";
 import AccountPage from "./pages/AccountPage.jsx";
+import OwnerLoginPage from "./admin/OwnerLoginPage.jsx";
+import RequireOwner from "./auth/RequireOwner.jsx";
 
 export default function App() {
   return (
@@ -20,9 +22,13 @@ export default function App() {
         <Route path="orders" element={<OrdersPageMobile />} />
         <Route path="account" element={<AccountPage />} />
         <Route path="confirmation" element={<ConfirmationPage />} />
-        <Route path="admin" element={<AdminDashboard />} />
-        <Route path="admin/orders" element={<OrdersPage />} />
-        <Route path="admin/products" element={<ProductsPage />} />
+        <Route path="owner/login" element={<OwnerLoginPage />} />
+        <Route path="admin" element={<RequireOwner />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="orders" element={<OrdersPage />} />
+          <Route path="products" element={<ProductsPage />} />
+          <Route path="*" element={<Navigate replace to="/admin" />} />
+        </Route>
       </Route>
     </Routes>
   );

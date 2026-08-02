@@ -166,6 +166,39 @@ main {
   box-shadow: var(--shadow);
 }
 
+.owner-login-panel {
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.owner-login-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.owner-login-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--app-coffee-dark);
+  font-weight: 750;
+}
+
+.owner-login-form input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  padding: 11px 12px;
+}
+
+.form-error {
+  color: #9a3028;
+  font-weight: 700;
+}
+
 .welcome-panel {
   min-height: 240px;
   display: flex;

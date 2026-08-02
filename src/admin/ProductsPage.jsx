@@ -121,7 +121,7 @@ export default function ProductsPage() {
         <div>
           <p className="eyebrow">Owner workspace</p>
           <h1>Products</h1>
-          <p>Manage the local catalog foundation before Supabase and authentication arrive.</p>
+          <p>Manage the local catalog foundation before production catalog integration.</p>
         </div>
         <button className="secondary-button admin-reset-button" type="button" onClick={resetForm}>
           New product

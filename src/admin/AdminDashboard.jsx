@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   fetchCloverConnection,
   getCloverConnectUrl,
 } from "../services/cloverService.js";
 import { useCatalogProducts } from "../stores/catalogStore.js";
+import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
 
 const metrics = [
   { label: "Open orders", value: "0", note: "Awaiting live queue" },
@@ -13,6 +14,8 @@ const metrics = [
 
 export default function AdminDashboard() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { logout } = useOwnerAuth();
   const [clover, setClover] = useState({ status: "loading" });
   const { products } = useCatalogProducts();
   const availableCount = products.filter((product) => product.available).length;
@@ -23,6 +26,11 @@ export default function AdminDashboard() {
       .catch(() => setClover({ status: "error" }));
   }, []);
 
+  async function handleLogout() {
+    await logout();
+    navigate("/owner/login?returnTo=%2Fadmin", { replace: true });
+  }
+
   return (
     <section className="page-section">
       <div className="page-heading">
@@ -31,6 +39,9 @@ export default function AdminDashboard() {
         <Link className="secondary-button" to="/admin/products">
           Manage products
         </Link>
+        <button className="secondary-button" type="button" onClick={handleLogout}>
+          Sign out
+        </button>
       </div>
 
       <div className="dashboard-grid">
