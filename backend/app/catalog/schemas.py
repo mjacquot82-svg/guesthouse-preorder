@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CatalogSchema(BaseModel):
@@ -63,3 +63,69 @@ class CatalogResponse(CatalogSchema):
     version: str
     generated_at: datetime
     categories: list[CategoryResponse]
+
+
+class OwnerCategoryResponse(CatalogSchema):
+    id: str
+    slug: str
+    name: str
+    note: str
+    published: bool
+    sort_order: int
+
+
+class OwnerModifierGroupResponse(CatalogSchema):
+    id: str
+    key: str
+    name: str
+    active: bool
+
+
+class OwnerVariantResponse(ProductVariantResponse):
+    active: bool
+
+
+class OwnerProductResponse(CatalogSchema):
+    id: str
+    slug: str
+    name: str
+    description: str
+    base_price_cents: int
+    category_id: str
+    image: str
+    available: bool
+    featured: bool
+    published: bool
+    archived: bool
+    sort_order: int
+    variants: list[OwnerVariantResponse]
+    modifier_group_ids: list[str]
+
+
+class OwnerCatalogResponse(CatalogSchema):
+    categories: list[OwnerCategoryResponse]
+    modifier_groups: list[OwnerModifierGroupResponse]
+    products: list[OwnerProductResponse]
+
+
+class OwnerVariantWrite(CatalogSchema):
+    key: str
+    name: str
+    price_cents: int = Field(ge=0)
+    active: bool = True
+    sort_order: int = Field(default=0, ge=0)
+
+
+class OwnerProductWrite(CatalogSchema):
+    slug: str
+    name: str
+    description: str = ""
+    base_price_cents: int = Field(ge=0)
+    category_id: int
+    image: str = ""
+    available: bool = True
+    featured: bool = False
+    published: bool = True
+    sort_order: int = Field(default=0, ge=0)
+    variants: list[OwnerVariantWrite] = Field(default_factory=list)
+    modifier_group_ids: list[int] = Field(default_factory=list)

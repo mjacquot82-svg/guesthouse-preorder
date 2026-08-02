@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { modifierGroups, menuCategories, getCategoryById } from "../data/catalog.js";
 import { createProductId, useCatalogProducts } from "../stores/catalogStore.js";
 
 const emptyProduct = {
@@ -7,8 +6,8 @@ const emptyProduct = {
   name: "",
   description: "",
   price: "",
-  category: "coffee",
-  image: "coffee",
+  category: "",
+  image: "",
   available: true,
   featured: false,
   modifierGroupIds: [],
@@ -31,7 +30,7 @@ function toFormProduct(product) {
 }
 
 export default function ProductsPage() {
-  const { products, addProduct, updateProduct, removeProduct } = useCatalogProducts();
+  const { products, categories, modifierGroups, addProduct, updateProduct, removeProduct, loading, error } = useCatalogProducts();
   const [selectedProductId, setSelectedProductId] = useState("");
   const [formProduct, setFormProduct] = useState(emptyProduct);
   const [status, setStatus] = useState("");
@@ -77,7 +76,7 @@ export default function ProductsPage() {
     setFormProduct(emptyProduct);
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     const productId = selectedProductId || createProductId(formProduct.name);
@@ -95,24 +94,39 @@ export default function ProductsPage() {
     }
 
     if (selectedProduct) {
-      updateProduct(selectedProduct.id, payload);
-      setStatus(`${payload.name} updated.`);
+      try {
+        await updateProduct(selectedProduct.id, payload);
+        setStatus(`${payload.name} updated.`);
+      } catch (saveError) {
+        setStatus(saveError.message);
+        return;
+      }
     } else {
       const existingIds = new Set(products.map((product) => product.id));
       const uniqueId = existingIds.has(productId) ? `${productId}-${Date.now()}` : productId;
-      addProduct({ ...payload, id: uniqueId });
-      setStatus(`${payload.name} added.`);
+      try {
+        await addProduct({ ...payload, id: uniqueId });
+        setStatus(`${payload.name} added.`);
+      } catch (saveError) {
+        setStatus(saveError.message);
+        return;
+      }
     }
 
     resetForm();
   }
 
-  function handleRemove(product) {
-    removeProduct(product.id);
+  async function handleRemove(product) {
+    try {
+      await removeProduct(product.id);
+    } catch (removeError) {
+      setStatus(removeError.message);
+      return;
+    }
     if (selectedProductId === product.id) {
       resetForm();
     }
-    setStatus(`${product.name} removed.`);
+    setStatus(`${product.name} archived.`);
   }
 
   return (
@@ -121,7 +135,7 @@ export default function ProductsPage() {
         <div>
           <p className="eyebrow">Owner workspace</p>
           <h1>Products</h1>
-          <p>Manage the local catalog foundation before production catalog integration.</p>
+          <p>Manage the production catalog.</p>
         </div>
         <button className="secondary-button admin-reset-button" type="button" onClick={resetForm}>
           New product
@@ -169,7 +183,7 @@ export default function ProductsPage() {
                   value={formProduct.category}
                   onChange={(event) => updateField("category", event.target.value)}
                 >
-                  {menuCategories.map((category) => (
+                  {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
                     </option>
@@ -231,18 +245,19 @@ export default function ProductsPage() {
               ) : null}
             </div>
             {status ? <p className="form-status">{status}</p> : null}
+            {error ? <p className="form-status">{error.message}</p> : null}
           </form>
         </section>
 
         <section className="product-list-panel" aria-labelledby="product-list-heading">
           <div className="section-heading">
             <h2 id="product-list-heading">Catalog items</h2>
-            <span>{products.length} products</span>
+            <span>{loading ? "Loading…" : `${products.length} products`}</span>
           </div>
 
           <div className="product-table">
             {sortedProducts.map((product) => {
-              const category = getCategoryById(product.category);
+              const category = categories.find((item) => item.id === product.category);
 
               return (
                 <article className="product-row" key={product.id}>

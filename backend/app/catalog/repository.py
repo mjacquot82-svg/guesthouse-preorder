@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.catalog.models import (
@@ -11,6 +11,7 @@ from app.catalog.models import (
     ProductModifierGroup,
     ProductVariant,
 )
+from app.availability.models import ProductAvailability
 
 
 class CatalogRepository:
@@ -27,6 +28,46 @@ class CatalogRepository:
 
     def get_product_by_slug(self, slug: str) -> Product | None:
         return self._session.scalar(select(Product).where(Product.slug == slug))
+
+    def get_product(self, product_id: int) -> Product | None:
+        return self._session.get(Product, product_id)
+
+    def get_category(self, category_id: int) -> Category | None:
+        return self._session.get(Category, category_id)
+
+    def list_products(self) -> Sequence[Product]:
+        return self._session.scalars(
+            select(Product).where(Product.archived_at.is_(None)).order_by(
+                Product.category_id, Product.sort_order, Product.name, Product.id
+            )
+        ).all()
+
+    def list_modifier_groups(self) -> Sequence[ModifierGroup]:
+        return self._session.scalars(
+            select(ModifierGroup).order_by(
+                ModifierGroup.sort_order, ModifierGroup.name, ModifierGroup.id
+            )
+        ).all()
+
+    def replace_modifier_assignments(
+        self, product_id: int, modifier_group_ids: Sequence[int]
+    ) -> None:
+        self._session.execute(
+            delete(ProductModifierGroup).where(ProductModifierGroup.product_id == product_id)
+        )
+        for sort_order, group_id in enumerate(modifier_group_ids):
+            self.add(ProductModifierGroup(
+                product_id=product_id,
+                modifier_group_id=group_id,
+                is_active=True,
+                sort_order=sort_order,
+            ))
+
+    def flush(self) -> None:
+        self._session.flush()
+
+    def commit(self) -> None:
+        self._session.commit()
 
     def get_modifier_group_by_key(self, key: str) -> ModifierGroup | None:
         return self._session.scalar(
@@ -51,9 +92,12 @@ class CatalogRepository:
     ) -> Sequence[Product]:
         return self._session.scalars(
             select(Product)
+            .outerjoin(ProductAvailability, ProductAvailability.product_id == Product.id)
             .where(
                 Product.category_id.in_(category_ids),
                 Product.is_published.is_(True),
+                Product.archived_at.is_(None),
+                func.coalesce(ProductAvailability.default_available, True).is_(True),
             )
             .order_by(
                 Product.category_id,

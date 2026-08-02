@@ -25,6 +25,9 @@ from app.jds_auth.models import (
 from app.jds_auth.provider import IdentityProviderError, ProviderAuthentication, ProviderIdentity, SupabaseIdentityProvider
 from app.jds_auth.security import hash_secret
 from app.main import create_app
+from app.catalog.models import Product
+from app.catalog.seed import seed_catalog
+from app.availability.models import ProductAvailability
 from tests.test_migrations import make_alembic_config
 
 
@@ -631,3 +634,97 @@ async def test_invitation_creation_is_limited_per_actor(
     assert [response.status_code for response in responses[:20]] == [201] * 20
     assert responses[-1].status_code == 429
     assert len(fake_provider.invited) == 20
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_owner_catalog_mutations_persist_to_public_catalog(
+    auth_client: AsyncClient,
+    auth_engine: Engine,
+) -> None:
+    with auth_engine.begin() as connection:
+        connection.execute(text(
+            "TRUNCATE product_modifier_groups, modifier_options, product_variants, "
+            "product_availability, products, modifier_groups, categories RESTART IDENTITY CASCADE"
+        ))
+    with Session(auth_engine) as session:
+        seed_catalog(session)
+
+    unauthenticated = await auth_client.get("/api/v1/owner/catalog")
+    assert unauthenticated.status_code == 401
+    login = await owner_login(auth_client)
+    csrf = str(login["csrf_token"])
+    owner_catalog = (await auth_client.get("/api/v1/owner/catalog")).json()
+    latte = next(item for item in owner_catalog["products"] if item["slug"] == "latte")
+    pastries = next(item for item in owner_catalog["categories"] if item["slug"] == "pastries")
+
+    write_payload = {
+        "slug": latte["slug"],
+        "name": "Production Latte",
+        "description": latte["description"],
+        "base_price_cents": 575,
+        "category_id": int(pastries["id"]),
+        "image": latte["image"],
+        "available": False,
+        "featured": True,
+        "published": True,
+        "sort_order": latte["sort_order"],
+        "variants": [
+            {
+                "key": item["key"], "name": item["name"],
+                "price_cents": item["price_cents"], "active": item["active"],
+                "sort_order": item["sort_order"],
+            }
+            for item in latte["variants"]
+        ],
+        "modifier_group_ids": [int(item) for item in latte["modifier_group_ids"]],
+    }
+    denied = await auth_client.put(
+        f"/api/v1/owner/catalog/products/{latte['id']}", json=write_payload
+    )
+    assert denied.status_code == 403
+    updated = await auth_client.put(
+        f"/api/v1/owner/catalog/products/{latte['id']}",
+        headers={"Origin": "http://test", "X-CSRF-Token": csrf},
+        json=write_payload,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["category_id"] == pastries["id"]
+
+    with Session(auth_engine) as session:
+        persisted = session.scalar(select(Product).where(Product.slug == "latte"))
+        assert persisted is not None
+        assert persisted.name == "Production Latte"
+        assert persisted.base_price_cents == 575
+        assert session.get(ProductAvailability, persisted.id).default_available is False
+    hidden_catalog = (await auth_client.get("/api/v1/catalog")).json()
+    assert all(
+        product["slug"] != "latte"
+        for category in hidden_catalog["categories"]
+        for product in category["products"]
+    )
+
+    write_payload["available"] = True
+    restored = await auth_client.put(
+        f"/api/v1/owner/catalog/products/{latte['id']}",
+        headers={"Origin": "http://test", "X-CSRF-Token": csrf},
+        json=write_payload,
+    )
+    assert restored.status_code == 200
+    public_catalog = (await auth_client.get("/api/v1/catalog")).json()
+    public_latte = next(
+        product for category in public_catalog["categories"]
+        for product in category["products"] if product["slug"] == "latte"
+    )
+    assert public_latte["name"] == "Production Latte"
+    assert public_latte["featured"] is True
+
+    archived = await auth_client.delete(
+        f"/api/v1/owner/catalog/products/{latte['id']}",
+        headers={"Origin": "http://test", "X-CSRF-Token": csrf},
+    )
+    assert archived.status_code == 204
+    with Session(auth_engine) as session:
+        persisted = session.scalar(select(Product).where(Product.slug == "latte"))
+        assert persisted is not None
+        assert persisted.archived_at is not None

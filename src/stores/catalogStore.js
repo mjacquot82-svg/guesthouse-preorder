@@ -1,100 +1,104 @@
-import { useEffect, useState } from "react";
-import { initialCatalogProducts } from "../data/catalog.js";
-
-const CATALOG_STORAGE_KEY = "cafe-catalog-products";
-const CATALOG_UPDATED_EVENT = "cafe-catalog-updated";
-
-function readStoredProducts() {
-  if (typeof window === "undefined") {
-    return initialCatalogProducts;
-  }
-
-  try {
-    const stored = window.localStorage.getItem(CATALOG_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : initialCatalogProducts;
-  } catch {
-    return initialCatalogProducts;
-  }
-}
-
-function writeStoredProducts(products) {
-  window.localStorage.setItem(CATALOG_STORAGE_KEY, JSON.stringify(products));
-  window.dispatchEvent(new CustomEvent(CATALOG_UPDATED_EVENT));
-}
-
-function normalizeProduct(product) {
-  return {
-    ...product,
-    price: Number(product.price) || 0,
-    available: Boolean(product.available),
-    featured: Boolean(product.featured),
-    modifierGroupIds: product.modifierGroupIds || [],
-  };
-}
+import { useCallback, useEffect, useState } from "react";
+import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
+import {
+  archiveOwnerProduct,
+  createOwnerProduct,
+  fetchOwnerCatalog,
+  updateOwnerProduct,
+} from "../services/ownerCatalogApi.js";
 
 export function createProductId(name) {
-  const baseId = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-
-  return baseId || `product-${Date.now()}`;
+  const value = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return value || `product-${Date.now()}`;
 }
 
-export function getCatalogProducts() {
-  return readStoredProducts();
+function adaptOwnerCatalog(payload) {
+  const categories = (payload.categories || []).map((item) => ({
+    id: item.slug, backendId: item.id, name: item.name, note: item.note,
+  }));
+  const modifierGroups = (payload.modifier_groups || []).filter((item) => item.active).map((item) => ({
+    id: item.key, backendId: item.id, name: item.name,
+  }));
+  const categoryByBackendId = new Map(categories.map((item) => [item.backendId, item.id]));
+  const groupByBackendId = new Map(modifierGroups.map((item) => [item.backendId, item.id]));
+  const products = (payload.products || []).map((item) => ({
+    id: item.slug,
+    backendId: item.id,
+    name: item.name,
+    description: item.description,
+    price: item.base_price_cents / 100,
+    basePriceCents: item.base_price_cents,
+    category: categoryByBackendId.get(item.category_id) || item.category_id,
+    categoryBackendId: item.category_id,
+    image: item.image,
+    available: item.available,
+    featured: item.featured,
+    published: item.published,
+    sortOrder: item.sort_order,
+    variants: item.variants || [],
+    modifierGroupIds: item.modifier_group_ids.map((id) => groupByBackendId.get(id)).filter(Boolean),
+  }));
+  return { categories, modifierGroups, products };
 }
 
-export function saveCatalogProducts(products) {
-  writeStoredProducts(products.map(normalizeProduct));
+function toWriteProduct(product, categories, modifierGroups) {
+  const category = categories.find((item) => item.id === product.category) || categories[0];
+  const groupIds = new Map(modifierGroups.map((item) => [item.id, item.backendId]));
+  return {
+    slug: product.id,
+    name: product.name,
+    description: product.description || "",
+    base_price_cents: Math.round(Number(product.price) * 100),
+    category_id: Number(category?.backendId || product.categoryBackendId),
+    image: product.image || "",
+    available: Boolean(product.available),
+    featured: Boolean(product.featured),
+    published: product.published !== false,
+    sort_order: product.sortOrder || 0,
+    variants: (product.variants || []).map((item) => ({
+      key: item.key, name: item.name, price_cents: item.price_cents,
+      active: item.active !== false, sort_order: item.sort_order,
+    })),
+    modifier_group_ids: (product.modifierGroupIds || []).map((id) => Number(groupIds.get(id))),
+  };
 }
 
 export function useCatalogProducts() {
-  const [products, setProducts] = useState(readStoredProducts);
+  const { session } = useOwnerAuth();
+  const [catalog, setCatalog] = useState({ categories: [], modifierGroups: [], products: [] });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    function handleCatalogUpdate() {
-      setProducts(readStoredProducts());
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      setCatalog(adaptOwnerCatalog(await fetchOwnerCatalog()));
+      setError(null);
+    } catch (nextError) {
+      setError(nextError);
+      throw nextError;
+    } finally {
+      setLoading(false);
     }
-
-    window.addEventListener("storage", handleCatalogUpdate);
-    window.addEventListener(CATALOG_UPDATED_EVENT, handleCatalogUpdate);
-
-    return () => {
-      window.removeEventListener("storage", handleCatalogUpdate);
-      window.removeEventListener(CATALOG_UPDATED_EVENT, handleCatalogUpdate);
-    };
   }, []);
 
-  function replaceProducts(nextProducts) {
-    const normalizedProducts = nextProducts.map(normalizeProduct);
-    setProducts(normalizedProducts);
-    saveCatalogProducts(normalizedProducts);
+  useEffect(() => { reload().catch(() => {}); }, [reload]);
+
+  async function addProduct(product) {
+    await createOwnerProduct(toWriteProduct(product, catalog.categories, catalog.modifierGroups), session.csrf_token);
+    await reload();
+  }
+  async function updateProduct(productId, updates) {
+    const current = catalog.products.find((item) => item.id === productId);
+    const next = { ...current, ...updates };
+    await updateOwnerProduct(current.backendId, toWriteProduct(next, catalog.categories, catalog.modifierGroups), session.csrf_token);
+    await reload();
+  }
+  async function removeProduct(productId) {
+    const current = catalog.products.find((item) => item.id === productId);
+    await archiveOwnerProduct(current.backendId, session.csrf_token);
+    await reload();
   }
 
-  function addProduct(product) {
-    const normalizedProduct = normalizeProduct(product);
-    replaceProducts([...products, normalizedProduct]);
-  }
-
-  function updateProduct(productId, updates) {
-    replaceProducts(
-      products.map((product) =>
-        product.id === productId ? normalizeProduct({ ...product, ...updates }) : product
-      )
-    );
-  }
-
-  function removeProduct(productId) {
-    replaceProducts(products.filter((product) => product.id !== productId));
-  }
-
-  return {
-    products,
-    addProduct,
-    updateProduct,
-    removeProduct,
-    replaceProducts,
-  };
+  return { ...catalog, addProduct, updateProduct, removeProduct, loading, error, reload };
 }

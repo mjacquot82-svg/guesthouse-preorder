@@ -2,11 +2,14 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 from app.catalog.models import (
+    Category,
     ModifierGroup,
     ModifierOption,
     Product,
     ProductModifierGroup,
+    ProductVariant,
 )
+from app.availability.models import ProductAvailability
 from app.catalog.repository import CatalogRepository
 from app.catalog.schemas import (
     CatalogResponse,
@@ -15,6 +18,12 @@ from app.catalog.schemas import (
     ProductModifierGroupResponse,
     ProductResponse,
     ProductVariantResponse,
+    OwnerCatalogResponse,
+    OwnerCategoryResponse,
+    OwnerModifierGroupResponse,
+    OwnerProductResponse,
+    OwnerProductWrite,
+    OwnerVariantResponse,
 )
 
 CATALOG_CONTRACT_VERSION = "1"
@@ -76,6 +85,114 @@ class CatalogService:
                 )
                 for category in categories
             ],
+        )
+
+    def build_owner_catalog(self) -> OwnerCatalogResponse:
+        categories = self._repository.list_categories()
+        groups = self._repository.list_modifier_groups()
+        return OwnerCatalogResponse(
+            categories=[OwnerCategoryResponse(
+                id=str(item.id), slug=item.slug, name=item.name,
+                note=item.description or "", published=item.is_published,
+                sort_order=item.sort_order,
+            ) for item in categories],
+            modifier_groups=[OwnerModifierGroupResponse(
+                id=str(item.id), key=item.key, name=item.name, active=item.is_active
+            ) for item in groups],
+            products=[self._owner_product_response(item) for item in self._repository.list_products()],
+        )
+
+    def create_product(self, payload: OwnerProductWrite) -> OwnerProductResponse:
+        self._validate_write(payload)
+        if self._repository.get_product_by_slug(payload.slug):
+            raise ValueError("A product with this slug already exists.")
+        product = Product()
+        self._apply_product(product, payload)
+        self._repository.add(product)
+        self._repository.flush()
+        self._replace_children(product, payload)
+        self._repository.commit()
+        return self._owner_product_response(product)
+
+    def update_product(self, product_id: int, payload: OwnerProductWrite) -> OwnerProductResponse:
+        product = self._repository.get_product(product_id)
+        if product is None:
+            raise LookupError("Product not found.")
+        conflicting = self._repository.get_product_by_slug(payload.slug)
+        if conflicting is not None and conflicting.id != product_id:
+            raise ValueError("A product with this slug already exists.")
+        self._validate_write(payload)
+        self._apply_product(product, payload)
+        self._replace_children(product, payload)
+        self._repository.commit()
+        return self._owner_product_response(product)
+
+    def archive_product(self, product_id: int) -> None:
+        product = self._repository.get_product(product_id)
+        if product is None:
+            raise LookupError("Product not found.")
+        product.archived_at = datetime.now(timezone.utc)
+        product.is_published = False
+        self._repository.commit()
+
+    def _validate_write(self, payload: OwnerProductWrite) -> None:
+        if self._repository.get_category(payload.category_id) is None:
+            raise ValueError("Category does not exist.")
+        known_group_ids = {group.id for group in self._repository.list_modifier_groups()}
+        if len(set(payload.modifier_group_ids)) != len(payload.modifier_group_ids):
+            raise ValueError("Modifier groups must be unique.")
+        if not set(payload.modifier_group_ids) <= known_group_ids:
+            raise ValueError("Modifier group does not exist.")
+
+    @staticmethod
+    def _apply_product(product: Product, payload: OwnerProductWrite) -> None:
+        product.slug = payload.slug.strip()
+        product.name = payload.name
+        product.description = payload.description
+        product.base_price_cents = payload.base_price_cents
+        product.category_id = payload.category_id
+        product.image_reference = payload.image
+        product.is_featured = payload.featured
+        product.is_published = payload.published
+        product.sort_order = payload.sort_order
+
+    def _replace_children(self, product: Product, payload: OwnerProductWrite) -> None:
+        existing_variants = {item.key: item for item in product.variants}
+        next_variants: list[ProductVariant] = []
+        for item in payload.variants:
+            variant = existing_variants.get(item.key) or ProductVariant(key=item.key)
+            variant.name = item.name
+            variant.price_cents = item.price_cents
+            variant.is_active = item.active
+            variant.sort_order = item.sort_order
+            next_variants.append(variant)
+        product.variants[:] = next_variants
+        self._repository.replace_modifier_assignments(product.id, payload.modifier_group_ids)
+        if product.availability is None:
+            product.availability = ProductAvailability(default_available=payload.available)
+        else:
+            product.availability.default_available = payload.available
+        self._repository.flush()
+
+    @staticmethod
+    def _owner_product_response(product: Product) -> OwnerProductResponse:
+        assignments = sorted(
+            (item for item in product.modifier_group_assignments if item.is_active),
+            key=lambda item: (item.sort_order, item.modifier_group_id),
+        )
+        return OwnerProductResponse(
+            id=str(product.id), slug=product.slug, name=product.name,
+            description=product.description or "", base_price_cents=product.base_price_cents,
+            category_id=str(product.category_id), image=product.image_reference or "",
+            available=product.availability.default_available if product.availability else True,
+            featured=product.is_featured, published=product.is_published,
+            archived=product.archived_at is not None, sort_order=product.sort_order,
+            variants=[OwnerVariantResponse(
+                id=str(item.id), key=item.key, name=item.name,
+                price_cents=item.price_cents, sort_order=item.sort_order,
+                active=item.is_active,
+            ) for item in sorted(product.variants, key=lambda item: (item.sort_order, item.id or 0))],
+            modifier_group_ids=[str(item.modifier_group_id) for item in assignments],
         )
 
     def _options_by_group(

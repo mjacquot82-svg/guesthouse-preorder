@@ -1,17 +1,11 @@
-import { getCatalogProducts, saveCatalogProducts } from "../stores/catalogStore.js";
+import { createOwnerProduct, fetchOwnerCatalog, updateOwnerProduct } from "./ownerCatalogApi.js";
 
 export async function getProducts() {
-  return getCatalogProducts();
+  return (await fetchOwnerCatalog()).products;
 }
 
-// Future Supabase-ready function shape
-export async function saveProduct(product) {
-  const products = getCatalogProducts();
-  const existingProduct = products.find((item) => item.id === product.id);
-  const nextProducts = existingProduct
-    ? products.map((item) => (item.id === product.id ? product : item))
-    : [...products, product];
-
-  saveCatalogProducts(nextProducts);
-  return product;
+export async function saveProduct(product, csrfToken) {
+  return product.backendId
+    ? updateOwnerProduct(product.backendId, product, csrfToken)
+    : createOwnerProduct(product, csrfToken);
 }
