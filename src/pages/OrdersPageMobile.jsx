@@ -42,7 +42,7 @@ export default function OrdersPageMobile() {
   const [message, setMessage] = useState("");
   useEffect(() => { if (session) fetchCustomerOrders().then(setOrders).catch((error) => setMessage(error.message)); }, [session]);
   if (authStatus === "loading") return <section className="page-section compact-section"><p>Checking your orders…</p></section>;
-  if (!session) return <section className="page-section ordering-page app-simple-page"><div className="ordering-top-card compact-app-heading"><div><p className="eyebrow">Order history</p><h1>Orders</h1><p>Sign in to view orders placed with your customer account.</p></div></div><div className="form-actions"><Link className="primary-button" to="/account/sign-in">Sign In</Link><Link className="secondary-button" to="/account/create">Create Account</Link></div></section>;
+  if (!session) return <section className="page-section ordering-page app-simple-page"><div className="ordering-top-card compact-app-heading"><div><p className="eyebrow">Order history</p><h1>Orders</h1><p>Sign in to view orders placed with your customer account.</p></div></div><div className="form-actions"><Link className="primary-button" to="/login">Sign In</Link><Link className="secondary-button" to="/register">Create Account</Link></div></section>;
   async function showOrder(id) { try { setDetail(await fetchCustomerOrder(id)); } catch (error) { setMessage(error.message); } }
   function reorder() {
     const cart = reorderCart(detail, catalog);

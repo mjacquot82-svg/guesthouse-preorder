@@ -16,7 +16,7 @@ export default function AccountPage() {
     <section className="page-section ordering-page app-simple-page">
       <div className="ordering-top-card compact-app-heading"><div><p className="eyebrow">Cafe profile</p><h1>Account</h1><p>Sign in for faster checkout and your order history.</p></div></div>
       <div className="content-block app-content-block account-card"><span className="account-avatar"><UserRound size={24} /></span><div><h2>Guest ordering is always available</h2><p>Create an account only if you want saved details and order history.</p></div></div>
-      <div className="form-actions"><Link className="primary-button" to="/account/sign-in">Sign In</Link><Link className="secondary-button" to="/account/create">Create Account</Link></div>
+      <div className="form-actions"><Link className="primary-button" to="/login">Sign In</Link><Link className="secondary-button" to="/register">Create Account</Link></div>
     </section>
   );
   async function save(event) {

@@ -24,6 +24,8 @@ export default function App() {
         <Route path="cart" element={<CartPage />} />
         <Route path="orders" element={<OrdersPageMobile />} />
         <Route path="account" element={<AccountPage />} />
+        <Route path="login" element={<CustomerAuthPage mode="login" />} />
+        <Route path="register" element={<CustomerAuthPage mode="register" />} />
         <Route path="account/sign-in" element={<CustomerAuthPage mode="login" />} />
         <Route path="account/create" element={<CustomerAuthPage mode="register" />} />
         <Route path="account/verify-email" element={<CustomerVerifyPage />} />

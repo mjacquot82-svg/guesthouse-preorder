@@ -427,7 +427,7 @@ export default function CartPage() {
               <h2>How should we contact you?</h2>
             </div>
           </div>
-          {!session ? <div className="form-actions"><span>Continue as Guest</span><Link className="secondary-button" to="/account/sign-in">Sign In</Link></div> : null}
+          {!session ? <div className="form-actions"><span>Continue as Guest</span><Link className="secondary-button" to="/login">Sign In</Link></div> : null}
           <div className="checkout-contact-grid">
             <label>
               <span>Name</span>

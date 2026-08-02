@@ -10,5 +10,5 @@ export default function CustomerVerifyPage() {
     if (!token) { setStatus("This verification link is incomplete."); return; }
     verifyCustomerEmail(token).then((result) => setStatus(result.message)).catch((error) => setStatus(error.message));
   }, [params]);
-  return <section className="page-section compact-section ordering-page"><div className="operations-panel"><h1>Email verification</h1><p role="status">{status}</p><Link className="primary-button" to="/account/sign-in">Sign In</Link></div></section>;
+  return <section className="page-section compact-section ordering-page"><div className="operations-panel"><h1>Email verification</h1><p role="status">{status}</p><Link className="primary-button" to="/login">Sign In</Link></div></section>;
 }
