@@ -39,6 +39,42 @@ Phase 1E adds only the read-only production catalog API. It assembles published
 categories and products with active variants and modifiers from PostgreSQL.
 The React application is not connected to this endpoint during Phase 1E.
 
+## JDS owner authentication foundation
+
+Owner authentication is a reusable backend-for-frontend module under
+`app/jds_auth`. Supabase Auth owns credentials, verified email, recovery, and
+future MFA. JDS PostgreSQL owns organizations, memberships, roles, permissions,
+opaque sessions, invitations, authorization, and security audit events.
+
+Production configuration requires:
+
+```text
+SUPABASE_AUTH_URL
+SUPABASE_AUTH_PUBLISHABLE_KEY
+SUPABASE_AUTH_SECRET_KEY
+JDS_AUTH_SESSION_PEPPER
+JDS_APPLICATION_KEY
+JDS_ORGANIZATION_SLUG
+```
+
+In the Supabase dashboard, disable public signups, require email confirmation,
+configure custom SMTP, and customize invite/recovery templates so their links
+carry `token_hash` to the corresponding frontend acceptance page. Never expose
+the Supabase secret key or provider session tokens to the browser.
+
+After applying migrations, provision the application, organization, built-in
+roles, permissions, and first owner invitation deliberately:
+
+```bash
+python -m app.jds_auth.bootstrap_owner \
+  --email owner@example.com \
+  --application-name "JDS Commerce" \
+  --organization-name "The Guest House"
+```
+
+The command is idempotent for foundation records. Owner authentication does not
+initialize on customer routes and is independent of Clover OAuth.
+
 ## Requirements
 
 - Python 3.12

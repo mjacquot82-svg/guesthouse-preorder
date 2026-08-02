@@ -18,6 +18,18 @@ services:
         sync: false
       - key: FRONTEND_URL
         value: https://ladels.jdsstudio.ca
+      - key: SUPABASE_AUTH_URL
+        sync: false
+      - key: SUPABASE_AUTH_PUBLISHABLE_KEY
+        sync: false
+      - key: SUPABASE_AUTH_SECRET_KEY
+        sync: false
+      - key: JDS_AUTH_SESSION_PEPPER
+        sync: false
+      - key: JDS_APPLICATION_KEY
+        value: jds-commerce
+      - key: JDS_ORGANIZATION_SLUG
+        value: the-guest-house
       - key: PUBLIC_APP_URL
         value: https://api.ladels.jdsstudio.ca
       - key: CLOVER_ENVIRONMENT
