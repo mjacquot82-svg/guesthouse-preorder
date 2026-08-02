@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.jds_auth.models import JdsApplication, Organization, Permission, Role, RolePermission
@@ -13,12 +13,16 @@ PERMISSIONS = {
     "orders.fulfill": "Progress order fulfillment.",
     "members.invite": "Invite organization members.",
     "members.manage": "Manage organization memberships.",
+    "integrations.manage": "Connect and inspect organization integrations.",
+    "customer.profile": "Manage the authenticated customer's profile.",
+    "customer.orders": "Read the authenticated customer's orders.",
 }
 
 ROLE_PERMISSIONS = {
-    "owner": frozenset(PERMISSIONS),
-    "manager": frozenset(PERMISSIONS) - {"members.manage"},
+    "owner": frozenset(PERMISSIONS) - {"customer.profile", "customer.orders"},
+    "manager": frozenset(PERMISSIONS) - {"members.manage", "customer.profile", "customer.orders"},
     "staff": frozenset({"catalog.read", "orders.read", "orders.fulfill"}),
+    "customer": frozenset({"customer.profile", "customer.orders"}),
 }
 
 
@@ -56,9 +60,17 @@ def ensure_foundation(
             session.add(role)
             session.flush()
         existing = set(session.scalars(select(RolePermission.permission_id).where(RolePermission.role_id == role.id)))
+        desired = {permissions[key].id for key in permission_keys}
+        stale = existing - desired
+        if stale:
+            session.execute(
+                delete(RolePermission).where(
+                    RolePermission.role_id == role.id,
+                    RolePermission.permission_id.in_(stale),
+                )
+            )
         for key in permission_keys:
             if permissions[key].id not in existing:
                 session.add(RolePermission(role_id=role.id, permission_id=permissions[key].id))
     session.flush()
     return application, organization
-

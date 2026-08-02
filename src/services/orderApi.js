@@ -88,6 +88,7 @@ export function createPendingOrder(
         Accept: "application/json",
         "Content-Type": "application/json",
       },
+      credentials: "include",
       method: "POST",
       signal,
     },

@@ -30,9 +30,11 @@ class ProviderAuthentication:
 
 
 class IdentityProvider(Protocol):
+    def register_user(self, email: str, password: str, redirect_url: str) -> ProviderIdentity: ...
     def authenticate_password(self, email: str, password: str) -> ProviderAuthentication: ...
     def request_password_reset(self, email: str, redirect_url: str) -> None: ...
     def verify_email_token(self, token_hash: str, token_type: str) -> ProviderAuthentication: ...
+    def resend_verification(self, email: str, redirect_url: str) -> None: ...
     def update_password(self, access_token: str, password: str) -> None: ...
     def invite_user(self, email: str, redirect_url: str) -> str: ...
 
@@ -60,6 +62,25 @@ class SupabaseIdentityProvider:
             raise InvalidCredentialsError("Authentication failed.")
         return self._authentication(response)
 
+    def register_user(self, email: str, password: str, redirect_url: str) -> ProviderIdentity:
+        response = self._request(
+            "POST", "/signup", json={"email": email, "password": password},
+            params={"redirect_to": redirect_url},
+        )
+        self._require_success(response)
+        payload = response.json()
+        user = payload.get("user") or payload
+        subject = user.get("id") if isinstance(user, dict) else None
+        provider_email = user.get("email") if isinstance(user, dict) else None
+        if not all(isinstance(value, str) and value for value in (subject, provider_email)):
+            raise IdentityProviderError("Identity provider returned an invalid registration.")
+        return ProviderIdentity(
+            issuer=f"{self._settings.supabase_url.rstrip('/')}/auth/v1",
+            subject=subject,
+            email=provider_email.strip().lower(),
+            email_verified=bool(user.get("email_confirmed_at") or user.get("confirmed_at")),
+        )
+
     def request_password_reset(self, email: str, redirect_url: str) -> None:
         response = self._request(
             "POST",
@@ -80,6 +101,15 @@ class SupabaseIdentityProvider:
             json={"token_hash": token_hash, "type": token_type},
         )
         return self._authentication(response)
+
+    def resend_verification(self, email: str, redirect_url: str) -> None:
+        response = self._request(
+            "POST",
+            "/resend",
+            json={"type": "signup", "email": email},
+            params={"redirect_to": redirect_url},
+        )
+        self._require_success(response)
 
     def update_password(self, access_token: str, password: str) -> None:
         response = self._request(

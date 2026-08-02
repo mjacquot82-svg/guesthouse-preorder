@@ -45,6 +45,7 @@ test("createPendingOrder sends the exact order request contract", async () => {
   assert.equal(calls[0][0], "/api/v1/orders");
   assert.deepEqual(calls[0][1], {
     body: JSON.stringify(payload),
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",

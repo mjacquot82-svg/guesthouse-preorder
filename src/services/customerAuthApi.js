@@ -1,0 +1,41 @@
+const AUTH_PATH = "/api/v1/customer/auth";
+
+export class CustomerAuthError extends Error {
+  constructor(message, { code, status } = {}) {
+    super(message);
+    this.name = "CustomerAuthError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+async function request(path, { body, csrfToken, method = "GET", fetchImpl = globalThis.fetch, apiBaseUrl = import.meta.env?.VITE_API_BASE_URL || "" } = {}) {
+  const headers = { Accept: "application/json" };
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  let response;
+  try {
+    response = await fetchImpl(`${apiBaseUrl.replace(/\/+$/, "")}${AUTH_PATH}${path}`, {
+      body: body === undefined ? undefined : JSON.stringify(body), credentials: "include", headers, method,
+    });
+  } catch (cause) {
+    throw new CustomerAuthError("Unable to reach customer authentication.", { cause });
+  }
+  let payload = null;
+  try { payload = await response.json(); } catch { /* normalized below */ }
+  if (!response.ok) {
+    throw new CustomerAuthError(payload?.detail?.message || "Customer authentication failed.", {
+      code: payload?.detail?.code, status: response.status,
+    });
+  }
+  return payload;
+}
+
+export const fetchCustomerSession = (options = {}) => request("/session", options);
+export const loginCustomer = (email, password, options = {}) => request("/login", { ...options, body: { email, password }, method: "POST" });
+export const registerCustomer = (displayName, email, password, options = {}) => request("/register", { ...options, body: { display_name: displayName, email, password }, method: "POST" });
+export const verifyCustomerEmail = (tokenHash, options = {}) => request("/verify-email", { ...options, body: { token_hash: tokenHash }, method: "POST" });
+export const resendCustomerVerification = (email, options = {}) => request("/verification/resend", { ...options, body: { email }, method: "POST" });
+export const requestCustomerPasswordReset = (email, options = {}) => request("/password-reset", { ...options, body: { email }, method: "POST" });
+export const completeCustomerPasswordReset = (tokenHash, password, options = {}) => request("/password-reset/complete", { ...options, body: { token_hash: tokenHash, password }, method: "POST" });
+export const logoutCustomer = (csrfToken, options = {}) => request("/logout", { ...options, csrfToken, method: "POST" });

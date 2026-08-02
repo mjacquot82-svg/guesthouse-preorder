@@ -9,6 +9,7 @@ from app.catalog import models as catalog_models  # noqa: F401
 from app.clover import models as clover_models  # noqa: F401
 from app.orders import models as order_models  # noqa: F401
 from app.jds_auth import models as auth_models  # noqa: F401
+from app.customers import models as customer_models  # noqa: F401
 from app.db.base import Base
 
 config = context.config

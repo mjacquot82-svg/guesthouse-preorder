@@ -132,6 +132,15 @@ def require_permission(permission: str) -> Callable[..., AuthPrincipal]:
     return dependency
 
 
+def require_read_permission(permission: str) -> Callable[..., AuthPrincipal]:
+    """Authorize an owner-session GET without requiring a CSRF header."""
+    def dependency(principal: AuthPrincipal = Depends(current_principal)) -> AuthPrincipal:
+        if permission not in principal.permissions:
+            auth_error(403, "permission_denied", "Permission is required.")
+        return principal
+    return dependency
+
+
 def session_response(principal: AuthPrincipal, csrf_token: str) -> SessionResponse:
     return SessionResponse(user_id=str(principal.user_id), email=principal.email, display_name=principal.display_name, organization_id=str(principal.organization_id), role=principal.role, permissions=sorted(principal.permissions), csrf_token=csrf_token)
 
@@ -141,7 +150,7 @@ def login(payload: LoginRequest, response: Response, request: Request, _: None =
     enforce_limit(service, LOGIN_IP, client_identifier(request), now)
     enforce_limit(service, LOGIN_ACCOUNT, payload.email, now)
     try:
-        issued = service.login(payload.email.strip().lower(), payload.password, now=now, user_agent=request.headers.get("user-agent"))
+        issued = service.login(payload.email.strip().lower(), payload.password, now=now, user_agent=request.headers.get("user-agent"), allowed_roles=frozenset({"owner", "manager", "staff"}))
     except EmailVerificationRequired as error:
         auth_error(403, error.code, str(error))
     except (InvalidCredentialsError, MembershipInactive, AuthenticationError):

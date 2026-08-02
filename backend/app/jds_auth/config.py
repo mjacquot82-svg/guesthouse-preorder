@@ -17,6 +17,7 @@ class AuthSettings:
     application_key: str = "jds-commerce"
     organization_slug: str = "the-guest-house"
     session_cookie_name: str = "__Host-jds_owner_session"
+    customer_session_cookie_name: str = "__Host-jds_customer_session"
     session_idle_minutes: int = 30
     session_absolute_hours: int = 12
     secure_cookies: bool = True

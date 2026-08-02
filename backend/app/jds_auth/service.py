@@ -67,7 +67,7 @@ class AuthenticationService:
         self._repo = AuthRepository(session)
         self._audit = DatabaseSecurityAuditWriter(session)
 
-    def login(self, email: str, password: str, *, now: datetime, user_agent: str | None) -> IssuedSession:
+    def login(self, email: str, password: str, *, now: datetime, user_agent: str | None, allowed_roles: frozenset[str] | None = None) -> IssuedSession:
         authentication = self._provider.authenticate_password(email, password)
         if not authentication.identity.email_verified:
             raise EmailVerificationRequired("Email verification is required.")
@@ -79,12 +79,64 @@ class AuthenticationService:
             membership = self._repo.active_membership(identity.user_id, application.id, organization.id)
             if membership is None:
                 raise MembershipInactive("An active JDS membership is required.")
+            role = self._session.get(Role, membership.role_id)
+            if role is None or (allowed_roles is not None and role.key not in allowed_roles):
+                raise MembershipInactive("This account is not authorized for this experience.")
             identity.user.last_authenticated_at = now
             identity.user.email_verified_at = identity.user.email_verified_at or now
             identity.provider_email = authentication.identity.email
             issued = self._issue(identity.user, membership, authentication, now, user_agent)
             self._audit.record("auth.login", "success", organization_id=organization.id, actor_user_id=identity.user_id, session_id=issued.principal.session_id)
         return issued
+
+    def register_customer(self, email: str, password: str, display_name: str, *, now: datetime) -> None:
+        normalized = email.strip().lower()
+        identity = self._provider.register_user(
+            normalized, password,
+            f"{self._settings.frontend_url.rstrip('/')}/account/verify-email",
+        )
+        with self._session.begin():
+            application, organization = self._scope()
+            role = self._repo.role_by_key(application.id, "customer")
+            if role is None:
+                raise MembershipInactive("Customer authorization is unavailable.")
+            if self._repo.identity(identity.issuer, identity.subject) is not None:
+                raise AuthenticationError("Account already exists.")
+            user = JdsUser(
+                primary_email=identity.email, display_name=display_name.strip(), status="active",
+                email_verified_at=now if identity.email_verified else None,
+            )
+            self._repo.add(user)
+            self._session.flush()
+            self._repo.add(ExternalIdentity(
+                user_id=user.id, issuer=identity.issuer, subject=identity.subject,
+                provider="supabase", provider_email=identity.email,
+            ))
+            self._repo.add(Membership(
+                organization_id=organization.id, application_id=application.id,
+                user_id=user.id, role_id=role.id, status="active", joined_at=now,
+            ))
+            self._audit.record("auth.customer_registered", "success", organization_id=organization.id, actor_user_id=user.id)
+
+    def verify_customer_email(self, token_hash: str, *, now: datetime) -> None:
+        authentication = self._provider.verify_email_token(token_hash, "email")
+        with self._session.begin():
+            identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
+            if identity is None:
+                raise AuthenticationError("Registration could not be verified.")
+            membership = self._repo.active_membership(identity.user_id, *self._scope_ids())
+            role = self._session.get(Role, membership.role_id) if membership else None
+            if role is None or role.key != "customer":
+                raise MembershipInactive("Customer membership is required.")
+            identity.user.email_verified_at = now
+            identity.provider_email = authentication.identity.email
+            self._audit.record("auth.customer_email_verified", "success", organization_id=membership.organization_id, actor_user_id=identity.user_id)
+
+    def resend_customer_verification(self, email: str) -> None:
+        self._provider.resend_verification(
+            email.strip().lower(),
+            f"{self._settings.frontend_url.rstrip('/')}/account/verify-email",
+        )
 
     def resolve(self, token: str, *, now: datetime, touch: bool = True) -> AuthPrincipal:
         token_hash = hash_secret(token, self._settings.session_pepper)
@@ -249,6 +301,10 @@ class AuthenticationService:
         if application is None or organization is None or not application.is_active or not organization.is_active:
             raise MembershipInactive("JDS authentication scope is unavailable.")
         return application, organization
+
+    def _scope_ids(self) -> tuple[UUID, UUID]:
+        application, organization = self._scope()
+        return application.id, organization.id
 
     def _issue(self, user: JdsUser, membership: Membership, authentication: ProviderAuthentication, now: datetime, user_agent: str | None) -> IssuedSession:
         token, csrf = create_secret(), create_secret()

@@ -4,6 +4,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
+from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -74,6 +75,7 @@ class OrderCreationService:
         request: CreatePendingOrderInput,
         *,
         now: datetime,
+        customer_user_id: UUID | None = None,
     ) -> Order:
         if now.tzinfo is None or now.utcoffset() is None:
             raise ValueError("now must include timezone information.")
@@ -110,6 +112,7 @@ class OrderCreationService:
                 line.subtotal_cents for line in validated_lines
             )
             order = Order(
+                customer_user_id=customer_user_id,
                 idempotency_key=request.idempotency_key,
                 request_fingerprint=fingerprint,
                 public_access_token=secrets.token_urlsafe(32),

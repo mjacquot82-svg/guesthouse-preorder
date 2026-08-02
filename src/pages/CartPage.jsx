@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ClipboardList, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import { resolveCart } from "../services/cartCatalog.js";
@@ -13,6 +13,8 @@ import {
 import { createPendingOrder } from "../services/orderApi.js";
 import { createCloverCheckout } from "../services/cloverService.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
+import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
+import { fetchCustomerProfile } from "../services/customerAccountApi.js";
 
 const quickPickupOptions = [
   {
@@ -128,6 +130,7 @@ function getLocalDateKey(value = new Date()) {
 }
 
 export default function CartPage() {
+  const { session } = useCustomerAuth();
   const { status, catalog, reload } = useCustomerCatalog();
   const [cart, setCart] = useState(getStoredCart);
   const [pickupTime, setPickupTime] = useState(getStoredPickupTime);
@@ -141,6 +144,15 @@ export default function CartPage() {
   const [checkoutError, setCheckoutError] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const submissionGate = useRef(createSubmissionGate());
+  useEffect(() => {
+    if (!session) return;
+    fetchCustomerProfile().then((profile) => {
+      setCheckoutContact({ name: profile.name, email: profile.email, phone: profile.phone });
+      const preferredOption = quickPickupOptions.find((option) => option.minutes === profile.preferred_pickup_minutes);
+      if (preferredOption) updatePickupTime(preferredOption.value);
+      if (profile.preferred_pickup_notes) setOrderNotes(profile.preferred_pickup_notes);
+    }).catch(() => {});
+  }, [session]);
   const resolvedCart = useMemo(
     () => resolveCart(catalog, cart),
     [catalog, cart]
@@ -415,6 +427,7 @@ export default function CartPage() {
               <h2>How should we contact you?</h2>
             </div>
           </div>
+          {!session ? <div className="form-actions"><span>Continue as Guest</span><Link className="secondary-button" to="/account/sign-in">Sign In</Link></div> : null}
           <div className="checkout-contact-grid">
             <label>
               <span>Name</span>

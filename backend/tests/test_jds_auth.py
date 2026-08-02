@@ -1,12 +1,13 @@
 import asyncio
 from collections.abc import AsyncIterator, Iterator
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
 import pytest
 import httpx
 from alembic import command
+from cryptography.fernet import Fernet
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.engine import Engine
@@ -14,13 +15,16 @@ from sqlalchemy.orm import Session
 
 from app.jds_auth.config import AuthSettings
 from app.jds_auth.foundation import ensure_foundation
+from app.jds_auth.provision_foundation import main as provision_foundation
 from app.jds_auth.models import (
     ExternalIdentity,
     JdsUser,
     Membership,
     OwnerInvitation,
     OwnerSession,
+    Permission,
     Role,
+    RolePermission,
 )
 from app.jds_auth.provider import IdentityProviderError, ProviderAuthentication, ProviderIdentity, SupabaseIdentityProvider
 from app.jds_auth.security import hash_secret
@@ -28,6 +32,7 @@ from app.main import create_app
 from app.catalog.models import Product
 from app.catalog.seed import seed_catalog
 from app.availability.models import ProductAvailability
+from app.orders.models import Order
 from tests.test_migrations import make_alembic_config
 
 
@@ -43,6 +48,13 @@ class FakeIdentityProvider:
         self.reset_requests: list[tuple[str, str]] = []
         self.password_updates: list[str] = []
         self.password_update_error: Exception | None = None
+        self.registrations: list[tuple[str, str]] = []
+        self.verification_resends: list[tuple[str, str]] = []
+
+    def register_user(self, email: str, password: str, redirect_url: str) -> ProviderIdentity:
+        assert password == "correct horse battery staple"
+        self.registrations.append((email, redirect_url))
+        return self.identity
 
     def authenticate_password(self, email: str, password: str) -> ProviderAuthentication:
         assert password == "correct horse battery staple"
@@ -53,8 +65,11 @@ class FakeIdentityProvider:
 
     def verify_email_token(self, token_hash: str, token_type: str) -> ProviderAuthentication:
         assert token_hash == "t" * 32
-        assert token_type in {"invite", "recovery"}
+        assert token_type in {"invite", "recovery", "email"}
         return ProviderAuthentication(self.identity, "provider-access-token")
+
+    def resend_verification(self, email: str, redirect_url: str) -> None:
+        self.verification_resends.append((email, redirect_url))
 
     def update_password(self, access_token: str, password: str) -> None:
         assert access_token == "provider-access-token"
@@ -212,6 +227,78 @@ async def test_login_uses_opaque_httponly_session_and_csrf(
     assert (await auth_client.get("/api/v1/owner/auth/session")).status_code == 401
 
 
+@pytest.mark.postgresql
+def test_foundation_provisioning_is_idempotent_and_separates_customer_permissions(
+    auth_engine: Engine,
+    postgresql_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", postgresql_url)
+    provision_foundation()
+    with Session(auth_engine) as session, session.begin():
+        customer = session.scalar(select(Role).where(Role.key == "customer"))
+        integration = session.scalar(
+            select(Permission).where(Permission.key == "integrations.manage")
+        )
+        assert customer is not None and integration is not None
+        session.add(RolePermission(role_id=customer.id, permission_id=integration.id))
+    provision_foundation()
+
+    with Session(auth_engine) as session:
+        roles = {
+            role.key: role
+            for role in session.scalars(select(Role)).all()
+        }
+        def permission_keys(role: Role) -> set[str]:
+            return set(session.scalars(
+                select(Permission.key)
+                .join(RolePermission, RolePermission.permission_id == Permission.id)
+                .where(RolePermission.role_id == role.id)
+            ))
+
+        customer_permissions = permission_keys(roles["customer"])
+        owner_permissions = permission_keys(roles["owner"])
+    assert customer_permissions == {"customer.orders", "customer.profile"}
+    assert "integrations.manage" not in customer_permissions
+    assert "integrations.manage" in owner_permissions
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_clover_management_routes_require_owner_integration_permission(
+    auth_client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clover_environment = {
+        "CLOVER_APP_ID": "app-id",
+        "CLOVER_APP_SECRET": "app-secret",
+        "CLOVER_TOKEN_ENCRYPTION_KEY": Fernet.generate_key().decode(),
+        "CLOVER_STATE_SECRET": "s" * 48,
+        "CLOVER_WEBHOOK_SECRET": "w" * 48,
+        "CLOVER_MERCHANT_ID": "merchant-id",
+        "CLOVER_ECOMMERCE_PRIVATE_TOKEN": "private-token",
+        "PUBLIC_APP_URL": "https://api.example.test",
+        "FRONTEND_URL": "https://shop.example.test",
+    }
+    for name, value in clover_environment.items():
+        monkeypatch.setenv(name, value)
+
+    assert (await auth_client.get("/api/v1/clover/oauth/start")).status_code == 401
+    assert (
+        await auth_client.get(
+            "/api/v1/clover/oauth/callback",
+            params={"code": "code", "state": "state", "merchant_id": "merchant-id"},
+        )
+    ).status_code == 401
+    assert (await auth_client.get("/api/v1/clover/connection")).status_code == 401
+
+    login = await owner_login(auth_client)
+    assert "integrations.manage" in login["permissions"]
+    connection = await auth_client.get("/api/v1/clover/connection")
+    assert connection.status_code == 200
+    assert connection.json()["connected"] is True
+
+
 @pytest.mark.anyio
 @pytest.mark.postgresql
 async def test_password_reset_is_generic_and_provider_managed(
@@ -308,14 +395,21 @@ def test_supabase_adapter_keeps_admin_secret_server_side(
         "owner@example.com",
         "password",
     )
+    provider.verify_email_token("t" * 32, "email")
+    provider.resend_verification("customer@example.com", "http://test/account/verify-email")
     provider.invite_user("staff@example.com", "http://test/admin/invitation")
 
     assert authentication.identity.email_verified is True
     assert requests[0].headers["apikey"] == "publishable"
     assert "authorization" not in requests[0].headers
-    assert requests[1].headers["apikey"] == "secret"
-    assert requests[1].headers["authorization"] == "Bearer secret"
-    assert requests[1].url.params["redirect_to"] == "http://test/admin/invitation"
+    assert requests[1].url.path.endswith("/verify")
+    assert requests[1].read() == b'{"token_hash":"tttttttttttttttttttttttttttttttt","type":"email"}'
+    assert requests[2].url.path.endswith("/resend")
+    assert requests[2].url.params["redirect_to"] == "http://test/account/verify-email"
+    assert requests[2].read() == b'{"type":"signup","email":"customer@example.com"}'
+    assert requests[3].headers["apikey"] == "secret"
+    assert requests[3].headers["authorization"] == "Bearer secret"
+    assert requests[3].url.params["redirect_to"] == "http://test/admin/invitation"
 
 
 @pytest.mark.anyio
@@ -728,3 +822,139 @@ async def test_owner_catalog_mutations_persist_to_public_catalog(
         persisted = session.scalar(select(Product).where(Product.slug == "latte"))
         assert persisted is not None
         assert persisted.archived_at is not None
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_customer_registration_verification_profile_and_role_isolation(
+    auth_client: AsyncClient,
+    auth_engine: Engine,
+    fake_provider: FakeIdentityProvider,
+) -> None:
+    fake_provider.identity = ProviderIdentity(
+        issuer=fake_provider.identity.issuer,
+        subject="customer-provider-user",
+        email="customer@example.com",
+        email_verified=False,
+    )
+    registration = await auth_client.post(
+        "/api/v1/customer/auth/register",
+        headers={"Origin": "http://test"},
+        json={
+            "display_name": "Customer User",
+            "email": "customer@example.com",
+            "password": "correct horse battery staple",
+        },
+    )
+    assert registration.status_code == 201
+    assert fake_provider.registrations == [
+        ("customer@example.com", "http://test/account/verify-email")
+    ]
+    resent = await auth_client.post(
+        "/api/v1/customer/auth/verification/resend",
+        headers={"Origin": "http://test"},
+        json={"email": "customer@example.com"},
+    )
+    assert resent.status_code == 200
+    assert fake_provider.verification_resends == [
+        ("customer@example.com", "http://test/account/verify-email")
+    ]
+    unverified = await auth_client.post(
+        "/api/v1/customer/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": "customer@example.com", "password": "correct horse battery staple"},
+    )
+    assert unverified.status_code == 403
+
+    fake_provider.identity = ProviderIdentity(
+        issuer=fake_provider.identity.issuer,
+        subject="customer-provider-user",
+        email="customer@example.com",
+        email_verified=True,
+    )
+    verified = await auth_client.post(
+        "/api/v1/customer/auth/verify-email",
+        headers={"Origin": "http://test"},
+        json={"token_hash": "t" * 32},
+    )
+    assert verified.status_code == 200
+    login = await auth_client.post(
+        "/api/v1/customer/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": "customer@example.com", "password": "correct horse battery staple"},
+    )
+    assert login.status_code == 200
+    payload = login.json()
+    assert payload["role"] == "customer"
+    assert payload["permissions"] == ["customer.orders", "customer.profile"]
+    assert "catalog.write" not in payload["permissions"]
+
+    owner_denied = await auth_client.post(
+        "/api/v1/owner/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": "customer@example.com", "password": "correct horse battery staple"},
+    )
+    assert owner_denied.status_code == 401
+
+    initial_profile = await auth_client.get("/api/v1/customer/profile")
+    assert initial_profile.status_code == 200
+    assert initial_profile.json()["email"] == "customer@example.com"
+    updated = await auth_client.put(
+        "/api/v1/customer/profile",
+        headers={"Origin": "http://test", "X-CSRF-Token": payload["csrf_token"]},
+        json={
+            "name": "Returning Customer",
+            "phone": "+15555550123",
+            "preferred_pickup_minutes": 20,
+            "preferred_pickup_notes": "Side counter",
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json() == {
+        "name": "Returning Customer",
+        "email": "customer@example.com",
+        "phone": "+15555550123",
+        "preferred_pickup_minutes": 20,
+        "preferred_pickup_notes": "Side counter",
+    }
+
+    now = datetime.now(timezone.utc)
+    with Session(auth_engine) as session, session.begin():
+        customer = session.scalar(select(JdsUser).where(JdsUser.primary_email == "customer@example.com"))
+        assert customer is not None
+        order = Order(
+            customer_user_id=customer.id,
+            idempotency_key="customer-history-order",
+            request_fingerprint="b" * 64,
+            public_access_token="customer-public-token",
+            status="paid",
+            guest_name="Returning Customer",
+            guest_email="customer@example.com",
+            guest_phone="+15555550123",
+            requested_pickup_at=now + timedelta(minutes=20),
+            business_timezone="America/Toronto",
+            currency="USD",
+            subtotal_cents=500,
+            tax_cents=0,
+            total_cents=500,
+            version=1,
+            expires_at=now + timedelta(hours=1),
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(order)
+        session.flush()
+        order_id = order.id
+    history = await auth_client.get("/api/v1/customer/orders")
+    assert history.status_code == 200
+    assert history.json()[0]["id"] == order_id
+    detail = await auth_client.get(f"/api/v1/customer/orders/{order_id}")
+    assert detail.status_code == 200
+    assert detail.json()["public_token"] == "customer-public-token"
+
+    logout = await auth_client.post(
+        "/api/v1/customer/auth/logout",
+        headers={"Origin": "http://test", "X-CSRF-Token": payload["csrf_token"]},
+    )
+    assert logout.status_code == 200
+    assert (await auth_client.get("/api/v1/customer/auth/session")).status_code == 401

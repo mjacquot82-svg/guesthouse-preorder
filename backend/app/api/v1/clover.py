@@ -21,6 +21,7 @@ from app.clover.security import (
     verify_oauth_state,
     verify_webhook_signature,
 )
+from app.api.v1.owner_auth import require_read_permission
 from app.db.session import get_db_session
 from app.orders.constants import OrderStatus
 from app.orders.models import Order, OrderItem
@@ -60,7 +61,10 @@ def clover_launch() -> RedirectResponse:
 
 
 @router.get("/oauth/start")
-def oauth_start(settings: CloverSettings = Depends(get_settings)) -> RedirectResponse:
+def oauth_start(
+    settings: CloverSettings = Depends(get_settings),
+    _: object = Depends(require_read_permission("integrations.manage")),
+) -> RedirectResponse:
     state = create_oauth_state(settings.state_secret)
     response = RedirectResponse(
         CloverClient(settings).authorization_url(state),
@@ -88,6 +92,7 @@ def oauth_callback(
     merchantId: str | None = Query(default=None),
     session: Session = Depends(get_db_session),
     settings: CloverSettings = Depends(get_settings),
+    _: object = Depends(require_read_permission("integrations.manage")),
 ) -> RedirectResponse:
     resolved_merchant_id = merchant_id or merchantId
     returned_cookie = request.cookies.get(OAUTH_STATE_COOKIE)
@@ -163,6 +168,7 @@ def oauth_callback(
 def connection_status(
     session: Session = Depends(get_db_session),
     settings: CloverSettings = Depends(get_settings),
+    _: object = Depends(require_read_permission("integrations.manage")),
 ) -> CloverConnectionResponse:
     if settings.ecommerce_private_token:
         return CloverConnectionResponse(

@@ -11,6 +11,20 @@ class LoginRequest(AuthSchema):
     password: str = Field(min_length=8, max_length=1024)
 
 
+class CustomerRegistrationRequest(LoginRequest):
+    display_name: str = Field(min_length=1, max_length=200)
+    password: str = Field(min_length=15, max_length=1024)
+
+    @field_validator("display_name")
+    @classmethod
+    def normalize_registration_name(cls, value: str) -> str:
+        return " ".join(value.strip().split())
+
+
+class EmailVerificationRequest(AuthSchema):
+    token_hash: str = Field(min_length=20, max_length=2048)
+
+
 class PasswordResetRequest(AuthSchema):
     email: str = Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 

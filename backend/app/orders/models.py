@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy import (
     BigInteger,
@@ -111,6 +112,9 @@ class Order(OrderModelValidation, Base):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    customer_user_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("jds_users.id", ondelete="SET NULL"), index=True
+    )
     idempotency_key: Mapped[str] = mapped_column(String(200), unique=True)
     request_fingerprint: Mapped[str] = mapped_column(String(64))
     public_access_token: Mapped[str] = mapped_column(String(200), unique=True)

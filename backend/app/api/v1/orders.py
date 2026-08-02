@@ -22,6 +22,8 @@ from app.orders.service import (
     OrderCreationErrorCode,
     OrderCreationService,
 )
+from app.api.v1.customer_auth import optional_customer
+from app.jds_auth.service import AuthPrincipal
 
 class OrderApiRoute(APIRoute):
     def get_route_handler(
@@ -125,11 +127,13 @@ def create_pending_order(
     request: CreateOrderRequest,
     session: Session = Depends(get_order_session),
     now: datetime = Depends(get_current_time),
+    customer: AuthPrincipal | None = Depends(optional_customer),
 ) -> PendingOrderResponse:
     try:
         order = OrderCreationService(session).create_pending_order(
             request.to_domain(),
             now=now,
+            customer_user_id=customer.user_id if customer else None,
         )
         return PendingOrderResponse.from_model(order)
     except OrderCreationError as error:

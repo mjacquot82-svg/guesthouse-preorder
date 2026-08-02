@@ -1,0 +1,29 @@
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class CustomerSchema(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class CustomerProfileResponse(CustomerSchema):
+    name: str
+    email: str
+    phone: str
+    preferred_pickup_minutes: int | None
+    preferred_pickup_notes: str
+
+
+class CustomerProfileUpdate(CustomerSchema):
+    name: str = Field(min_length=1, max_length=200)
+    phone: str = Field(min_length=7, max_length=30)
+    preferred_pickup_minutes: int | None = Field(default=None, ge=0, le=1440)
+    preferred_pickup_notes: str = Field(default="", max_length=500)
+
+
+class CustomerOrderSummary(CustomerSchema):
+    id: int
+    status: str
+    requested_pickup_at: str
+    total_cents: int
+    created_at: str
+    item_count: int
