@@ -1,9 +1,12 @@
 from dataclasses import dataclass
+import logging
 from typing import Protocol
 
 import httpx
 
 from app.jds_auth.config import AuthSettings
+
+logger = logging.getLogger(__name__)
 
 
 class IdentityProviderError(RuntimeError):
@@ -165,6 +168,11 @@ class SupabaseIdentityProvider:
                 params=params,
             )
         except httpx.HTTPError as error:
+            logger.exception(
+                "supabase_auth_transport_failed operation=%s exception=%s",
+                path,
+                type(error).__name__,
+            )
             raise IdentityProviderError("Identity provider is unavailable.") from error
 
     def _authentication(self, response: httpx.Response) -> ProviderAuthentication:
@@ -195,4 +203,23 @@ class SupabaseIdentityProvider:
     def _require_success(response: httpx.Response) -> None:
         if response.is_success:
             return
+        provider_code = "unknown"
+        try:
+            payload = response.json()
+            if isinstance(payload, dict):
+                candidate = payload.get("code") or payload.get("error_code")
+                if isinstance(candidate, str) and candidate:
+                    provider_code = candidate
+        except (ValueError, TypeError):
+            pass
+        try:
+            operation = response.request.url.path
+        except RuntimeError:
+            operation = "unknown"
+        logger.error(
+            "supabase_auth_request_failed operation=%s status=%s code=%s",
+            operation,
+            response.status_code,
+            provider_code,
+        )
         raise IdentityProviderError("Identity provider request failed.")

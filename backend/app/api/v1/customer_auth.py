@@ -1,4 +1,5 @@
 from datetime import datetime
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Request, Response
@@ -23,12 +24,18 @@ from app.jds_auth.service import (
 from app.db.session import get_db_session
 
 router = APIRouter(prefix="/customer/auth", tags=["customer-auth"])
+logger = logging.getLogger(__name__)
 
 
 def get_customer_auth_settings(request: Request) -> AuthSettings:
     settings = request.app.state.auth_settings
     provider = request.app.state.auth_provider
     if settings is None or provider is None:
+        logger.error(
+            "customer_auth_configuration_unavailable settings=%s provider=%s",
+            settings is not None,
+            provider is not None,
+        )
         auth_error(503, "authentication_unavailable", "Customer authentication is unavailable.")
     return settings
 
@@ -118,7 +125,11 @@ def register(payload: CustomerRegistrationRequest, request: Request, _: None = D
         return MessageResponse(message="Check your email to verify your account.")
     except (AuthenticationError, ValueError):
         auth_error(409, "registration_failed", "Customer account could not be created.")
-    except (IdentityProviderError, SQLAlchemyError):
+    except IdentityProviderError:
+        logger.exception("customer_registration_failed stage=supabase_registration")
+        auth_error(503, "authentication_unavailable", "Customer registration is unavailable.")
+    except SQLAlchemyError:
+        logger.exception("customer_registration_failed stage=jds_persistence")
         auth_error(503, "authentication_unavailable", "Customer registration is unavailable.")
 
 
