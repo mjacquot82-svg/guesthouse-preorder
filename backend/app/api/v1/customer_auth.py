@@ -123,13 +123,23 @@ def register(payload: CustomerRegistrationRequest, request: Request, _: None = D
     try:
         service.register_customer(payload.email, payload.password, payload.display_name, now=now)
         return MessageResponse(message="Check your email to verify your account.")
-    except (AuthenticationError, ValueError):
+    except (AuthenticationError, ValueError) as error:
+        logger.error(
+            "customer_registration_failed stage=%s exception_type=%s reason=%s",
+            getattr(error, "stage", "registration_business_rule"),
+            type(error).__name__,
+            getattr(error, "reason", "authentication_error"),
+        )
         auth_error(409, "registration_failed", "Customer account could not be created.")
     except IdentityProviderError:
         logger.exception("customer_registration_failed stage=supabase_registration")
         auth_error(503, "authentication_unavailable", "Customer registration is unavailable.")
-    except SQLAlchemyError:
-        logger.exception("customer_registration_failed stage=jds_persistence")
+    except SQLAlchemyError as error:
+        logger.exception(
+            "customer_registration_failed stage=%s exception_type=%s reason=database_error",
+            service.registration_stage,
+            type(error).__name__,
+        )
         auth_error(503, "authentication_unavailable", "Customer registration is unavailable.")
 
 

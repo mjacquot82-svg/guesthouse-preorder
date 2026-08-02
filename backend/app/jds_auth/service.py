@@ -17,6 +17,13 @@ class AuthenticationError(ValueError):
     code = "authentication_failed"
 
 
+class CustomerRegistrationError(AuthenticationError):
+    def __init__(self, message: str, *, stage: str, reason: str) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.reason = reason
+
+
 class EmailVerificationRequired(AuthenticationError):
     code = "email_verification_required"
 
@@ -66,6 +73,7 @@ class AuthenticationService:
         self._settings = settings
         self._repo = AuthRepository(session)
         self._audit = DatabaseSecurityAuditWriter(session)
+        self.registration_stage = "not_started"
 
     def login(self, email: str, password: str, *, now: datetime, user_agent: str | None, allowed_roles: frozenset[str] | None = None) -> IssuedSession:
         authentication = self._provider.authenticate_password(email, password)
@@ -91,31 +99,75 @@ class AuthenticationService:
 
     def register_customer(self, email: str, password: str, display_name: str, *, now: datetime) -> None:
         normalized = email.strip().lower()
+        self.registration_stage = "supabase_registration"
         identity = self._provider.register_user(
             normalized, password,
             f"{self._settings.frontend_url.rstrip('/')}/account/verify-email",
         )
         with self._session.begin():
-            application, organization = self._scope()
+            self.registration_stage = "application_lookup"
+            application = self._repo.application_by_key(self._settings.application_key)
+            if application is None:
+                raise CustomerRegistrationError(
+                    "Customer authorization is unavailable.",
+                    stage="application_lookup",
+                    reason="missing_application",
+                )
+            if not application.is_active:
+                raise CustomerRegistrationError(
+                    "Customer authorization is unavailable.",
+                    stage="application_lookup",
+                    reason="inactive_application",
+                )
+            self.registration_stage = "organization_lookup"
+            organization = self._repo.organization_by_slug(self._settings.organization_slug)
+            if organization is None:
+                raise CustomerRegistrationError(
+                    "Customer authorization is unavailable.",
+                    stage="organization_lookup",
+                    reason="missing_organization",
+                )
+            if not organization.is_active:
+                raise CustomerRegistrationError(
+                    "Customer authorization is unavailable.",
+                    stage="organization_lookup",
+                    reason="inactive_organization",
+                )
+            self.registration_stage = "customer_role_lookup"
             role = self._repo.role_by_key(application.id, "customer")
             if role is None:
-                raise MembershipInactive("Customer authorization is unavailable.")
+                raise CustomerRegistrationError(
+                    "Customer authorization is unavailable.",
+                    stage="customer_role_lookup",
+                    reason="missing_customer_role",
+                )
+            self.registration_stage = "external_identity_lookup"
             if self._repo.identity(identity.issuer, identity.subject) is not None:
-                raise AuthenticationError("Account already exists.")
+                raise CustomerRegistrationError(
+                    "Account already exists.",
+                    stage="external_identity_lookup",
+                    reason="duplicate_external_identity",
+                )
+            self.registration_stage = "jds_user_creation"
             user = JdsUser(
                 primary_email=identity.email, display_name=display_name.strip(), status="active",
                 email_verified_at=now if identity.email_verified else None,
             )
             self._repo.add(user)
             self._session.flush()
+            self.registration_stage = "external_identity_creation"
             self._repo.add(ExternalIdentity(
                 user_id=user.id, issuer=identity.issuer, subject=identity.subject,
                 provider="supabase", provider_email=identity.email,
             ))
+            self._session.flush()
+            self.registration_stage = "membership_creation"
             self._repo.add(Membership(
                 organization_id=organization.id, application_id=application.id,
                 user_id=user.id, role_id=role.id, status="active", joined_at=now,
             ))
+            self._session.flush()
+            self.registration_stage = "audit_recording"
             self._audit.record("auth.customer_registered", "success", organization_id=organization.id, actor_user_id=user.id)
 
     def verify_customer_email(self, token_hash: str, *, now: datetime) -> None:

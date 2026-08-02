@@ -869,6 +869,56 @@ async def test_owner_catalog_mutations_persist_to_public_catalog(
 
 @pytest.mark.anyio
 @pytest.mark.postgresql
+async def test_duplicate_customer_registration_logs_safe_business_rule(
+    auth_client: AsyncClient,
+    fake_provider: FakeIdentityProvider,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fake_provider.identity = ProviderIdentity(
+        issuer=fake_provider.identity.issuer,
+        subject="duplicate-customer-provider-user",
+        email="duplicate@example.com",
+        email_verified=False,
+    )
+    payload = {
+        "display_name": "Duplicate Customer",
+        "email": "duplicate@example.com",
+        "password": "correct horse battery staple",
+    }
+    first = await auth_client.post(
+        "/api/v1/customer/auth/register",
+        headers={"Origin": "http://test"},
+        json=payload,
+    )
+
+    with caplog.at_level("ERROR"):
+        duplicate = await auth_client.post(
+            "/api/v1/customer/auth/register",
+            headers={"Origin": "http://test"},
+            json=payload,
+        )
+
+    assert first.status_code == 201
+    assert duplicate.status_code == 409
+    assert duplicate.json() == {
+        "detail": {
+            "code": "registration_failed",
+            "message": "Customer account could not be created.",
+        }
+    }
+    diagnostic = next(
+        message for message in caplog.messages
+        if message.startswith("customer_registration_failed")
+    )
+    assert "stage=external_identity_lookup" in diagnostic
+    assert "exception_type=CustomerRegistrationError" in diagnostic
+    assert "reason=duplicate_external_identity" in diagnostic
+    assert "duplicate@example.com" not in diagnostic
+    assert payload["password"] not in diagnostic
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
 async def test_customer_registration_verification_profile_and_role_isolation(
     auth_client: AsyncClient,
     auth_engine: Engine,
