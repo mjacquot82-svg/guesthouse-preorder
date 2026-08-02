@@ -14,6 +14,7 @@ import RequireOwner from "./auth/RequireOwner.jsx";
 import CustomerAuthPage from "./pages/CustomerAuthPage.jsx";
 import CustomerVerifyPage from "./pages/CustomerVerifyPage.jsx";
 import CustomerResetPage from "./pages/CustomerResetPage.jsx";
+import OwnerAuthBoundary from "./auth/OwnerAuthBoundary.jsx";
 
 export default function App() {
   return (
@@ -31,12 +32,14 @@ export default function App() {
         <Route path="account/verify-email" element={<CustomerVerifyPage />} />
         <Route path="account/reset-password" element={<CustomerResetPage />} />
         <Route path="confirmation" element={<ConfirmationPage />} />
-        <Route path="owner/login" element={<OwnerLoginPage />} />
-        <Route path="admin" element={<RequireOwner />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path="orders" element={<OrdersPage />} />
-          <Route path="products" element={<ProductsPage />} />
-          <Route path="*" element={<Navigate replace to="/admin" />} />
+        <Route element={<OwnerAuthBoundary />}>
+          <Route path="owner/login" element={<OwnerLoginPage />} />
+          <Route path="admin" element={<RequireOwner />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="products" element={<ProductsPage />} />
+            <Route path="*" element={<Navigate replace to="/admin" />} />
+          </Route>
         </Route>
       </Route>
     </Routes>

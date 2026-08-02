@@ -6,8 +6,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.v1.owner_auth import (
-    auth_error, client_identifier, enforce_limit, get_auth_service,
-    get_auth_settings, require_trusted_origin, session_response,
+    auth_error, client_identifier, enforce_limit, require_trusted_origin,
+    session_response,
 )
 from app.jds_auth.config import AuthSettings
 from app.jds_auth.provider import IdentityProviderError, InvalidCredentialsError
@@ -25,10 +25,33 @@ from app.db.session import get_db_session
 router = APIRouter(prefix="/customer/auth", tags=["customer-auth"])
 
 
+def get_customer_auth_settings(request: Request) -> AuthSettings:
+    settings = request.app.state.auth_settings
+    provider = request.app.state.auth_provider
+    if settings is None or provider is None:
+        auth_error(503, "authentication_unavailable", "Customer authentication is unavailable.")
+    return settings
+
+
+def get_customer_auth_service(
+    request: Request,
+    session: Session = Depends(get_db_session),
+) -> AuthenticationService:
+    return AuthenticationService(
+        session,
+        request.app.state.auth_provider,
+        get_customer_auth_settings(request),
+    )
+
+
+def require_customer_trusted_origin(request: Request) -> None:
+    require_trusted_origin(request, get_customer_auth_settings(request))
+
+
 def current_customer(
     request: Request,
-    service: AuthenticationService = Depends(get_auth_service),
-    settings: AuthSettings = Depends(get_auth_settings),
+    service: AuthenticationService = Depends(get_customer_auth_service),
+    settings: AuthSettings = Depends(get_customer_auth_settings),
     now: datetime = Depends(utc_now),
 ) -> AuthPrincipal:
     token = request.cookies.get(settings.customer_session_cookie_name)
@@ -73,9 +96,9 @@ def customer_csrf(
     request: Request,
     principal: AuthPrincipal = Depends(current_customer),
     csrf_token: Annotated[str | None, Header(alias="X-CSRF-Token")] = None,
-    service: AuthenticationService = Depends(get_auth_service),
+    service: AuthenticationService = Depends(get_customer_auth_service),
 ) -> AuthPrincipal:
-    require_trusted_origin(request, get_auth_settings(request))
+    require_trusted_origin(request, get_customer_auth_settings(request))
     if not csrf_token:
         auth_error(403, "csrf_invalid", "CSRF validation failed.")
     try:
@@ -87,7 +110,7 @@ def customer_csrf(
 
 
 @router.post("/register", response_model=MessageResponse, status_code=201)
-def register(payload: CustomerRegistrationRequest, request: Request, _: None = Depends(require_trusted_origin), service: AuthenticationService = Depends(get_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
+def register(payload: CustomerRegistrationRequest, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
     enforce_limit(service, LOGIN_IP, client_identifier(request), now)
     enforce_limit(service, LOGIN_ACCOUNT, payload.email, now)
     try:
@@ -100,7 +123,7 @@ def register(payload: CustomerRegistrationRequest, request: Request, _: None = D
 
 
 @router.post("/verify-email", response_model=MessageResponse)
-def verify_email(payload: EmailVerificationRequest, _: None = Depends(require_trusted_origin), service: AuthenticationService = Depends(get_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
+def verify_email(payload: EmailVerificationRequest, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
     try:
         service.verify_customer_email(payload.token_hash, now=now)
         return MessageResponse(message="Email verified. You may sign in.")
@@ -109,7 +132,7 @@ def verify_email(payload: EmailVerificationRequest, _: None = Depends(require_tr
 
 
 @router.post("/verification/resend", response_model=MessageResponse)
-def resend_verification(payload: PasswordResetRequest, request: Request, _: None = Depends(require_trusted_origin), service: AuthenticationService = Depends(get_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
+def resend_verification(payload: PasswordResetRequest, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
     enforce_limit(service, VERIFICATION_RESEND_IP, client_identifier(request), now)
     enforce_limit(service, VERIFICATION_RESEND_ACCOUNT, payload.email, now)
     try:
@@ -120,7 +143,7 @@ def resend_verification(payload: PasswordResetRequest, request: Request, _: None
 
 
 @router.post("/login", response_model=SessionResponse)
-def login(payload: LoginRequest, response: Response, request: Request, _: None = Depends(require_trusted_origin), service: AuthenticationService = Depends(get_auth_service), settings: AuthSettings = Depends(get_auth_settings), now: datetime = Depends(utc_now)) -> SessionResponse:
+def login(payload: LoginRequest, response: Response, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), settings: AuthSettings = Depends(get_customer_auth_settings), now: datetime = Depends(utc_now)) -> SessionResponse:
     enforce_limit(service, LOGIN_IP, client_identifier(request), now)
     enforce_limit(service, LOGIN_ACCOUNT, payload.email, now)
     try:
@@ -137,7 +160,7 @@ def login(payload: LoginRequest, response: Response, request: Request, _: None =
 
 
 @router.get("/session", response_model=SessionResponse)
-def read_session(request: Request, service: AuthenticationService = Depends(get_auth_service), settings: AuthSettings = Depends(get_auth_settings), now: datetime = Depends(utc_now)) -> SessionResponse:
+def read_session(request: Request, service: AuthenticationService = Depends(get_customer_auth_service), settings: AuthSettings = Depends(get_customer_auth_settings), now: datetime = Depends(utc_now)) -> SessionResponse:
     token = request.cookies.get(settings.customer_session_cookie_name)
     if not token:
         auth_error(401, "unauthenticated", "Authentication is required.")
@@ -151,14 +174,14 @@ def read_session(request: Request, service: AuthenticationService = Depends(get_
 
 
 @router.post("/logout", response_model=MessageResponse)
-def logout(response: Response, principal: AuthPrincipal = Depends(customer_csrf), service: AuthenticationService = Depends(get_auth_service), settings: AuthSettings = Depends(get_auth_settings), now: datetime = Depends(utc_now)) -> MessageResponse:
+def logout(response: Response, principal: AuthPrincipal = Depends(customer_csrf), service: AuthenticationService = Depends(get_customer_auth_service), settings: AuthSettings = Depends(get_customer_auth_settings), now: datetime = Depends(utc_now)) -> MessageResponse:
     service.logout(principal, now=now)
     response.delete_cookie(settings.customer_session_cookie_name, secure=settings.secure_cookies, httponly=True, samesite="lax", path="/")
     return MessageResponse(message="Signed out.")
 
 
 @router.post("/password-reset", response_model=MessageResponse)
-def request_password_reset(payload: PasswordResetRequest, request: Request, _: None = Depends(require_trusted_origin), service: AuthenticationService = Depends(get_auth_service), settings: AuthSettings = Depends(get_auth_settings), now: datetime = Depends(utc_now)) -> MessageResponse:
+def request_password_reset(payload: PasswordResetRequest, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), settings: AuthSettings = Depends(get_customer_auth_settings), now: datetime = Depends(utc_now)) -> MessageResponse:
     enforce_limit(service, RESET_REQUEST_IP, client_identifier(request), now)
     enforce_limit(service, RESET_REQUEST_ACCOUNT, payload.email, now)
     try:
@@ -169,7 +192,7 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, _: N
 
 
 @router.post("/password-reset/complete", response_model=MessageResponse)
-def complete_password_reset(payload: PasswordCompletionRequest, request: Request, _: None = Depends(require_trusted_origin), service: AuthenticationService = Depends(get_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
+def complete_password_reset(payload: PasswordCompletionRequest, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
     enforce_limit(service, RESET_COMPLETE_IP, client_identifier(request), now)
     enforce_limit(service, RESET_COMPLETE_TOKEN, payload.token_hash, now)
     try:
