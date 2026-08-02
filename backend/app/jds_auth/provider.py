@@ -8,6 +8,19 @@ from app.jds_auth.config import AuthSettings
 
 logger = logging.getLogger(__name__)
 
+_DIAGNOSTIC_RESPONSE_HEADERS = frozenset(
+    {
+        "cf-ray",
+        "content-type",
+        "date",
+        "retry-after",
+        "sb-gateway-version",
+        "x-request-id",
+        "x-sb-error-code",
+    }
+)
+_MAX_DIAGNOSTIC_VALUE_LENGTH = 500
+
 
 class IdentityProviderError(RuntimeError):
     pass
@@ -204,22 +217,42 @@ class SupabaseIdentityProvider:
         if response.is_success:
             return
         provider_code = "unknown"
+        provider_message = "unknown"
         try:
             payload = response.json()
             if isinstance(payload, dict):
                 candidate = payload.get("code") or payload.get("error_code")
                 if isinstance(candidate, str) and candidate:
-                    provider_code = candidate
+                    provider_code = SupabaseIdentityProvider._diagnostic_value(candidate)
+                candidate = payload.get("message") or payload.get("msg") or payload.get("error_description")
+                if isinstance(candidate, str) and candidate:
+                    provider_message = SupabaseIdentityProvider._diagnostic_value(candidate)
         except (ValueError, TypeError):
             pass
         try:
             operation = response.request.url.path
         except RuntimeError:
             operation = "unknown"
+        response_headers = {
+            name.lower(): SupabaseIdentityProvider._diagnostic_value(value)
+            for name, value in response.headers.items()
+            if name.lower() in _DIAGNOSTIC_RESPONSE_HEADERS
+        }
+        retry_after = response.headers.get("Retry-After")
         logger.error(
-            "supabase_auth_request_failed operation=%s status=%s code=%s",
+            "supabase_auth_request_failed operation=%s status=%s code=%s "
+            "message=%r retry_after=%r response_headers=%s",
             operation,
             response.status_code,
             provider_code,
+            provider_message,
+            SupabaseIdentityProvider._diagnostic_value(retry_after) if retry_after else None,
+            response_headers,
         )
         raise IdentityProviderError("Identity provider request failed.")
+
+    @staticmethod
+    def _diagnostic_value(value: str) -> str:
+        """Make provider diagnostics single-line and bounded before logging."""
+        sanitized = "".join(character if character.isprintable() else " " for character in value)
+        return sanitized[:_MAX_DIAGNOSTIC_VALUE_LENGTH]

@@ -412,6 +412,49 @@ def test_supabase_adapter_keeps_admin_secret_server_side(
     assert requests[3].url.params["redirect_to"] == "http://test/admin/invitation"
 
 
+def test_supabase_adapter_logs_sanitized_rate_limit_diagnostics(
+    auth_settings: AuthSettings,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            429,
+            headers={
+                "Retry-After": "42",
+                "X-Sb-Error-Code": "over_email_send_rate_limit",
+                "X-Request-Id": "request-123",
+                "Set-Cookie": "must-not-be-logged=secret",
+                "Authorization": "Bearer must-not-be-logged",
+            },
+            json={
+                "code": "over_email_send_rate_limit",
+                "message": "Email rate limit exceeded\ntry later",
+            },
+            request=request,
+        )
+
+    provider = SupabaseIdentityProvider(
+        auth_settings,
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    with caplog.at_level("ERROR"), pytest.raises(IdentityProviderError):
+        provider.register_user(
+            "customer@example.com",
+            "a sufficiently long password",
+            "http://test/account/verify-email",
+        )
+
+    diagnostic = caplog.messages[-1]
+    assert "operation=/auth/v1/signup status=429" in diagnostic
+    assert "code=over_email_send_rate_limit" in diagnostic
+    assert "message='Email rate limit exceeded try later'" in diagnostic
+    assert "retry_after='42'" in diagnostic
+    assert "'x-sb-error-code': 'over_email_send_rate_limit'" in diagnostic
+    assert "'x-request-id': 'request-123'" in diagnostic
+    assert "must-not-be-logged" not in diagnostic
+
+
 @pytest.mark.anyio
 @pytest.mark.postgresql
 async def test_public_registration_endpoint_does_not_exist(
