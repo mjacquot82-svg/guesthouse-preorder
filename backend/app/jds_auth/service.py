@@ -304,8 +304,12 @@ class AuthenticationService:
     def request_password_reset(self, email: str, redirect_url: str) -> None:
         self._provider.request_password_reset(email.strip().lower(), redirect_url)
 
-    def complete_password_reset(self, token_hash: str, password: str, *, now: datetime) -> None:
-        authentication = self._provider.verify_email_token(token_hash, "recovery")
+    def complete_password_reset(self, token_hash: str | None, password: str, *, access_token: str | None = None, now: datetime) -> None:
+        authentication = (
+            self._provider.authenticate_access_token(access_token)
+            if access_token
+            else self._provider.verify_email_token(token_hash or "", "recovery")
+        )
         with self._session.begin():
             identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
             if identity is None or identity.user.status != "active":

@@ -20,6 +20,10 @@ const customerVerifySource = await readFile(
   new URL("../../src/pages/CustomerVerifyPage.jsx", import.meta.url),
   "utf8"
 );
+const customerResetSource = await readFile(
+  new URL("../../src/pages/CustomerResetPage.jsx", import.meta.url),
+  "utf8"
+);
 
 test("customer authentication routes are registered", () => {
   for (const path of [
@@ -50,4 +54,10 @@ test("customer verification failures expose the existing resend flow", () => {
   assert.match(customerVerifySource, /error\.code === "verification_invalid"/);
   assert.match(customerVerifySource, /setCanResend\(true\)/);
   assert.match(customerVerifySource, /Resend verification email/);
+});
+
+test("customer password recovery detects Supabase fragment sessions", () => {
+  assert.match(customerResetSource, /window\.location\.hash/);
+  assert.match(customerResetSource, /recoveryParams\.get\("access_token"\)/);
+  assert.match(customerResetSource, /Choose a new password/);
 });

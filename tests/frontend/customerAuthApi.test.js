@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  fetchCustomerSession, loginCustomer, logoutCustomer, registerCustomer,
+  completeCustomerPasswordReset, fetchCustomerSession, loginCustomer, logoutCustomer, registerCustomer,
   resendCustomerVerification,
 } from "../../src/services/customerAuthApi.js";
 
@@ -32,6 +32,21 @@ test("verification resend uses the generic customer auth endpoint", async () => 
   });
   assert.equal(request[0], "/api/v1/customer/auth/verification/resend");
   assert.deepEqual(JSON.parse(request[1].body), { email: "customer@example.com" });
+});
+
+test("password reset completion sends a Supabase recovery access token", async () => {
+  let request;
+  await completeCustomerPasswordReset({
+    accessToken: "recovery-access-token",
+    password: "a sufficiently long password",
+  }, {
+    fetchImpl: async (...args) => { request = args; return response(200, { message: "Updated" }); },
+  });
+  assert.equal(request[0], "/api/v1/customer/auth/password-reset/complete");
+  assert.deepEqual(JSON.parse(request[1].body), {
+    access_token: "recovery-access-token",
+    password: "a sufficiently long password",
+  });
 });
 
 test("customer registration sends profile identity to the shared auth backend", async () => {

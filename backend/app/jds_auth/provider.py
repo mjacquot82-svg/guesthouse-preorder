@@ -63,6 +63,7 @@ class IdentityProvider(Protocol):
     def authenticate_password(self, email: str, password: str) -> ProviderAuthentication: ...
     def request_password_reset(self, email: str, redirect_url: str) -> None: ...
     def verify_email_token(self, token_hash: str, token_type: str) -> ProviderAuthentication: ...
+    def authenticate_access_token(self, access_token: str) -> ProviderAuthentication: ...
     def resend_verification(self, email: str, redirect_url: str) -> None: ...
     def update_password(self, access_token: str, password: str) -> None: ...
     def invite_user(self, email: str, redirect_url: str) -> str: ...
@@ -130,6 +131,24 @@ class SupabaseIdentityProvider:
             json={"token_hash": token_hash, "type": token_type},
         )
         return self._authentication(response)
+
+    def authenticate_access_token(self, access_token: str) -> ProviderAuthentication:
+        response = self._request("GET", "/user", json={}, access_token=access_token)
+        self._require_success(response)
+        user = response.json()
+        subject = user.get("id") if isinstance(user, dict) else None
+        email = user.get("email") if isinstance(user, dict) else None
+        if not all(isinstance(value, str) and value for value in (subject, email)):
+            raise IdentityProviderError("Identity provider returned an invalid user.")
+        return ProviderAuthentication(
+            ProviderIdentity(
+                issuer=f"{self._settings.supabase_url.rstrip('/')}/auth/v1",
+                subject=subject,
+                email=email.strip().lower(),
+                email_verified=bool(user.get("email_confirmed_at") or user.get("confirmed_at")),
+            ),
+            access_token,
+        )
 
     def resend_verification(self, email: str, redirect_url: str) -> None:
         response = self._request(

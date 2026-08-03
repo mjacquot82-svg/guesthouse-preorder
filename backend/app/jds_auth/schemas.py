@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from uuid import UUID
 
 
@@ -32,6 +32,18 @@ class PasswordResetRequest(AuthSchema):
 class PasswordCompletionRequest(AuthSchema):
     token_hash: str = Field(min_length=20, max_length=2048)
     password: str = Field(min_length=15, max_length=1024)
+
+
+class CustomerPasswordCompletionRequest(AuthSchema):
+    token_hash: str | None = Field(default=None, min_length=20, max_length=2048)
+    access_token: str | None = Field(default=None, min_length=20, max_length=4096)
+    password: str = Field(min_length=15, max_length=1024)
+
+    @model_validator(mode="after")
+    def require_one_recovery_credential(self) -> "CustomerPasswordCompletionRequest":
+        if bool(self.token_hash) == bool(self.access_token):
+            raise ValueError("Exactly one recovery credential is required.")
+        return self
 
 
 class InvitationAcceptRequest(PasswordCompletionRequest):

@@ -71,6 +71,10 @@ class FakeIdentityProvider:
             raise self.verification_error
         return ProviderAuthentication(self.identity, "provider-access-token")
 
+    def authenticate_access_token(self, access_token: str) -> ProviderAuthentication:
+        assert access_token == "recovery-access-token"
+        return ProviderAuthentication(self.identity, access_token)
+
     def resend_verification(self, email: str, redirect_url: str) -> None:
         self.verification_resends.append((email, redirect_url))
 

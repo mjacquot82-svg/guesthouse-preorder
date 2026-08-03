@@ -37,5 +37,5 @@ export const registerCustomer = (displayName, email, password, options = {}) => 
 export const verifyCustomerEmail = (tokenHash, options = {}) => request("/verify-email", { ...options, body: { token_hash: tokenHash }, method: "POST" });
 export const resendCustomerVerification = (email, options = {}) => request("/verification/resend", { ...options, body: { email }, method: "POST" });
 export const requestCustomerPasswordReset = (email, options = {}) => request("/password-reset", { ...options, body: { email }, method: "POST" });
-export const completeCustomerPasswordReset = (tokenHash, password, options = {}) => request("/password-reset/complete", { ...options, body: { token_hash: tokenHash, password }, method: "POST" });
+export const completeCustomerPasswordReset = ({ accessToken, password, tokenHash }, options = {}) => request("/password-reset/complete", { ...options, body: { access_token: accessToken || undefined, password, token_hash: tokenHash || undefined }, method: "POST" });
 export const logoutCustomer = (csrfToken, options = {}) => request("/logout", { ...options, csrfToken, method: "POST" });

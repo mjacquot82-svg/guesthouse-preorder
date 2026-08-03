@@ -14,8 +14,8 @@ from app.jds_auth.config import AuthSettings
 from app.jds_auth.provider import IdentityProviderError, InvalidCredentialsError
 from app.jds_auth.rate_limit import LOGIN_ACCOUNT, LOGIN_IP, RESET_COMPLETE_IP, RESET_COMPLETE_TOKEN, RESET_REQUEST_ACCOUNT, RESET_REQUEST_IP, VERIFICATION_RESEND_ACCOUNT, VERIFICATION_RESEND_IP
 from app.jds_auth.schemas import (
-    CustomerRegistrationRequest, EmailVerificationRequest, LoginRequest,
-    MessageResponse, PasswordCompletionRequest, PasswordResetRequest, SessionResponse,
+    CustomerPasswordCompletionRequest, CustomerRegistrationRequest, EmailVerificationRequest, LoginRequest,
+    MessageResponse, PasswordResetRequest, SessionResponse,
 )
 from app.jds_auth.service import (
     AuthPrincipal, AuthenticationError, AuthenticationService, CsrfInvalid,
@@ -224,11 +224,13 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, _: N
 
 
 @router.post("/password-reset/complete", response_model=MessageResponse)
-def complete_password_reset(payload: PasswordCompletionRequest, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
+def complete_password_reset(payload: CustomerPasswordCompletionRequest, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), now: datetime = Depends(utc_now)) -> MessageResponse:
     enforce_limit(service, RESET_COMPLETE_IP, client_identifier(request), now)
-    enforce_limit(service, RESET_COMPLETE_TOKEN, payload.token_hash, now)
+    recovery_credential = payload.token_hash or payload.access_token
+    assert recovery_credential is not None
+    enforce_limit(service, RESET_COMPLETE_TOKEN, recovery_credential, now)
     try:
-        service.complete_password_reset(payload.token_hash, payload.password, now=now)
+        service.complete_password_reset(payload.token_hash, payload.password, access_token=payload.access_token, now=now)
         return MessageResponse(message="Password updated. Sign in again.")
     except (AuthenticationError, IdentityProviderError, SQLAlchemyError):
         auth_error(400, "password_reset_invalid", "Password reset link is invalid or expired.")
