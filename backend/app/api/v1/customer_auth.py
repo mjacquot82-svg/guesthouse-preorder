@@ -232,5 +232,17 @@ def complete_password_reset(payload: CustomerPasswordCompletionRequest, request:
     try:
         service.complete_password_reset(payload.token_hash, payload.password, access_token=payload.access_token, now=now)
         return MessageResponse(message="Password updated. Sign in again.")
-    except (AuthenticationError, IdentityProviderError, SQLAlchemyError):
+    except (AuthenticationError, IdentityProviderError, SQLAlchemyError) as error:
+        logger.error(
+            "customer_password_reset_failed stage=%s exception_type=%s "
+            "provider_operation=%s provider_method=%s provider_status=%s "
+            "provider_code=%s provider_message=%r",
+            service.password_reset_stage,
+            type(error).__name__,
+            getattr(error, "provider_operation", None),
+            getattr(error, "provider_method", None),
+            getattr(error, "provider_status", None),
+            getattr(error, "provider_code", None),
+            getattr(error, "provider_message", None),
+        )
         auth_error(400, "password_reset_invalid", "Password reset link is invalid or expired.")

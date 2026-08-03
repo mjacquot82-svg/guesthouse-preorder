@@ -32,11 +32,15 @@ class IdentityProviderError(RuntimeError):
         provider_status: int | None = None,
         provider_code: str | None = None,
         provider_message: str | None = None,
+        provider_operation: str | None = None,
+        provider_method: str | None = None,
     ) -> None:
         super().__init__(message)
         self.provider_status = provider_status
         self.provider_code = provider_code
         self.provider_message = provider_message
+        self.provider_operation = provider_operation
+        self.provider_method = provider_method
 
 
 class InvalidCredentialsError(IdentityProviderError):
@@ -218,7 +222,11 @@ class SupabaseIdentityProvider:
                 path,
                 type(error).__name__,
             )
-            raise IdentityProviderError("Identity provider is unavailable.") from error
+            raise IdentityProviderError(
+                "Identity provider is unavailable.",
+                provider_operation=path,
+                provider_method=method,
+            ) from error
 
     def _authentication(self, response: httpx.Response) -> ProviderAuthentication:
         self._require_success(response)
@@ -263,8 +271,10 @@ class SupabaseIdentityProvider:
             pass
         try:
             operation = response.request.url.path
+            method = response.request.method
         except RuntimeError:
             operation = "unknown"
+            method = "unknown"
         response_headers = {
             name.lower(): SupabaseIdentityProvider._diagnostic_value(value)
             for name, value in response.headers.items()
@@ -286,6 +296,8 @@ class SupabaseIdentityProvider:
             provider_status=response.status_code,
             provider_code=provider_code,
             provider_message=provider_message,
+            provider_operation=operation,
+            provider_method=method,
         )
 
     @staticmethod

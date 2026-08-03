@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator, Iterator
 from datetime import datetime, timedelta, timezone
+import logging
 from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
@@ -48,6 +49,7 @@ class FakeIdentityProvider:
         self.reset_requests: list[tuple[str, str]] = []
         self.password_updates: list[str] = []
         self.password_update_error: Exception | None = None
+        self.access_token_error: Exception | None = None
         self.verification_error: Exception | None = None
         self.registrations: list[tuple[str, str]] = []
         self.verification_resends: list[tuple[str, str]] = []
@@ -73,6 +75,8 @@ class FakeIdentityProvider:
 
     def authenticate_access_token(self, access_token: str) -> ProviderAuthentication:
         assert access_token == "recovery-access-token"
+        if self.access_token_error is not None:
+            raise self.access_token_error
         return ProviderAuthentication(self.identity, access_token)
 
     def resend_verification(self, email: str, redirect_url: str) -> None:
@@ -993,6 +997,55 @@ async def test_customer_verification_logs_safe_business_rule_failure(
     assert "provider_message=None" in diagnostic
     assert "business_rule=missing_external_identity" in diagnostic
     assert "t" * 32 not in diagnostic
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_customer_password_reset_logs_safe_provider_failure(
+    auth_client: AsyncClient,
+    fake_provider: FakeIdentityProvider,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(logging.getLogger("app.api.v1.customer_auth"), "disabled", False)
+    fake_provider.access_token_error = IdentityProviderError(
+        "Identity provider request failed.",
+        provider_status=401,
+        provider_code="bad_jwt",
+        provider_message="JWT expired",
+        provider_operation="/auth/v1/user",
+        provider_method="GET",
+    )
+    access_token = "recovery-access-token"
+    password = "a sufficiently long password"
+
+    with caplog.at_level("ERROR"):
+        response = await auth_client.post(
+            "/api/v1/customer/auth/password-reset/complete",
+            headers={"Origin": "http://test"},
+            json={"access_token": access_token, "password": password},
+        )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": {
+            "code": "password_reset_invalid",
+            "message": "Password reset link is invalid or expired.",
+        }
+    }
+    diagnostic = next(
+        message for message in caplog.messages
+        if message.startswith("customer_password_reset_failed")
+    )
+    assert "stage=recovery_session_validation" in diagnostic
+    assert "exception_type=IdentityProviderError" in diagnostic
+    assert "provider_operation=/auth/v1/user" in diagnostic
+    assert "provider_method=GET" in diagnostic
+    assert "provider_status=401" in diagnostic
+    assert "provider_code=bad_jwt" in diagnostic
+    assert "provider_message='JWT expired'" in diagnostic
+    assert access_token not in diagnostic
+    assert password not in diagnostic
 
 
 @pytest.mark.anyio

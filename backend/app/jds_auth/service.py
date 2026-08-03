@@ -82,6 +82,7 @@ class AuthenticationService:
         self._audit = DatabaseSecurityAuditWriter(session)
         self.registration_stage = "not_started"
         self.verification_stage = "not_started"
+        self.password_reset_stage = "not_started"
 
     def login(self, email: str, password: str, *, now: datetime, user_agent: str | None, allowed_roles: frozenset[str] | None = None) -> IssuedSession:
         authentication = self._provider.authenticate_password(email, password)
@@ -305,22 +306,27 @@ class AuthenticationService:
         self._provider.request_password_reset(email.strip().lower(), redirect_url)
 
     def complete_password_reset(self, token_hash: str | None, password: str, *, access_token: str | None = None, now: datetime) -> None:
+        self.password_reset_stage = "recovery_session_validation" if access_token else "recovery_token_verification"
         authentication = (
             self._provider.authenticate_access_token(access_token)
             if access_token
             else self._provider.verify_email_token(token_hash or "", "recovery")
         )
         with self._session.begin():
+            self.password_reset_stage = "identity_lookup"
             identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
             if identity is None or identity.user.status != "active":
                 raise MembershipInactive("An active JDS identity is required.")
+            self.password_reset_stage = "recovery_pending_persistence"
             identity.user.security_version += 1
             identity.user.credential_state = "recovery_pending"
             identity.user.recovery_started_at = now
             self._repo.revoke_user_sessions(identity.user_id, now, "password_reset_pending")
             user_id = identity.user_id
+        self.password_reset_stage = "supabase_password_update"
         self._provider.update_password(authentication.access_token, password)
         with self._session.begin():
+            self.password_reset_stage = "recovery_completion_persistence"
             user = self._session.get(JdsUser, user_id, with_for_update=True)
             if user is None:
                 raise MembershipInactive("An active JDS identity is required.")
