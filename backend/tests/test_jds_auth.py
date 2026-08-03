@@ -48,6 +48,7 @@ class FakeIdentityProvider:
         self.reset_requests: list[tuple[str, str]] = []
         self.password_updates: list[str] = []
         self.password_update_error: Exception | None = None
+        self.verification_error: Exception | None = None
         self.registrations: list[tuple[str, str]] = []
         self.verification_resends: list[tuple[str, str]] = []
 
@@ -66,6 +67,8 @@ class FakeIdentityProvider:
     def verify_email_token(self, token_hash: str, token_type: str) -> ProviderAuthentication:
         assert token_hash == "t" * 32
         assert token_type in {"invite", "recovery", "email"}
+        if self.verification_error is not None:
+            raise self.verification_error
         return ProviderAuthentication(self.identity, "provider-access-token")
 
     def resend_verification(self, email: str, redirect_url: str) -> None:
@@ -428,7 +431,7 @@ def test_supabase_adapter_logs_sanitized_rate_limit_diagnostics(
             },
             json={
                 "code": "over_email_send_rate_limit",
-                "message": "Email rate limit exceeded\ntry later",
+                "message": "Email rate limit exceeded for customer@example.com\ntry later",
             },
             request=request,
         )
@@ -438,7 +441,7 @@ def test_supabase_adapter_logs_sanitized_rate_limit_diagnostics(
         http_client=httpx.Client(transport=httpx.MockTransport(handler)),
     )
 
-    with caplog.at_level("ERROR"), pytest.raises(IdentityProviderError):
+    with caplog.at_level("ERROR"), pytest.raises(IdentityProviderError) as raised:
         provider.register_user(
             "customer@example.com",
             "a sufficiently long password",
@@ -448,11 +451,14 @@ def test_supabase_adapter_logs_sanitized_rate_limit_diagnostics(
     diagnostic = caplog.messages[-1]
     assert "operation=/auth/v1/signup status=429" in diagnostic
     assert "code=over_email_send_rate_limit" in diagnostic
-    assert "message='Email rate limit exceeded try later'" in diagnostic
+    assert "message='Email rate limit exceeded for [redacted-email] try later'" in diagnostic
     assert "retry_after='42'" in diagnostic
     assert "'x-sb-error-code': 'over_email_send_rate_limit'" in diagnostic
     assert "'x-request-id': 'request-123'" in diagnostic
     assert "must-not-be-logged" not in diagnostic
+    assert raised.value.provider_status == 429
+    assert raised.value.provider_code == "over_email_send_rate_limit"
+    assert raised.value.provider_message == "Email rate limit exceeded for [redacted-email] try later"
 
 
 @pytest.mark.anyio
@@ -915,6 +921,74 @@ async def test_duplicate_customer_registration_logs_safe_business_rule(
     assert "reason=duplicate_external_identity" in diagnostic
     assert "duplicate@example.com" not in diagnostic
     assert payload["password"] not in diagnostic
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_customer_verification_logs_safe_provider_failure(
+    auth_client: AsyncClient,
+    fake_provider: FakeIdentityProvider,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    fake_provider.verification_error = IdentityProviderError(
+        "Identity provider request failed.",
+        provider_status=403,
+        provider_code="otp_expired",
+        provider_message="Token has expired or is invalid",
+    )
+
+    with caplog.at_level("ERROR"):
+        response = await auth_client.post(
+            "/api/v1/customer/auth/verify-email",
+            headers={"Origin": "http://test"},
+            json={"token_hash": "t" * 32},
+        )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": {
+            "code": "verification_invalid",
+            "message": "Email verification link is invalid or expired.",
+        }
+    }
+    diagnostic = next(
+        message for message in caplog.messages
+        if message.startswith("customer_verification_failed")
+    )
+    assert "stage=supabase_verification" in diagnostic
+    assert "exception_type=IdentityProviderError" in diagnostic
+    assert "provider_status=403" in diagnostic
+    assert "provider_code=otp_expired" in diagnostic
+    assert "provider_message='Token has expired or is invalid'" in diagnostic
+    assert "business_rule=None" in diagnostic
+    assert "t" * 32 not in diagnostic
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_customer_verification_logs_safe_business_rule_failure(
+    auth_client: AsyncClient,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("ERROR"):
+        response = await auth_client.post(
+            "/api/v1/customer/auth/verify-email",
+            headers={"Origin": "http://test"},
+            json={"token_hash": "t" * 32},
+        )
+
+    assert response.status_code == 400
+    diagnostic = next(
+        message for message in caplog.messages
+        if message.startswith("customer_verification_failed")
+    )
+    assert "stage=external_identity_lookup" in diagnostic
+    assert "exception_type=CustomerVerificationError" in diagnostic
+    assert "provider_status=None" in diagnostic
+    assert "provider_code=None" in diagnostic
+    assert "provider_message=None" in diagnostic
+    assert "business_rule=missing_external_identity" in diagnostic
+    assert "t" * 32 not in diagnostic
 
 
 @pytest.mark.anyio

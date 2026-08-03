@@ -24,6 +24,13 @@ class CustomerRegistrationError(AuthenticationError):
         self.reason = reason
 
 
+class CustomerVerificationError(AuthenticationError):
+    def __init__(self, message: str, *, stage: str, reason: str) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.reason = reason
+
+
 class EmailVerificationRequired(AuthenticationError):
     code = "email_verification_required"
 
@@ -74,6 +81,7 @@ class AuthenticationService:
         self._repo = AuthRepository(session)
         self._audit = DatabaseSecurityAuditWriter(session)
         self.registration_stage = "not_started"
+        self.verification_stage = "not_started"
 
     def login(self, email: str, password: str, *, now: datetime, user_agent: str | None, allowed_roles: frozenset[str] | None = None) -> IssuedSession:
         authentication = self._provider.authenticate_password(email, password)
@@ -171,15 +179,72 @@ class AuthenticationService:
             self._audit.record("auth.customer_registered", "success", organization_id=organization.id, actor_user_id=user.id)
 
     def verify_customer_email(self, token_hash: str, *, now: datetime) -> None:
+        self.verification_stage = "supabase_verification"
         authentication = self._provider.verify_email_token(token_hash, "email")
         with self._session.begin():
+            self.verification_stage = "external_identity_lookup"
             identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
             if identity is None:
-                raise AuthenticationError("Registration could not be verified.")
-            membership = self._repo.active_membership(identity.user_id, *self._scope_ids())
-            role = self._session.get(Role, membership.role_id) if membership else None
-            if role is None or role.key != "customer":
-                raise MembershipInactive("Customer membership is required.")
+                raise CustomerVerificationError(
+                    "Registration could not be verified.",
+                    stage="external_identity_lookup",
+                    reason="missing_external_identity",
+                )
+            self.verification_stage = "application_lookup"
+            application = self._repo.application_by_key(self._settings.application_key)
+            if application is None:
+                raise CustomerVerificationError(
+                    "Customer membership is unavailable.",
+                    stage="application_lookup",
+                    reason="missing_application",
+                )
+            if not application.is_active:
+                raise CustomerVerificationError(
+                    "Customer membership is unavailable.",
+                    stage="application_lookup",
+                    reason="inactive_application",
+                )
+            self.verification_stage = "organization_lookup"
+            organization = self._repo.organization_by_slug(self._settings.organization_slug)
+            if organization is None:
+                raise CustomerVerificationError(
+                    "Customer membership is unavailable.",
+                    stage="organization_lookup",
+                    reason="missing_organization",
+                )
+            if not organization.is_active:
+                raise CustomerVerificationError(
+                    "Customer membership is unavailable.",
+                    stage="organization_lookup",
+                    reason="inactive_organization",
+                )
+            self.verification_stage = "membership_lookup"
+            membership = self._repo.active_membership(
+                identity.user_id,
+                application.id,
+                organization.id,
+            )
+            if membership is None:
+                raise CustomerVerificationError(
+                    "Customer membership is required.",
+                    stage="membership_lookup",
+                    reason="missing_active_membership",
+                )
+            self.verification_stage = "customer_role_lookup"
+            role = self._session.get(Role, membership.role_id)
+            if role is None:
+                raise CustomerVerificationError(
+                    "Customer membership is required.",
+                    stage="customer_role_lookup",
+                    reason="missing_role",
+                )
+            if role.key != "customer":
+                raise CustomerVerificationError(
+                    "Customer membership is required.",
+                    stage="customer_role_lookup",
+                    reason="non_customer_role",
+                )
+            self.verification_stage = "verification_persistence"
             identity.user.email_verified_at = now
             identity.provider_email = authentication.identity.email
             self._audit.record("auth.customer_email_verified", "success", organization_id=membership.organization_id, actor_user_id=identity.user_id)

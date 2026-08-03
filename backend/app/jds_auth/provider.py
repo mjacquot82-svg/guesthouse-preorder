@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import logging
+import re
 from typing import Protocol
 
 import httpx
@@ -20,10 +21,22 @@ _DIAGNOSTIC_RESPONSE_HEADERS = frozenset(
     }
 )
 _MAX_DIAGNOSTIC_VALUE_LENGTH = 500
+_EMAIL_DIAGNOSTIC_PATTERN = re.compile(r"(?i)\b[^\s@]+@[^\s@]+\b")
 
 
 class IdentityProviderError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider_status: int | None = None,
+        provider_code: str | None = None,
+        provider_message: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.provider_status = provider_status
+        self.provider_code = provider_code
+        self.provider_message = provider_message
 
 
 class InvalidCredentialsError(IdentityProviderError):
@@ -249,10 +262,16 @@ class SupabaseIdentityProvider:
             SupabaseIdentityProvider._diagnostic_value(retry_after) if retry_after else None,
             response_headers,
         )
-        raise IdentityProviderError("Identity provider request failed.")
+        raise IdentityProviderError(
+            "Identity provider request failed.",
+            provider_status=response.status_code,
+            provider_code=provider_code,
+            provider_message=provider_message,
+        )
 
     @staticmethod
     def _diagnostic_value(value: str) -> str:
         """Make provider diagnostics single-line and bounded before logging."""
         sanitized = "".join(character if character.isprintable() else " " for character in value)
+        sanitized = _EMAIL_DIAGNOSTIC_PATTERN.sub("[redacted-email]", sanitized)
         return sanitized[:_MAX_DIAGNOSTIC_VALUE_LENGTH]

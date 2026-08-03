@@ -148,7 +148,18 @@ def verify_email(payload: EmailVerificationRequest, _: None = Depends(require_cu
     try:
         service.verify_customer_email(payload.token_hash, now=now)
         return MessageResponse(message="Email verified. You may sign in.")
-    except (AuthenticationError, IdentityProviderError, SQLAlchemyError):
+    except (AuthenticationError, IdentityProviderError, SQLAlchemyError) as error:
+        logger.error(
+            "customer_verification_failed stage=%s exception_type=%s "
+            "provider_status=%s provider_code=%s provider_message=%r "
+            "business_rule=%s",
+            getattr(error, "stage", service.verification_stage),
+            type(error).__name__,
+            getattr(error, "provider_status", None),
+            getattr(error, "provider_code", None),
+            getattr(error, "provider_message", None),
+            getattr(error, "reason", None),
+        )
         auth_error(400, "verification_invalid", "Email verification link is invalid or expired.")
 
 
