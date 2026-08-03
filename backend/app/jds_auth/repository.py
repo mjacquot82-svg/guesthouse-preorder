@@ -37,6 +37,9 @@ class AuthRepository:
     def identity(self, issuer: str, subject: str) -> ExternalIdentity | None:
         return self.session.scalar(select(ExternalIdentity).where(ExternalIdentity.issuer == issuer, ExternalIdentity.subject == subject))
 
+    def user_by_email(self, email: str) -> JdsUser | None:
+        return self.session.scalar(select(JdsUser).where(JdsUser.primary_email == email))
+
     def active_membership(self, user_id: UUID, application_id: UUID, organization_id: UUID) -> Membership | None:
         return self.session.scalar(select(Membership).where(Membership.user_id == user_id, Membership.application_id == application_id, Membership.organization_id == organization_id, Membership.status == "active"))
 

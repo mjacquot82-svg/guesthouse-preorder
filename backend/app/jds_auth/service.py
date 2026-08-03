@@ -315,7 +315,9 @@ class AuthenticationService:
         with self._session.begin():
             self.password_reset_stage = "identity_lookup"
             identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
-            if identity is None or identity.user.status != "active":
+            if identity is None:
+                identity = self._reconcile_orphaned_customer(authentication, now)
+            if identity.user.status != "active":
                 raise MembershipInactive("An active JDS identity is required.")
             self.password_reset_stage = "recovery_pending_persistence"
             identity.user.security_version += 1
@@ -334,6 +336,47 @@ class AuthenticationService:
             user.recovery_started_at = None
             self._repo.revoke_user_sessions(user.id, now, "password_reset")
             self._audit.record("auth.password_reset", "success", actor_user_id=user.id)
+
+    def _reconcile_orphaned_customer(self, authentication: ProviderAuthentication, now: datetime) -> ExternalIdentity:
+        if not authentication.identity.email_verified:
+            raise MembershipInactive("A verified JDS identity is required.")
+        application, organization = self._scope()
+        role = self._repo.role_by_key(application.id, "customer")
+        if role is None or self._repo.user_by_email(authentication.identity.email) is not None:
+            raise MembershipInactive("An active JDS identity is required.")
+        display_name = authentication.identity.email.split("@", 1)[0].strip() or "Customer"
+        user = JdsUser(
+            primary_email=authentication.identity.email,
+            display_name=display_name,
+            status="active",
+            email_verified_at=now,
+        )
+        self._repo.add(user)
+        self._session.flush()
+        identity = ExternalIdentity(
+            user_id=user.id,
+            issuer=authentication.identity.issuer,
+            subject=authentication.identity.subject,
+            provider="supabase",
+            provider_email=authentication.identity.email,
+        )
+        self._repo.add(identity)
+        self._repo.add(Membership(
+            organization_id=organization.id,
+            application_id=application.id,
+            user_id=user.id,
+            role_id=role.id,
+            status="active",
+            joined_at=now,
+        ))
+        self._session.flush()
+        self._audit.record(
+            "auth.customer_reconciled",
+            "success",
+            organization_id=organization.id,
+            actor_user_id=user.id,
+        )
+        return identity
 
     def logout_all(self, principal: AuthPrincipal, *, now: datetime) -> None:
         with self._session.begin():

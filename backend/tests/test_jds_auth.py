@@ -27,7 +27,7 @@ from app.jds_auth.models import (
     Role,
     RolePermission,
 )
-from app.jds_auth.provider import IdentityProviderError, ProviderAuthentication, ProviderIdentity, SupabaseIdentityProvider
+from app.jds_auth.provider import IdentityProviderError, InvalidCredentialsError, ProviderAuthentication, ProviderIdentity, SupabaseIdentityProvider
 from app.jds_auth.security import hash_secret
 from app.main import create_app
 from app.catalog.models import Product
@@ -48,6 +48,7 @@ class FakeIdentityProvider:
         self.invited: list[tuple[str, str]] = []
         self.reset_requests: list[tuple[str, str]] = []
         self.password_updates: list[str] = []
+        self.enforce_password_updates = False
         self.password_update_error: Exception | None = None
         self.access_token_error: Exception | None = None
         self.verification_error: Exception | None = None
@@ -60,7 +61,9 @@ class FakeIdentityProvider:
         return self.identity
 
     def authenticate_password(self, email: str, password: str) -> ProviderAuthentication:
-        assert password == "correct horse battery staple"
+        expected_password = self.password_updates[-1] if self.enforce_password_updates and self.password_updates else "correct horse battery staple"
+        if password != expected_password:
+            raise InvalidCredentialsError("Authentication failed.")
         return ProviderAuthentication(self.identity, "provider-access-token")
 
     def request_password_reset(self, email: str, redirect_url: str) -> None:
@@ -83,7 +86,7 @@ class FakeIdentityProvider:
         self.verification_resends.append((email, redirect_url))
 
     def update_password(self, access_token: str, password: str) -> None:
-        assert access_token == "provider-access-token"
+        assert access_token in {"provider-access-token", "recovery-access-token"}
         if self.password_update_error is not None:
             raise self.password_update_error
         self.password_updates.append(password)
@@ -1046,6 +1049,62 @@ async def test_customer_password_reset_logs_safe_provider_failure(
     assert "provider_message='JWT expired'" in diagnostic
     assert access_token not in diagnostic
     assert password not in diagnostic
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_customer_password_reset_reconciles_verified_orphaned_supabase_identity(
+    auth_client: AsyncClient,
+    auth_engine: Engine,
+    fake_provider: FakeIdentityProvider,
+) -> None:
+    fake_provider.enforce_password_updates = True
+    fake_provider.identity = ProviderIdentity(
+        issuer=fake_provider.identity.issuer,
+        subject="orphaned-customer-provider-user",
+        email="orphaned@example.com",
+        email_verified=True,
+    )
+    new_password = "a new sufficiently long password"
+
+    completed = await auth_client.post(
+        "/api/v1/customer/auth/password-reset/complete",
+        headers={"Origin": "http://test"},
+        json={"access_token": "recovery-access-token", "password": new_password},
+    )
+
+    assert completed.status_code == 200
+    assert completed.json() == {"message": "Password updated. Sign in again."}
+    assert fake_provider.password_updates == [new_password]
+    with Session(auth_engine) as session:
+        identity = session.scalar(select(ExternalIdentity).where(
+            ExternalIdentity.issuer == fake_provider.identity.issuer,
+            ExternalIdentity.subject == fake_provider.identity.subject,
+        ))
+        assert identity is not None
+        assert identity.user.primary_email == "orphaned@example.com"
+        assert identity.user.status == "active"
+        assert identity.user.credential_state == "active"
+        membership = session.scalar(select(Membership).where(Membership.user_id == identity.user_id))
+        assert membership is not None
+        assert membership.status == "active"
+        role = session.get(Role, membership.role_id)
+        assert role is not None
+        assert role.key == "customer"
+
+    old_password = await auth_client.post(
+        "/api/v1/customer/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": "orphaned@example.com", "password": "correct horse battery staple"},
+    )
+    assert old_password.status_code == 401
+    new_password_login = await auth_client.post(
+        "/api/v1/customer/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": "orphaned@example.com", "password": new_password},
+    )
+    assert new_password_login.status_code == 200
+    assert new_password_login.json()["role"] == "customer"
 
 
 @pytest.mark.anyio
