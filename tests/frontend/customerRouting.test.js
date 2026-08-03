@@ -12,6 +12,14 @@ const ownerBoundarySource = await readFile(
   new URL("../../src/auth/OwnerAuthBoundary.jsx", import.meta.url),
   "utf8"
 );
+const customerAuthSource = await readFile(
+  new URL("../../src/pages/CustomerAuthPage.jsx", import.meta.url),
+  "utf8"
+);
+const customerVerifySource = await readFile(
+  new URL("../../src/pages/CustomerVerifyPage.jsx", import.meta.url),
+  "utf8"
+);
 
 test("customer authentication routes are registered", () => {
   for (const path of [
@@ -31,4 +39,15 @@ test("owner session lookup remains lazy outside protected owner routes", () => {
   assert.match(ownerBoundarySource, /OwnerAuthProvider/);
   assert.doesNotMatch(ownerContextSource, /useEffect/);
   assert.match(ownerContextSource, /fetchOwnerSession\(\)/);
+});
+
+test("customer verification failures expose the existing resend flow", () => {
+  assert.match(customerAuthSource, /error\.code === "email_verification_required"/);
+  assert.match(customerAuthSource, /This email address has not been verified\./);
+  assert.match(customerAuthSource, /resendCustomerVerification\(form\.email\)/);
+  assert.match(customerAuthSource, /Resend verification email/);
+  assert.match(customerVerifySource, /resendCustomerVerification\(email\)/);
+  assert.match(customerVerifySource, /error\.code === "verification_invalid"/);
+  assert.match(customerVerifySource, /setCanResend\(true\)/);
+  assert.match(customerVerifySource, /Resend verification email/);
 });

@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
-import { registerCustomer } from "../services/customerAuthApi.js";
+import { registerCustomer, resendCustomerVerification } from "../services/customerAuthApi.js";
 
 export default function CustomerAuthPage({ mode }) {
   const navigate = useNavigate();
   const { login } = useCustomerAuth();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [status, setStatus] = useState("");
+  const [verificationRequired, setVerificationRequired] = useState(false);
   const creating = mode === "register";
   async function submit(event) {
-    event.preventDefault(); setStatus("");
+    event.preventDefault(); setStatus(""); setVerificationRequired(false);
     try {
       if (creating) {
         const result = await registerCustomer(form.name, form.email, form.password);
@@ -19,7 +20,23 @@ export default function CustomerAuthPage({ mode }) {
         await login(form.email, form.password);
         navigate("/account", { replace: true });
       }
-    } catch (error) { setStatus(error.message); }
+    } catch (error) {
+      if (!creating && error.code === "email_verification_required") {
+        setVerificationRequired(true);
+        setStatus("This email address has not been verified.");
+      } else {
+        setStatus(error.message);
+      }
+    }
+  }
+  async function resendVerification() {
+    setStatus("");
+    try {
+      const result = await resendCustomerVerification(form.email);
+      setStatus(result.message);
+    } catch (error) {
+      setStatus(error.message);
+    }
   }
   return (
     <section className="page-section compact-section ordering-page">
@@ -33,6 +50,7 @@ export default function CustomerAuthPage({ mode }) {
           <label><span>Password</span><input autoComplete={creating ? "new-password" : "current-password"} minLength={creating ? 15 : 8} required type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
           <button className="primary-button" type="submit">{creating ? "Create Account" : "Sign In"}</button>
           {status ? <p className="form-status" role="status">{status}</p> : null}
+          {verificationRequired ? <button className="secondary-button" type="button" onClick={resendVerification}>Resend verification email</button> : null}
         </form>
         <div className="form-actions">
           <Link className="secondary-button" to={creating ? "/account/sign-in" : "/account/create"}>{creating ? "Sign In" : "Create Account"}</Link>
