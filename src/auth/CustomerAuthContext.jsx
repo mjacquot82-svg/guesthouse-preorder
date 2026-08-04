@@ -15,8 +15,8 @@ export function CustomerAuthProvider({ children }) {
     }
   }, []);
   useEffect(() => { refreshSession(); }, [refreshSession]);
-  async function login(email, password) {
-    const value = await loginCustomer(email, password);
+  async function login(email, password, keepSignedIn = false) {
+    const value = await loginCustomer(email, password, { keepSignedIn });
     setSession(value); setStatus("authenticated"); return value;
   }
   async function logout() {

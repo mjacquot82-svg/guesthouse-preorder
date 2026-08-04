@@ -84,7 +84,7 @@ class AuthenticationService:
         self.verification_stage = "not_started"
         self.password_reset_stage = "not_started"
 
-    def login(self, email: str, password: str, *, now: datetime, user_agent: str | None, allowed_roles: frozenset[str] | None = None) -> IssuedSession:
+    def login(self, email: str, password: str, *, now: datetime, user_agent: str | None, allowed_roles: frozenset[str] | None = None, persistent: bool = False) -> IssuedSession:
         authentication = self._provider.authenticate_password(email, password)
         if not authentication.identity.email_verified:
             raise EmailVerificationRequired("Email verification is required.")
@@ -102,7 +102,7 @@ class AuthenticationService:
             identity.user.last_authenticated_at = now
             identity.user.email_verified_at = identity.user.email_verified_at or now
             identity.provider_email = authentication.identity.email
-            issued = self._issue(identity.user, membership, authentication, now, user_agent)
+            issued = self._issue(identity.user, membership, authentication, now, user_agent, persistent)
             self._audit.record("auth.login", "success", organization_id=organization.id, actor_user_id=identity.user_id, session_id=issued.principal.session_id)
         return issued
 
@@ -277,7 +277,12 @@ class AuthenticationService:
             raise SessionInvalid("Session is no longer authorized.")
         if touch:
             owner_session.last_seen_at = now
-            owner_session.idle_expires_at = min(now + timedelta(minutes=self._settings.session_idle_minutes), owner_session.absolute_expires_at)
+            idle_lifetime = (
+                timedelta(days=self._settings.customer_persistent_session_days)
+                if owner_session.is_persistent
+                else timedelta(minutes=self._settings.session_idle_minutes)
+            )
+            owner_session.idle_expires_at = min(now + idle_lifetime, owner_session.absolute_expires_at)
         return AuthPrincipal(identity_user.id, membership.id, membership.organization_id, membership.application_id, owner_session.id, identity_user.primary_email, identity_user.display_name, role.key, self._repo.permissions_for_role(role.id), owner_session.assurance_level)
 
     def rotate_csrf(self, token: str, *, now: datetime) -> tuple[AuthPrincipal, str]:
@@ -476,10 +481,20 @@ class AuthenticationService:
         application, organization = self._scope()
         return application.id, organization.id
 
-    def _issue(self, user: JdsUser, membership: Membership, authentication: ProviderAuthentication, now: datetime, user_agent: str | None) -> IssuedSession:
+    def _issue(self, user: JdsUser, membership: Membership, authentication: ProviderAuthentication, now: datetime, user_agent: str | None, persistent: bool) -> IssuedSession:
         token, csrf = create_secret(), create_secret()
-        absolute = now + timedelta(hours=self._settings.session_absolute_hours)
-        owner_session = OwnerSession(token_hash=hash_secret(token, self._settings.session_pepper), csrf_token_hash=hash_secret(csrf, self._settings.session_pepper), user_id=user.id, membership_id=membership.id, organization_id=membership.organization_id, application_id=membership.application_id, assurance_level=authentication.identity.assurance_level, security_version=user.security_version, authenticated_at=now, last_seen_at=now, idle_expires_at=now + timedelta(minutes=self._settings.session_idle_minutes), absolute_expires_at=absolute, user_agent=(user_agent or "")[:500] or None)
+        absolute_lifetime = (
+            timedelta(days=self._settings.customer_persistent_session_days)
+            if persistent
+            else timedelta(hours=self._settings.session_absolute_hours)
+        )
+        idle_lifetime = (
+            timedelta(days=self._settings.customer_persistent_session_days)
+            if persistent
+            else timedelta(minutes=self._settings.session_idle_minutes)
+        )
+        absolute = now + absolute_lifetime
+        owner_session = OwnerSession(token_hash=hash_secret(token, self._settings.session_pepper), csrf_token_hash=hash_secret(csrf, self._settings.session_pepper), user_id=user.id, membership_id=membership.id, organization_id=membership.organization_id, application_id=membership.application_id, assurance_level=authentication.identity.assurance_level, security_version=user.security_version, is_persistent=persistent, authenticated_at=now, last_seen_at=now, idle_expires_at=min(now + idle_lifetime, absolute), absolute_expires_at=absolute, user_agent=(user_agent or "")[:500] or None)
         self._repo.add(owner_session)
         self._session.flush()
         role = self._session.get(Role, membership.role_id)

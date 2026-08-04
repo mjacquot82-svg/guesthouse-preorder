@@ -1167,10 +1167,43 @@ async def test_customer_registration_verification_profile_and_role_isolation(
         json={"email": "customer@example.com", "password": "correct horse battery staple"},
     )
     assert login.status_code == 200
+    assert "Max-Age=43200" in login.headers["set-cookie"]
     payload = login.json()
     assert payload["role"] == "customer"
     assert payload["permissions"] == ["customer.orders", "customer.profile"]
     assert "catalog.write" not in payload["permissions"]
+    with Session(auth_engine) as session:
+        standard_session = session.scalar(
+            select(OwnerSession).where(
+                OwnerSession.user_id == UUID(payload["user_id"]),
+                OwnerSession.is_persistent.is_(False),
+            )
+        )
+        assert standard_session is not None
+        assert standard_session.absolute_expires_at - standard_session.authenticated_at == timedelta(hours=12)
+
+    persistent_login = await auth_client.post(
+        "/api/v1/customer/auth/login",
+        headers={"Origin": "http://test"},
+        json={
+            "email": "customer@example.com",
+            "keep_signed_in": True,
+            "password": "correct horse battery staple",
+        },
+    )
+    assert persistent_login.status_code == 200
+    assert "Max-Age=2592000" in persistent_login.headers["set-cookie"]
+    persistent_payload = persistent_login.json()
+    with Session(auth_engine) as session:
+        persistent_session = session.scalar(
+            select(OwnerSession).where(
+                OwnerSession.user_id == UUID(payload["user_id"]),
+                OwnerSession.is_persistent.is_(True),
+            )
+        )
+        assert persistent_session is not None
+        assert persistent_session.absolute_expires_at - persistent_session.authenticated_at == timedelta(days=30)
+        assert persistent_session.idle_expires_at == persistent_session.absolute_expires_at
 
     owner_denied = await auth_client.post(
         "/api/v1/owner/auth/login",
@@ -1184,7 +1217,7 @@ async def test_customer_registration_verification_profile_and_role_isolation(
     assert initial_profile.json()["email"] == "customer@example.com"
     updated = await auth_client.put(
         "/api/v1/customer/profile",
-        headers={"Origin": "http://test", "X-CSRF-Token": payload["csrf_token"]},
+        headers={"Origin": "http://test", "X-CSRF-Token": persistent_payload["csrf_token"]},
         json={
             "name": "Returning Customer",
             "phone": "+15555550123",
@@ -1237,7 +1270,7 @@ async def test_customer_registration_verification_profile_and_role_isolation(
 
     logout = await auth_client.post(
         "/api/v1/customer/auth/logout",
-        headers={"Origin": "http://test", "X-CSRF-Token": payload["csrf_token"]},
+        headers={"Origin": "http://test", "X-CSRF-Token": persistent_payload["csrf_token"]},
     )
     assert logout.status_code == 200
     assert (await auth_client.get("/api/v1/customer/auth/session")).status_code == 401

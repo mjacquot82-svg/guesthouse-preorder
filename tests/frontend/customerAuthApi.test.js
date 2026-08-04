@@ -17,12 +17,20 @@ test("customer auth uses credentialed JDS sessions without browser tokens", asyn
     return response(200, { role: "customer", csrf_token: "csrf" });
   };
   await fetchCustomerSession({ fetchImpl });
-  await loginCustomer("customer@example.com", "long password", { fetchImpl });
+  await loginCustomer("customer@example.com", "long password", { fetchImpl, keepSignedIn: true });
   await logoutCustomer("csrf", { fetchImpl });
   assert.equal(calls[0][0], "/api/v1/customer/auth/session");
   assert.equal(calls[0][1].credentials, "include");
-  assert.deepEqual(JSON.parse(calls[1][1].body), { email: "customer@example.com", password: "long password" });
+  assert.deepEqual(JSON.parse(calls[1][1].body), { email: "customer@example.com", keep_signed_in: true, password: "long password" });
   assert.equal(calls[2][1].headers["X-CSRF-Token"], "csrf");
+});
+
+test("customer login defaults to the existing non-persistent session", async () => {
+  let request;
+  await loginCustomer("customer@example.com", "long password", {
+    fetchImpl: async (...args) => { request = args; return response(200, { role: "customer" }); },
+  });
+  assert.equal(JSON.parse(request[1].body).keep_signed_in, false);
 });
 
 test("verification resend uses the generic customer auth endpoint", async () => {

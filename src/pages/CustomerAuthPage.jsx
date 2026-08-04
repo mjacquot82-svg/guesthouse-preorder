@@ -7,6 +7,7 @@ export default function CustomerAuthPage({ mode }) {
   const navigate = useNavigate();
   const { login } = useCustomerAuth();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [keepSignedIn, setKeepSignedIn] = useState(false);
   const [status, setStatus] = useState("");
   const [verificationRequired, setVerificationRequired] = useState(false);
   const creating = mode === "register";
@@ -17,7 +18,7 @@ export default function CustomerAuthPage({ mode }) {
         const result = await registerCustomer(form.name, form.email, form.password);
         setStatus(result.message);
       } else {
-        await login(form.email, form.password);
+        await login(form.email, form.password, keepSignedIn);
         navigate("/account", { replace: true });
       }
     } catch (error) {
@@ -48,6 +49,7 @@ export default function CustomerAuthPage({ mode }) {
           {creating ? <label><span>Name</span><input autoComplete="name" required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label> : null}
           <label><span>Email</span><input autoComplete="email" required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></label>
           <label><span>Password</span><input autoComplete={creating ? "new-password" : "current-password"} minLength={creating ? 15 : 8} required type="password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></label>
+          {!creating ? <label className="auth-checkbox"><input checked={keepSignedIn} type="checkbox" onChange={(event) => setKeepSignedIn(event.target.checked)} /><span>Keep me signed in</span></label> : null}
           <button className="primary-button" type="submit">{creating ? "Create Account" : "Sign In"}</button>
           {status ? <p className="form-status" role="status">{status}</p> : null}
           {verificationRequired ? <button className="secondary-button" type="button" onClick={resendVerification}>Resend verification email</button> : null}

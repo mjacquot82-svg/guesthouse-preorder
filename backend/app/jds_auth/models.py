@@ -110,6 +110,7 @@ class OwnerSession(Timestamped, Base):
     application_id: Mapped[UUID] = mapped_column(ForeignKey("jds_applications.id", ondelete="CASCADE"), index=True)
     assurance_level: Mapped[str] = mapped_column(String(20), default="aal1", server_default="aal1")
     security_version: Mapped[int] = mapped_column(Integer)
+    is_persistent: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     authenticated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     idle_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

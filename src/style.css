@@ -1096,6 +1096,23 @@ h3 {
   resize: vertical;
 }
 
+.product-form .auth-checkbox {
+  display: inline-flex;
+  width: fit-content;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.product-form .auth-checkbox input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--sage-ink);
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 0.72fr 1fr;

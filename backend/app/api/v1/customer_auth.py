@@ -14,7 +14,7 @@ from app.jds_auth.config import AuthSettings
 from app.jds_auth.provider import IdentityProviderError, InvalidCredentialsError
 from app.jds_auth.rate_limit import LOGIN_ACCOUNT, LOGIN_IP, RESET_COMPLETE_IP, RESET_COMPLETE_TOKEN, RESET_REQUEST_ACCOUNT, RESET_REQUEST_IP, VERIFICATION_RESEND_ACCOUNT, VERIFICATION_RESEND_IP
 from app.jds_auth.schemas import (
-    CustomerPasswordCompletionRequest, CustomerRegistrationRequest, EmailVerificationRequest, LoginRequest,
+    CustomerLoginRequest, CustomerPasswordCompletionRequest, CustomerRegistrationRequest, EmailVerificationRequest,
     MessageResponse, PasswordResetRequest, SessionResponse,
 )
 from app.jds_auth.service import (
@@ -175,18 +175,23 @@ def resend_verification(payload: PasswordResetRequest, request: Request, _: None
 
 
 @router.post("/login", response_model=SessionResponse)
-def login(payload: LoginRequest, response: Response, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), settings: AuthSettings = Depends(get_customer_auth_settings), now: datetime = Depends(utc_now)) -> SessionResponse:
+def login(payload: CustomerLoginRequest, response: Response, request: Request, _: None = Depends(require_customer_trusted_origin), service: AuthenticationService = Depends(get_customer_auth_service), settings: AuthSettings = Depends(get_customer_auth_settings), now: datetime = Depends(utc_now)) -> SessionResponse:
     enforce_limit(service, LOGIN_IP, client_identifier(request), now)
     enforce_limit(service, LOGIN_ACCOUNT, payload.email, now)
     try:
-        issued = service.login(payload.email.strip().lower(), payload.password, now=now, user_agent=request.headers.get("user-agent"), allowed_roles=frozenset({"customer"}))
+        issued = service.login(payload.email.strip().lower(), payload.password, now=now, user_agent=request.headers.get("user-agent"), allowed_roles=frozenset({"customer"}), persistent=payload.keep_signed_in)
     except EmailVerificationRequired as error:
         auth_error(403, error.code, str(error))
     except (InvalidCredentialsError, MembershipInactive, AuthenticationError):
         auth_error(401, "authentication_failed", "Email or password is invalid.")
     except (IdentityProviderError, SQLAlchemyError):
         auth_error(503, "authentication_unavailable", "Customer authentication is unavailable.")
-    response.set_cookie(settings.customer_session_cookie_name, issued.token, max_age=settings.session_absolute_hours * 3600, secure=settings.secure_cookies, httponly=True, samesite="lax", path="/")
+    cookie_max_age = (
+        settings.customer_persistent_session_days * 24 * 3600
+        if payload.keep_signed_in
+        else settings.session_absolute_hours * 3600
+    )
+    response.set_cookie(settings.customer_session_cookie_name, issued.token, max_age=cookie_max_age, secure=settings.secure_cookies, httponly=True, samesite="lax", path="/")
     response.headers["Cache-Control"] = "no-store"
     return session_response(issued.principal, issued.csrf_token)
 

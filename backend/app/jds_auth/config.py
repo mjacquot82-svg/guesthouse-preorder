@@ -20,6 +20,7 @@ class AuthSettings:
     customer_session_cookie_name: str = "__Host-jds_customer_session"
     session_idle_minutes: int = 30
     session_absolute_hours: int = 12
+    customer_persistent_session_days: int = 30
     secure_cookies: bool = True
 
     @classmethod
@@ -32,6 +33,9 @@ class AuthSettings:
             frontend_url=os.getenv("FRONTEND_URL", ""),
             application_key=os.getenv("JDS_APPLICATION_KEY", "jds-commerce"),
             organization_slug=os.getenv("JDS_ORGANIZATION_SLUG", "the-guest-house"),
+            customer_persistent_session_days=int(
+                os.getenv("JDS_CUSTOMER_PERSISTENT_SESSION_DAYS", "30")
+            ),
             secure_cookies=os.getenv("JDS_AUTH_SECURE_COOKIES", "true").lower()
             != "false",
         )
@@ -55,6 +59,10 @@ class AuthSettings:
         if len(self.session_pepper) < 32:
             raise AuthConfigurationError(
                 "JDS_AUTH_SESSION_PEPPER must be at least 32 characters."
+            )
+        if self.customer_persistent_session_days < 1:
+            raise AuthConfigurationError(
+                "JDS_CUSTOMER_PERSISTENT_SESSION_DAYS must be at least 1."
             )
         frontend_host = urlparse(self.frontend_url).hostname
         if not self.secure_cookies and frontend_host not in {"localhost", "test"}:

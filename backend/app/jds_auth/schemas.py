@@ -11,6 +11,10 @@ class LoginRequest(AuthSchema):
     password: str = Field(min_length=8, max_length=1024)
 
 
+class CustomerLoginRequest(LoginRequest):
+    keep_signed_in: bool = False
+
+
 class CustomerRegistrationRequest(LoginRequest):
     display_name: str = Field(min_length=1, max_length=200)
     password: str = Field(min_length=15, max_length=1024)

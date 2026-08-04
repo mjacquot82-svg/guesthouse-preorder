@@ -32,7 +32,7 @@ async function request(path, { body, csrfToken, method = "GET", fetchImpl = glob
 }
 
 export const fetchCustomerSession = (options = {}) => request("/session", options);
-export const loginCustomer = (email, password, options = {}) => request("/login", { ...options, body: { email, password }, method: "POST" });
+export const loginCustomer = (email, password, { keepSignedIn = false, ...options } = {}) => request("/login", { ...options, body: { email, keep_signed_in: keepSignedIn, password }, method: "POST" });
 export const registerCustomer = (displayName, email, password, options = {}) => request("/register", { ...options, body: { display_name: displayName, email, password }, method: "POST" });
 export const verifyCustomerEmail = (tokenHash, options = {}) => request("/verify-email", { ...options, body: { token_hash: tokenHash }, method: "POST" });
 export const resendCustomerVerification = (email, options = {}) => request("/verification/resend", { ...options, body: { email }, method: "POST" });
