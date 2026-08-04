@@ -258,6 +258,19 @@ export default function CartPage() {
         phoneComplete: Boolean(canonicalContact.phone),
       },
     };
+    const phoneInput = checkoutContactInputsRef.current.phone;
+    console.info(
+      "[checkout-validation] phone snapshot",
+      JSON.stringify({
+        checkoutContactPhone: checkoutContact.phone,
+        validatedContactPhone: checkoutContactRef.current.phone,
+        visibleContactPhone: visibleContact.phone,
+        inputValue: phoneInput?.value,
+        inputDefaultValue: phoneInput?.defaultValue,
+        inputPlaceholder: phoneInput?.placeholder,
+        normalizedPhone: canonicalContact.phone,
+      })
+    );
     console.info("[checkout-validation]", validation);
 
     if (!submissionGate.current.begin()) {
