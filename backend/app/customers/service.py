@@ -17,11 +17,25 @@ class CustomerAccountService:
         if user is None:
             raise LookupError("Customer not found.")
         profile = self.repo.profile(user_id)
+        if profile is None:
+            # Serialize first access for legacy customers so concurrent profile
+            # reads cannot create duplicate rows for the same user.
+            user = self.repo.lock_user(user_id)
+            if user is None:
+                raise LookupError("Customer not found.")
+            profile = self.repo.profile(user_id)
+            if profile is None:
+                profile = CustomerProfile(
+                    user_id=user_id,
+                    phone=self.repo.latest_order_phone(user_id),
+                )
+                self.repo.add(profile)
+                self.session.commit()
         return CustomerProfileResponse(
             name=user.display_name, email=user.primary_email,
-            phone=profile.phone if profile else "",
-            preferred_pickup_minutes=profile.preferred_pickup_minutes if profile else None,
-            preferred_pickup_notes=profile.preferred_pickup_notes or "" if profile else "",
+            phone=profile.phone,
+            preferred_pickup_minutes=profile.preferred_pickup_minutes,
+            preferred_pickup_notes=profile.preferred_pickup_notes or "",
         )
 
     def update_profile(self, user_id: UUID, payload: CustomerProfileUpdate) -> CustomerProfileResponse:

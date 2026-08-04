@@ -1226,9 +1226,49 @@ async def test_customer_registration_verification_profile_and_role_isolation(
     )
     assert owner_denied.status_code == 401
 
+    legacy_order_id: int
+    with Session(auth_engine) as session, session.begin():
+        customer = session.scalar(select(JdsUser).where(JdsUser.primary_email == "customer@example.com"))
+        assert customer is not None
+        registered_profile = session.get(CustomerProfile, customer.id)
+        assert registered_profile is not None
+        session.delete(registered_profile)
+        legacy_now = datetime.now(timezone.utc)
+        legacy_order = Order(
+            customer_user_id=customer.id,
+            idempotency_key="legacy-customer-profile-reconciliation",
+            request_fingerprint="a" * 64,
+            public_access_token="legacy-customer-profile-token",
+            status="paid",
+            guest_name=customer.display_name,
+            guest_email=customer.primary_email,
+            guest_phone="+15198816869",
+            requested_pickup_at=legacy_now + timedelta(minutes=20),
+            business_timezone="America/Toronto",
+            currency="USD",
+            subtotal_cents=500,
+            tax_cents=0,
+            total_cents=500,
+            version=1,
+            expires_at=legacy_now + timedelta(hours=1),
+            created_at=legacy_now,
+            updated_at=legacy_now,
+        )
+        session.add(legacy_order)
+        session.flush()
+        legacy_order_id = legacy_order.id
+
     initial_profile = await auth_client.get("/api/v1/customer/profile")
     assert initial_profile.status_code == 200
     assert initial_profile.json()["email"] == "customer@example.com"
+    assert initial_profile.json()["phone"] == "+15198816869"
+    with Session(auth_engine) as session, session.begin():
+        customer = session.scalar(select(JdsUser).where(JdsUser.primary_email == "customer@example.com"))
+        assert customer is not None
+        reconciled_profile = session.get(CustomerProfile, customer.id)
+        assert reconciled_profile is not None
+        assert reconciled_profile.phone == "+15198816869"
+        session.delete(session.get(Order, legacy_order_id))
     updated = await auth_client.put(
         "/api/v1/customer/profile",
         headers={"Origin": "http://test", "X-CSRF-Token": persistent_payload["csrf_token"]},
