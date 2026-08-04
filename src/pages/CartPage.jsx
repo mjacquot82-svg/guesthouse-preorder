@@ -152,14 +152,32 @@ export default function CartPage() {
   const submissionGate = useRef(createSubmissionGate());
   useEffect(() => {
     if (!session) return;
-    fetchCustomerProfile().then((profile) => {
-      const contact = { name: profile.name, email: profile.email, phone: formatCustomerPhone(profile.phone) };
-      checkoutContactRef.current = contact;
-      setCheckoutContact(contact);
-      const preferredOption = quickPickupOptions.find((option) => option.minutes === profile.preferred_pickup_minutes);
-      if (preferredOption) updatePickupTime(preferredOption.value);
-      if (profile.preferred_pickup_notes) setOrderNotes(profile.preferred_pickup_notes);
-    }).catch(() => {});
+    let isCurrent = true;
+
+    fetchCustomerProfile()
+      .then((profile) => {
+        if (!isCurrent) return;
+
+        const contact = {
+          name: profile.name || "",
+          email: profile.email || "",
+          phone: formatCustomerPhone(profile.phone || ""),
+        };
+        checkoutContactRef.current = contact;
+        setCheckoutContact(contact);
+        const preferredOption = quickPickupOptions.find((option) => option.minutes === profile.preferred_pickup_minutes);
+        if (preferredOption) updatePickupTime(preferredOption.value);
+        if (profile.preferred_pickup_notes) setOrderNotes(profile.preferred_pickup_notes);
+      })
+      .catch(() => {
+        if (isCurrent) {
+          setCheckoutError("We couldn’t load your saved contact details. Please enter them before placing your order.");
+        }
+      });
+
+    return () => {
+      isCurrent = false;
+    };
   }, [session]);
   const resolvedCart = useMemo(
     () => resolveCart(catalog, cart),
@@ -536,7 +554,6 @@ export default function CartPage() {
                 }
                 inputMode="numeric"
                 pattern="\(\d{3}\) \d{3}-\d{4}"
-                placeholder="(519) 881-6869"
               />
             </label>
           </div>

@@ -46,6 +46,12 @@ test("customer forms default persistence and expose guarded pending states", () 
   assert.match(cartPageSource, /Add a name, email, and phone number before placing your order\./);
 });
 
+test("checkout renders saved phone data as a controlled value, not a placeholder", () => {
+  assert.match(cartPageSource, /phone: formatCustomerPhone\(profile\.phone \|\| ""\)/);
+  assert.match(cartPageSource, /value=\{checkoutContact\.phone\}/);
+  assert.doesNotMatch(cartPageSource, /placeholder="\(519\) 881-6869"/);
+});
+
 test("checkout cursor styling distinguishes idle, disabled, and submitting states", async () => {
   const styleSource = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
 
