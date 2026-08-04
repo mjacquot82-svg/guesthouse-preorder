@@ -4,6 +4,7 @@ import { ReceiptText } from "lucide-react";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerOrder, fetchCustomerOrders } from "../services/customerAccountApi.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
+import { getCustomerErrorMessage } from "../services/customerMessages.js";
 
 const money = (cents) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 
@@ -40,10 +41,10 @@ export default function OrdersPageMobile() {
   const [orders, setOrders] = useState([]);
   const [detail, setDetail] = useState(null);
   const [message, setMessage] = useState("");
-  useEffect(() => { if (session) fetchCustomerOrders().then(setOrders).catch((error) => setMessage(error.message)); }, [session]);
+  useEffect(() => { if (session) fetchCustomerOrders().then(setOrders).catch((error) => setMessage(getCustomerErrorMessage(error, "We couldn’t load your orders. Please try again."))); }, [session]);
   if (authStatus === "loading") return <section className="page-section compact-section"><p>Checking your orders…</p></section>;
   if (!session) return <section className="page-section ordering-page app-simple-page"><div className="ordering-top-card compact-app-heading"><div><p className="eyebrow">Order history</p><h1>Orders</h1><p>Sign in to view orders placed with your customer account.</p></div></div><div className="form-actions"><Link className="primary-button" to="/login">Sign In</Link><Link className="secondary-button" to="/register">Create Account</Link></div></section>;
-  async function showOrder(id) { try { setDetail(await fetchCustomerOrder(id)); } catch (error) { setMessage(error.message); } }
+  async function showOrder(id) { try { setDetail(await fetchCustomerOrder(id)); } catch (error) { setMessage(getCustomerErrorMessage(error, "We couldn’t load that order. Please try again.")); } }
   function reorder() {
     const cart = reorderCart(detail, catalog);
     if (!cart.length) { setMessage("These items are no longer available on the current menu."); return; }

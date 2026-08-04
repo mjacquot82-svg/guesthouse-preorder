@@ -33,7 +33,7 @@ class CustomerAccountService:
             profile = CustomerProfile(user_id=user_id)
             self.repo.add(profile)
         user.display_name = " ".join(payload.name.strip().split())
-        profile.phone = payload.phone.strip()
+        profile.phone = payload.phone
         profile.preferred_pickup_minutes = payload.preferred_pickup_minutes
         profile.preferred_pickup_notes = payload.preferred_pickup_notes.strip() or None
         self.session.commit()

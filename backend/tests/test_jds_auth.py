@@ -34,6 +34,7 @@ from app.catalog.models import Product
 from app.catalog.seed import seed_catalog
 from app.availability.models import ProductAvailability
 from app.orders.models import Order
+from app.customers.models import CustomerProfile
 from tests.test_migrations import make_alembic_config
 
 
@@ -901,6 +902,7 @@ async def test_duplicate_customer_registration_logs_safe_business_rule(
         "display_name": "Duplicate Customer",
         "email": "duplicate@example.com",
         "password": "correct horse battery staple",
+        "phone": "5198816869",
     }
     first = await auth_client.post(
         "/api/v1/customer/auth/register",
@@ -979,8 +981,15 @@ async def test_customer_verification_logs_safe_provider_failure(
 @pytest.mark.postgresql
 async def test_customer_verification_logs_safe_business_rule_failure(
     auth_client: AsyncClient,
+    fake_provider: FakeIdentityProvider,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    fake_provider.identity = ProviderIdentity(
+        issuer=fake_provider.identity.issuer,
+        subject="missing-customer-provider-user",
+        email="missing-customer@example.com",
+        email_verified=True,
+    )
     with caplog.at_level("ERROR"):
         response = await auth_client.post(
             "/api/v1/customer/auth/verify-email",
@@ -1127,12 +1136,17 @@ async def test_customer_registration_verification_profile_and_role_isolation(
             "display_name": "Customer User",
             "email": "customer@example.com",
             "password": "correct horse battery staple",
+            "phone": "(519) 881-6869",
         },
     )
     assert registration.status_code == 201
     assert fake_provider.registrations == [
         ("customer@example.com", "http://test/account/verify-email")
     ]
+    with Session(auth_engine) as session:
+        registered_profile = session.scalar(select(CustomerProfile))
+        assert registered_profile is not None
+        assert registered_profile.phone == "+15198816869"
     resent = await auth_client.post(
         "/api/v1/customer/auth/verification/resend",
         headers={"Origin": "http://test"},
@@ -1220,7 +1234,7 @@ async def test_customer_registration_verification_profile_and_role_isolation(
         headers={"Origin": "http://test", "X-CSRF-Token": persistent_payload["csrf_token"]},
         json={
             "name": "Returning Customer",
-            "phone": "+15555550123",
+            "phone": "(519) 881-6869",
             "preferred_pickup_minutes": 20,
             "preferred_pickup_notes": "Side counter",
         },
@@ -1229,7 +1243,7 @@ async def test_customer_registration_verification_profile_and_role_isolation(
     assert updated.json() == {
         "name": "Returning Customer",
         "email": "customer@example.com",
-        "phone": "+15555550123",
+        "phone": "+15198816869",
         "preferred_pickup_minutes": 20,
         "preferred_pickup_notes": "Side counter",
     }

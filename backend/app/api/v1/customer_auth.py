@@ -121,7 +121,7 @@ def register(payload: CustomerRegistrationRequest, request: Request, _: None = D
     enforce_limit(service, LOGIN_IP, client_identifier(request), now)
     enforce_limit(service, LOGIN_ACCOUNT, payload.email, now)
     try:
-        service.register_customer(payload.email, payload.password, payload.display_name, now=now)
+        service.register_customer(payload.email, payload.password, payload.display_name, payload.phone, now=now)
         return MessageResponse(message="Check your email to verify your account.")
     except (AuthenticationError, ValueError) as error:
         logger.error(

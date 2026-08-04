@@ -44,7 +44,7 @@ test("buildPendingOrderRequest maps cart snapshots without client prices", () =>
     contact: {
       name: "  Jessie Guest ",
       email: " jessie@example.com ",
-      phone: " +15551234567 ",
+      phone: "(555) 123-4567",
     },
     idempotencyKey: "stable-request-key",
     lines: [resolvedLine()],

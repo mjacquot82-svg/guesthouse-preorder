@@ -1,6 +1,8 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from uuid import UUID
 
+from app.customers.schemas import normalize_phone_to_e164
+
 
 class AuthSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -18,11 +20,17 @@ class CustomerLoginRequest(LoginRequest):
 class CustomerRegistrationRequest(LoginRequest):
     display_name: str = Field(min_length=1, max_length=200)
     password: str = Field(min_length=15, max_length=1024)
+    phone: str = Field(min_length=10, max_length=30)
 
     @field_validator("display_name")
     @classmethod
     def normalize_registration_name(cls, value: str) -> str:
         return " ".join(value.strip().split())
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_registration_phone(cls, value: object) -> object:
+        return normalize_phone_to_e164(value)
 
 
 class EmailVerificationRequest(AuthSchema):

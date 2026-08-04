@@ -1,14 +1,22 @@
 const CUSTOMER_PATH = "/api/v1/customer";
+import { getApiErrorMessage } from "./customerMessages.js";
 
 async function request(path, { body, csrfToken, method = "GET", fetchImpl = globalThis.fetch, apiBaseUrl = import.meta.env?.VITE_API_BASE_URL || "" } = {}) {
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-  const response = await fetchImpl(`${apiBaseUrl.replace(/\/+$/, "")}${CUSTOMER_PATH}${path}`, {
-    body: body === undefined ? undefined : JSON.stringify(body), credentials: "include", headers, method,
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload?.detail?.message || payload?.detail || "Customer account request failed.");
+  let response;
+  try {
+    response = await fetchImpl(`${apiBaseUrl.replace(/\/+$/, "")}${CUSTOMER_PATH}${path}`, {
+      body: body === undefined ? undefined : JSON.stringify(body), credentials: "include", headers, method,
+    });
+  } catch {
+    throw new Error("Unable to reach the customer account service. Please check your connection and try again.");
+  }
+  let payload = null;
+  try { payload = await response.json(); } catch { /* normalized below */ }
+  if (!response.ok) throw new Error(getApiErrorMessage(payload, "We couldn’t update your account. Please try again."));
+  if (payload === null) throw new Error("The customer account service returned an invalid response.");
   return payload;
 }
 

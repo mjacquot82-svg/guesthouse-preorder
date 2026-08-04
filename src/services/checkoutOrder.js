@@ -1,4 +1,5 @@
 import { OrderApiError } from "./orderApi.js";
+import { normalizeCustomerPhone } from "./customerPhone.js";
 
 const PICKUP_INTERVAL_MINUTES = 5;
 const PENDING_ORDER_SUBMISSION_KEY = "guesthouse-pending-order-submission";
@@ -93,7 +94,7 @@ export function buildPendingOrderRequest({
     customer: {
       name: contact.name.trim(),
       email: contact.email.trim(),
-      phone: contact.phone.trim(),
+      phone: normalizeCustomerPhone(contact.phone),
     },
     requested_pickup_at: requestedPickupAt,
     notes: notes.trim() || null,

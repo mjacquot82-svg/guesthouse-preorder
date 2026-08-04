@@ -1,4 +1,5 @@
 const AUTH_PATH = "/api/v1/customer/auth";
+import { getApiErrorMessage } from "./customerMessages.js";
 
 export class CustomerAuthError extends Error {
   constructor(message, { code, status } = {}) {
@@ -24,7 +25,7 @@ async function request(path, { body, csrfToken, method = "GET", fetchImpl = glob
   let payload = null;
   try { payload = await response.json(); } catch { /* normalized below */ }
   if (!response.ok) {
-    throw new CustomerAuthError(payload?.detail?.message || "Customer authentication failed.", {
+    throw new CustomerAuthError(getApiErrorMessage(payload, "Customer authentication failed."), {
       code: payload?.detail?.code, status: response.status,
     });
   }
@@ -33,7 +34,7 @@ async function request(path, { body, csrfToken, method = "GET", fetchImpl = glob
 
 export const fetchCustomerSession = (options = {}) => request("/session", options);
 export const loginCustomer = (email, password, { keepSignedIn = false, ...options } = {}) => request("/login", { ...options, body: { email, keep_signed_in: keepSignedIn, password }, method: "POST" });
-export const registerCustomer = (displayName, email, password, options = {}) => request("/register", { ...options, body: { display_name: displayName, email, password }, method: "POST" });
+export const registerCustomer = (displayName, email, password, phone, options = {}) => request("/register", { ...options, body: { display_name: displayName, email, password, phone }, method: "POST" });
 export const verifyCustomerEmail = (tokenHash, options = {}) => request("/verify-email", { ...options, body: { token_hash: tokenHash }, method: "POST" });
 export const resendCustomerVerification = (email, options = {}) => request("/verification/resend", { ...options, body: { email }, method: "POST" });
 export const requestCustomerPasswordReset = (email, options = {}) => request("/password-reset", { ...options, body: { email }, method: "POST" });

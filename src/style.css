@@ -1113,6 +1113,31 @@ h3 {
   accent-color: var(--sage-ink);
 }
 
+.product-form input:focus-visible,
+.product-form select:focus-visible,
+.product-form textarea:focus-visible,
+.checkout-contact-grid input:focus-visible,
+.order-notes-field textarea:focus-visible {
+  border-color: rgba(127, 141, 117, 0.5);
+  outline: 3px solid rgba(127, 141, 117, 0.16);
+  outline-offset: 1px;
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.operations-panel .product-form {
+  margin-top: 20px;
+}
+
+.operations-panel > .primary-button,
+.operations-panel > a:last-child {
+  margin-top: 18px;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: 0.72fr 1fr;

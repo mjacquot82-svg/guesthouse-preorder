@@ -1,4 +1,6 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.customers.schemas import normalize_phone_to_e164
 
 
 class CustomerSchema(BaseModel):
@@ -18,6 +20,11 @@ class CustomerProfileUpdate(CustomerSchema):
     phone: str = Field(min_length=7, max_length=30)
     preferred_pickup_minutes: int | None = Field(default=None, ge=0, le=1440)
     preferred_pickup_notes: str = Field(default="", max_length=500)
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def normalize_phone(cls, value: object) -> object:
+        return normalize_phone_to_e164(value)
 
 
 class CustomerOrderSummary(CustomerSchema):

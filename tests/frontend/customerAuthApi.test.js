@@ -57,13 +57,13 @@ test("password reset completion sends a Supabase recovery access token", async (
   });
 });
 
-test("customer registration sends profile identity to the shared auth backend", async () => {
+test("customer registration sends profile identity and normalized phone to the shared auth backend", async () => {
   let request;
-  await registerCustomer("Customer Name", "customer@example.com", "a sufficiently long password", {
+  await registerCustomer("Customer Name", "customer@example.com", "a sufficiently long password", "+15198816869", {
     fetchImpl: async (...args) => { request = args; return response(201, { message: "Verify" }); },
   });
   assert.equal(request[0], "/api/v1/customer/auth/register");
   assert.deepEqual(JSON.parse(request[1].body), {
-    display_name: "Customer Name", email: "customer@example.com", password: "a sufficiently long password",
+    display_name: "Customer Name", email: "customer@example.com", password: "a sufficiently long password", phone: "+15198816869",
   });
 });

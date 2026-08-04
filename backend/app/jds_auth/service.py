@@ -11,6 +11,7 @@ from app.jds_auth.models import ExternalIdentity, JdsUser, Membership, OwnerInvi
 from app.jds_auth.provider import IdentityProvider, ProviderAuthentication
 from app.jds_auth.repository import AuthRepository
 from app.jds_auth.security import create_secret, hash_secret, secret_matches
+from app.customers.models import CustomerProfile
 
 
 class AuthenticationError(ValueError):
@@ -106,7 +107,7 @@ class AuthenticationService:
             self._audit.record("auth.login", "success", organization_id=organization.id, actor_user_id=identity.user_id, session_id=issued.principal.session_id)
         return issued
 
-    def register_customer(self, email: str, password: str, display_name: str, *, now: datetime) -> None:
+    def register_customer(self, email: str, password: str, display_name: str, phone: str, *, now: datetime) -> None:
         normalized = email.strip().lower()
         self.registration_stage = "supabase_registration"
         identity = self._provider.register_user(
@@ -164,6 +165,7 @@ class AuthenticationService:
             )
             self._repo.add(user)
             self._session.flush()
+            self._repo.add(CustomerProfile(user_id=user.id, phone=phone))
             self.registration_stage = "external_identity_creation"
             self._repo.add(ExternalIdentity(
                 user_id=user.id, issuer=identity.issuer, subject=identity.subject,

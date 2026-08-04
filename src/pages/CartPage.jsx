@@ -15,6 +15,7 @@ import { createCloverCheckout } from "../services/cloverService.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerProfile } from "../services/customerAccountApi.js";
+import { formatCustomerPhone, isCompleteCustomerPhone } from "../services/customerPhone.js";
 
 const quickPickupOptions = [
   {
@@ -147,7 +148,7 @@ export default function CartPage() {
   useEffect(() => {
     if (!session) return;
     fetchCustomerProfile().then((profile) => {
-      setCheckoutContact({ name: profile.name, email: profile.email, phone: profile.phone });
+      setCheckoutContact({ name: profile.name, email: profile.email, phone: formatCustomerPhone(profile.phone) });
       const preferredOption = quickPickupOptions.find((option) => option.minutes === profile.preferred_pickup_minutes);
       if (preferredOption) updatePickupTime(preferredOption.value);
       if (profile.preferred_pickup_notes) setOrderNotes(profile.preferred_pickup_notes);
@@ -221,7 +222,7 @@ export default function CartPage() {
     if (
       !checkoutContact.name.trim() ||
       !checkoutContact.email.trim() ||
-      !checkoutContact.phone.trim()
+      !isCompleteCustomerPhone(checkoutContact.phone)
     ) {
       setCheckoutError(
         "Add a name, email, and phone number before placing your order."
@@ -463,8 +464,11 @@ export default function CartPage() {
                 type="tel"
                 value={checkoutContact.phone}
                 onChange={(event) =>
-                  updateCheckoutContact("phone", event.target.value)
+                  updateCheckoutContact("phone", formatCustomerPhone(event.target.value))
                 }
+                inputMode="numeric"
+                pattern="\(\d{3}\) \d{3}-\d{4}"
+                placeholder="(519) 881-6869"
               />
             </label>
           </div>

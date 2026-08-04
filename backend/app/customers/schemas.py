@@ -9,6 +9,20 @@ EMAIL_PATTERN = re.compile(
 PHONE_ALLOWED_PATTERN = re.compile(r"^[+0-9().\-\s]+$")
 
 
+def normalize_phone_to_e164(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    candidate = value.strip()
+    if not PHONE_ALLOWED_PATTERN.fullmatch(candidate):
+        raise ValueError("phone contains unsupported characters.")
+    digits = "".join(character for character in candidate if character.isdigit())
+    if len(digits) == 10:
+        return f"+1{digits}"
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+    raise ValueError("phone must be a 10-digit North American number.")
+
+
 class GuestCustomerInput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -40,12 +54,4 @@ class GuestCustomerInput(BaseModel):
     @field_validator("phone", mode="before")
     @classmethod
     def normalize_phone(cls, value: object) -> object:
-        if not isinstance(value, str):
-            return value
-        candidate = value.strip()
-        if not PHONE_ALLOWED_PATTERN.fullmatch(candidate):
-            raise ValueError("phone contains unsupported characters.")
-        digits = "".join(character for character in candidate if character.isdigit())
-        if not 7 <= len(digits) <= 15:
-            raise ValueError("phone must contain between 7 and 15 digits.")
-        return f"+{digits}" if candidate.startswith("+") else digits
+        return normalize_phone_to_e164(value)
