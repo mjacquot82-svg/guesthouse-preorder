@@ -228,12 +228,43 @@ export default function CartPage() {
   }
 
   async function placeOrder() {
+    const canonicalContact = canonicalizeCheckoutContact(checkoutContactRef.current);
+    const validation = {
+      checkoutContact: {
+        name: checkoutContact.name,
+        email: checkoutContact.email,
+        phone: checkoutContact.phone,
+      },
+      validatedContact: {
+        name: checkoutContactRef.current.name,
+        email: checkoutContactRef.current.email,
+        phone: checkoutContactRef.current.phone,
+      },
+      normalizedPhone: canonicalContact.phone,
+      conditions: {
+        nameComplete: Boolean(canonicalContact.name),
+        emailComplete: Boolean(canonicalContact.email),
+        phoneComplete: Boolean(canonicalContact.phone),
+      },
+    };
+    console.info("[checkout-validation]", validation);
+
     if (!submissionGate.current.begin()) {
+      console.info("[checkout-validation] stopped", {
+        condition: "submissionGate.current.begin()",
+        result: false,
+      });
       setCheckoutError("Your order is already being submitted. Please wait.");
       return;
     }
-    const canonicalContact = canonicalizeCheckoutContact(checkoutContactRef.current);
     if (!isCheckoutContactComplete(canonicalContact)) {
+      console.info("[checkout-validation] stopped", {
+        condition: "isCheckoutContactComplete(canonicalContact)",
+        result: false,
+        failedConditions: Object.entries(validation.conditions)
+          .filter(([, result]) => !result)
+          .map(([condition]) => condition),
+      });
       setCheckoutError(
         "Add a name, email, and phone number before placing your order."
       );
