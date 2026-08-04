@@ -1260,6 +1260,7 @@ async def test_customer_registration_verification_profile_and_role_isolation(
 
     initial_profile = await auth_client.get("/api/v1/customer/profile")
     assert initial_profile.status_code == 200
+    assert initial_profile.headers["cache-control"] == "no-store"
     assert initial_profile.json()["email"] == "customer@example.com"
     assert initial_profile.json()["phone"] == "+15198816869"
     with Session(auth_engine) as session, session.begin():
@@ -1279,6 +1280,7 @@ async def test_customer_registration_verification_profile_and_role_isolation(
             "preferred_pickup_notes": "Side counter",
         },
     )
+    assert updated.headers["cache-control"] == "no-store"
     assert updated.status_code == 200
     assert updated.json() == {
         "name": "Returning Customer",

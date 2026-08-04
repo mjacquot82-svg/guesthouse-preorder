@@ -8,7 +8,11 @@ async function request(path, { body, csrfToken, method = "GET", fetchImpl = glob
   let response;
   try {
     response = await fetchImpl(`${apiBaseUrl.replace(/\/+$/, "")}${CUSTOMER_PATH}${path}`, {
-      body: body === undefined ? undefined : JSON.stringify(body), credentials: "include", headers, method,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      cache: method === "GET" ? "no-store" : undefined,
+      credentials: "include",
+      headers,
+      method,
     });
   } catch {
     throw new Error("Unable to reach the customer account service. Please check your connection and try again.");

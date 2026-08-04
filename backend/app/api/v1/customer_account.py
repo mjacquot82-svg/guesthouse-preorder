@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -14,7 +14,8 @@ router = APIRouter(prefix="/customer", tags=["customer-account"])
 
 
 @router.get("/profile", response_model=CustomerProfileResponse)
-def get_profile(principal: AuthPrincipal = Depends(current_customer), session: Session = Depends(get_order_session)) -> CustomerProfileResponse:
+def get_profile(response: Response, principal: AuthPrincipal = Depends(current_customer), session: Session = Depends(get_order_session)) -> CustomerProfileResponse:
+    response.headers["Cache-Control"] = "no-store"
     try:
         return CustomerAccountService(session).profile(principal.user_id)
     except (SQLAlchemyError, LookupError) as error:
@@ -22,7 +23,8 @@ def get_profile(principal: AuthPrincipal = Depends(current_customer), session: S
 
 
 @router.put("/profile", response_model=CustomerProfileResponse)
-def update_profile(payload: CustomerProfileUpdate, principal: AuthPrincipal = Depends(customer_csrf), session: Session = Depends(get_order_session)) -> CustomerProfileResponse:
+def update_profile(payload: CustomerProfileUpdate, response: Response, principal: AuthPrincipal = Depends(customer_csrf), session: Session = Depends(get_order_session)) -> CustomerProfileResponse:
+    response.headers["Cache-Control"] = "no-store"
     try:
         return CustomerAccountService(session).update_profile(principal.user_id, payload)
     except (SQLAlchemyError, LookupError) as error:
