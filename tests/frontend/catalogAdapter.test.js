@@ -10,6 +10,7 @@ function catalogFixture() {
   return {
     version: "1",
     generated_at: "2026-07-27T12:00:00Z",
+    pricing: { tax_name: "HST", tax_rate_millionths: 1_300_000 },
     categories: [
       {
         id: "20",
@@ -142,6 +143,10 @@ test("adaptCatalog preserves the legacy category and product interfaces", () => 
   assert.deepEqual(source, sourceSnapshot, "adapter must not mutate the API payload");
   assert.equal(result.version, "1");
   assert.equal(result.generatedAt, source.generated_at);
+  assert.deepEqual(result.pricing, {
+    taxName: "HST",
+    taxRateMillionths: 1_300_000,
+  });
   assert.deepEqual(
     result.categories.map(({ id, backendId, name, note, sortOrder }) => ({
       id,

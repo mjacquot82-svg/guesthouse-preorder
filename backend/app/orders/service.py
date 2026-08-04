@@ -21,6 +21,7 @@ from app.orders.constants import (
     OrderStatus,
 )
 from app.orders.models import Order, OrderItem, OrderItemModifier
+from app.orders.pricing import calculate_tax_cents
 from app.orders.repository import OrderRepository
 from app.orders.schemas import (
     ConfiguredOrderLineInput,
@@ -111,6 +112,9 @@ class OrderCreationService:
             subtotal_cents = sum(
                 line.subtotal_cents for line in validated_lines
             )
+            tax_cents = calculate_tax_cents(
+                subtotal_cents, settings.tax_rate_millionths
+            )
             order = Order(
                 customer_user_id=customer_user_id,
                 idempotency_key=request.idempotency_key,
@@ -125,8 +129,10 @@ class OrderCreationService:
                 business_timezone=settings.timezone,
                 currency=DEFAULT_CURRENCY,
                 subtotal_cents=subtotal_cents,
-                tax_cents=0,
-                total_cents=subtotal_cents,
+                tax_cents=tax_cents,
+                tax_name=settings.tax_name,
+                tax_rate_millionths=settings.tax_rate_millionths,
+                total_cents=subtotal_cents + tax_cents,
                 version=1,
                 expires_at=now + timedelta(
                     minutes=self._pending_expiry_minutes

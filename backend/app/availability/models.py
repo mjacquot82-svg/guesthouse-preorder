@@ -74,6 +74,11 @@ class BusinessSettings(AvailabilityModelValidation, Base):
             "maximum_advance_days BETWEEN 1 AND 365",
             name="advance_days_valid",
         ),
+        CheckConstraint("btrim(tax_name) <> ''", name="tax_name_nonblank"),
+        CheckConstraint(
+            "tax_rate_millionths BETWEEN 0 AND 10000000",
+            name="tax_rate_millionths_valid",
+        ),
     )
 
     id: Mapped[int] = mapped_column(
@@ -103,6 +108,12 @@ class BusinessSettings(AvailabilityModelValidation, Base):
         default=14,
         server_default="14",
     )
+    tax_name: Mapped[str] = mapped_column(
+        String(50), default="HST", server_default="HST"
+    )
+    tax_rate_millionths: Mapped[int] = mapped_column(
+        Integer, default=1_300_000, server_default="1300000"
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -121,8 +132,8 @@ class BusinessSettings(AvailabilityModelValidation, Base):
         passive_deletes=True,
     )
 
-    @validates("timezone")
-    def validate_timezone(self, _: str, value: str) -> str:
+    @validates("timezone", "tax_name")
+    def validate_nonblank_setting(self, _: str, value: str) -> str:
         normalized = value.strip()
         if not normalized:
             raise ValueError("timezone must not be blank.")

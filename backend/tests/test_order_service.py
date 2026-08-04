@@ -245,8 +245,8 @@ def test_creates_authoritatively_priced_pending_order_with_snapshots(
         assert order.requested_pickup_at == local_datetime(8, 30)
         assert order.business_timezone == "America/New_York"
         assert order.subtotal_cents == 1620
-        assert order.tax_cents == 0
-        assert order.total_cents == 1620
+        assert order.tax_cents == 211
+        assert order.total_cents == 1831
         assert len(order.public_access_token) >= 32
         assert len(order.items) == 1
 

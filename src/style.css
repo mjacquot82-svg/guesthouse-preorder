@@ -900,6 +900,16 @@ h3 {
   padding-top: 14px;
 }
 
+.cart-pricing-breakdown {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 8px;
+}
+
+.cart-pricing-breakdown strong {
+  text-align: right;
+}
+
 .pickup-timing-panel {
   display: grid;
   gap: 13px;

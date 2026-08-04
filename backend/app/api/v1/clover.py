@@ -25,6 +25,7 @@ from app.api.v1.owner_auth import require_read_permission
 from app.db.session import get_db_session
 from app.orders.constants import OrderStatus
 from app.orders.models import Order, OrderItem
+from app.orders.pricing import calculate_tax_cents
 
 router = APIRouter(prefix="/clover", tags=["clover"])
 OAUTH_STATE_COOKIE = "guesthouse_clover_oauth_state"
@@ -303,16 +304,21 @@ def _checkout_payload(order: Order, settings: CloverSettings) -> dict:
             ),
             "price": item.unit_price_cents,
             "unitQty": item.quantity,
+            "taxRates": [
+                {"name": order.tax_name, "rate": order.tax_rate_millionths}
+            ] if order.tax_rate_millionths else [],
         }
         for item in order.items
     ]
-    if order.tax_cents:
-        raise ValueError(
-            "Non-zero tax requires a configured Clover tax-rate integration."
-        )
-    charged_cents = sum(
+    subtotal_cents = sum(
         line_item["price"] * line_item["unitQty"] for line_item in line_items
     )
+    calculated_tax_cents = calculate_tax_cents(
+        subtotal_cents, order.tax_rate_millionths
+    )
+    if calculated_tax_cents != order.tax_cents:
+        raise ValueError("Clover checkout tax does not match the order tax.")
+    charged_cents = subtotal_cents + calculated_tax_cents
     if charged_cents != order.total_cents:
         raise ValueError("Clover checkout total does not match the order total.")
 

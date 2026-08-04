@@ -81,6 +81,10 @@ async def test_catalog_returns_complete_seeded_guest_house_contract(
     assert parsed.version == "1"
     assert parsed.generated_at.tzinfo is not None
     assert datetime.fromisoformat(payload["generated_at"]).tzinfo is not None
+    assert payload["pricing"] == {
+        "tax_name": "HST",
+        "tax_rate_millionths": 1_300_000,
+    }
 
     assert [category["slug"] for category in payload["categories"]] == [
         "coffee",
@@ -378,5 +382,6 @@ def test_openapi_documents_catalog_contract() -> None:
     assert set(schema["components"]["schemas"]["CatalogResponse"]["properties"]) == {
         "version",
         "generated_at",
+        "pricing",
         "categories",
     }

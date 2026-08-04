@@ -59,9 +59,15 @@ class CategoryResponse(CatalogSchema):
     products: list[ProductResponse]
 
 
+class CatalogPricingResponse(CatalogSchema):
+    tax_name: str
+    tax_rate_millionths: int = Field(ge=0, le=10_000_000)
+
+
 class CatalogResponse(CatalogSchema):
     version: str
     generated_at: datetime
+    pricing: CatalogPricingResponse
     categories: list[CategoryResponse]
 
 

@@ -4,10 +4,12 @@ import { ClipboardList, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import { resolveCart } from "../services/cartCatalog.js";
 import {
   buildPendingOrderRequest,
+  canonicalizeCheckoutContact,
   clearOrderSubmission,
   createSubmissionGate,
   getOrderErrorMessage,
   prepareOrderSubmission,
+  isCheckoutContactComplete,
   resolvePickupTimestamp,
 } from "../services/checkoutOrder.js";
 import { createPendingOrder } from "../services/orderApi.js";
@@ -15,7 +17,8 @@ import { createCloverCheckout } from "../services/cloverService.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerProfile } from "../services/customerAccountApi.js";
-import { formatCustomerPhone, isCompleteCustomerPhone } from "../services/customerPhone.js";
+import { formatCustomerPhone } from "../services/customerPhone.js";
+import { formatTaxLabel, getOrderPricing } from "../services/orderPricing.js";
 
 const quickPickupOptions = [
   {
@@ -141,6 +144,7 @@ export default function CartPage() {
     email: "",
     phone: "",
   });
+  const checkoutContactRef = useRef(checkoutContact);
   const [orderNotes, setOrderNotes] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -148,7 +152,9 @@ export default function CartPage() {
   useEffect(() => {
     if (!session) return;
     fetchCustomerProfile().then((profile) => {
-      setCheckoutContact({ name: profile.name, email: profile.email, phone: formatCustomerPhone(profile.phone) });
+      const contact = { name: profile.name, email: profile.email, phone: formatCustomerPhone(profile.phone) };
+      checkoutContactRef.current = contact;
+      setCheckoutContact(contact);
       const preferredOption = quickPickupOptions.find((option) => option.minutes === profile.preferred_pickup_minutes);
       if (preferredOption) updatePickupTime(preferredOption.value);
       if (profile.preferred_pickup_notes) setOrderNotes(profile.preferred_pickup_notes);
@@ -158,6 +164,11 @@ export default function CartPage() {
     () => resolveCart(catalog, cart),
     [catalog, cart]
   );
+  const orderPricing = useMemo(
+    () => getOrderPricing(resolvedCart.totalCents, catalog.pricing),
+    [catalog.pricing, resolvedCart.totalCents]
+  );
+  const canPlaceOrder = isCheckoutContactComplete(checkoutContact);
   const selectedQuickPickupTime =
     quickPickupOptions.find((option) => option.value === pickupTime) || quickPickupOptions[0];
   const pickupSummary = useMemo(() => {
@@ -205,7 +216,9 @@ export default function CartPage() {
     if (submissionGate.current.isInFlight()) {
       return;
     }
-    setCheckoutContact((current) => ({ ...current, [field]: value }));
+    const nextContact = { ...checkoutContactRef.current, [field]: value };
+    checkoutContactRef.current = nextContact;
+    setCheckoutContact(nextContact);
   }
 
   function updateOrderNotes(value) {
@@ -219,11 +232,8 @@ export default function CartPage() {
     if (!submissionGate.current.begin()) {
       return;
     }
-    if (
-      !checkoutContact.name.trim() ||
-      !checkoutContact.email.trim() ||
-      !isCompleteCustomerPhone(checkoutContact.phone)
-    ) {
+    const canonicalContact = canonicalizeCheckoutContact(checkoutContactRef.current);
+    if (!isCheckoutContactComplete(canonicalContact)) {
       setCheckoutError(
         "Add a name, email, and phone number before placing your order."
       );
@@ -241,7 +251,7 @@ export default function CartPage() {
         quickPickupMinutes: selectedQuickPickupTime.minutes,
       });
       const request = buildPendingOrderRequest({
-        contact: checkoutContact,
+        contact: canonicalContact,
         idempotencyKey: "",
         lines: resolvedCart.lines,
         notes: orderNotes,
@@ -484,9 +494,13 @@ export default function CartPage() {
             onChange={(event) => updateOrderNotes(event.target.value)}
           />
         </label>
-        <div className="cart-total-row">
-          <span>Estimated total</span>
-          <strong>{formatPrice(resolvedCart.total)}</strong>
+        <div className="cart-total-row cart-pricing-breakdown">
+          <span>Subtotal</span>
+          <strong>{formatPrice(orderPricing.subtotalCents / 100)}</strong>
+          <span>{formatTaxLabel(catalog.pricing)}</span>
+          <strong>{formatPrice(orderPricing.taxCents / 100)}</strong>
+          <span>Estimated Total</span>
+          <strong>{formatPrice(orderPricing.totalCents / 100)}</strong>
         </div>
         {checkoutError ? (
           <p className="form-status checkout-error" role="alert">
@@ -500,7 +514,7 @@ export default function CartPage() {
         ) : (
           <button
             className="primary-button"
-            disabled={isPlacingOrder}
+            disabled={isPlacingOrder || !canPlaceOrder}
             type="button"
             onClick={placeOrder}
           >

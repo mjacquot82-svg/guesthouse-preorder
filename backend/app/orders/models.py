@@ -26,6 +26,7 @@ class OrderModelValidation:
         "guest_email",
         "guest_phone",
         "business_timezone",
+        "tax_name",
         "product_name",
         "product_slug",
         "modifier_group_key",
@@ -51,6 +52,7 @@ class OrderModelValidation:
         "line_subtotal_cents",
         "price_adjustment_cents",
         "sort_order",
+        "tax_rate_millionths",
     )
     def validate_nonnegative(self, attribute: str, value: int) -> int:
         if value < 0:
@@ -91,6 +93,11 @@ class Order(OrderModelValidation, Base):
         ),
         CheckConstraint("subtotal_cents >= 0", name="subtotal_nonnegative"),
         CheckConstraint("tax_cents >= 0", name="tax_nonnegative"),
+        CheckConstraint("btrim(tax_name) <> ''", name="tax_name_nonblank"),
+        CheckConstraint(
+            "tax_rate_millionths BETWEEN 0 AND 10000000",
+            name="tax_rate_millionths_valid",
+        ),
         CheckConstraint("total_cents >= 0", name="total_nonnegative"),
         CheckConstraint(
             "total_cents = subtotal_cents + tax_cents",
@@ -136,6 +143,12 @@ class Order(OrderModelValidation, Base):
     )
     subtotal_cents: Mapped[int] = mapped_column(Integer)
     tax_cents: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    tax_name: Mapped[str] = mapped_column(
+        String(50), default="HST", server_default="HST"
+    )
+    tax_rate_millionths: Mapped[int] = mapped_column(
+        Integer, default=1_300_000, server_default="1300000"
+    )
     total_cents: Mapped[int] = mapped_column(Integer)
     clover_merchant_id: Mapped[str | None] = mapped_column(String(100))
     clover_checkout_session_id: Mapped[str | None] = mapped_column(

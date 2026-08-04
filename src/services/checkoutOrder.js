@@ -91,11 +91,7 @@ export function buildPendingOrderRequest({
 }) {
   return {
     idempotency_key: idempotencyKey,
-    customer: {
-      name: contact.name.trim(),
-      email: contact.email.trim(),
-      phone: normalizeCustomerPhone(contact.phone),
-    },
+    customer: canonicalizeCheckoutContact(contact),
     requested_pickup_at: requestedPickupAt,
     notes: notes.trim() || null,
     lines: lines.map((line) => {
@@ -117,6 +113,19 @@ export function buildPendingOrderRequest({
       };
     }),
   };
+}
+
+export function canonicalizeCheckoutContact(contact = {}) {
+  return {
+    name: String(contact.name || "").trim(),
+    email: String(contact.email || "").trim(),
+    phone: normalizeCustomerPhone(contact.phone),
+  };
+}
+
+export function isCheckoutContactComplete(contact) {
+  const canonical = canonicalizeCheckoutContact(contact);
+  return Boolean(canonical.name && canonical.email && canonical.phone);
 }
 
 export function createSubmissionGate() {

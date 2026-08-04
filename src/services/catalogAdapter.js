@@ -236,6 +236,13 @@ export function adaptCatalog(payload) {
   return {
     version: payload.version,
     generatedAt: requireString(payload.generated_at, "generated_at"),
+    pricing: {
+      taxName: requireString(payload.pricing?.tax_name, "pricing.tax_name"),
+      taxRateMillionths: requireInteger(
+        payload.pricing?.tax_rate_millionths,
+        "pricing.tax_rate_millionths"
+      ),
+    },
     categories,
     products: products.sort(compareByOrder),
     modifierGroups: [...modifierRegistry.values()].sort(compareByOrder),

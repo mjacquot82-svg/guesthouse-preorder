@@ -3,9 +3,11 @@ import test from "node:test";
 
 import {
   buildPendingOrderRequest,
+  canonicalizeCheckoutContact,
   clearOrderSubmission,
   createSubmissionGate,
   getOrderErrorMessage,
+  isCheckoutContactComplete,
   prepareOrderSubmission,
   resolvePickupTimestamp,
 } from "../../src/services/checkoutOrder.js";
@@ -71,6 +73,21 @@ test("buildPendingOrderRequest maps cart snapshots without client prices", () =>
     ],
   });
   assert.equal("price_cents" in request.lines[0], false);
+});
+
+test("profile defaults and formatted phones share one canonical checkout contact", () => {
+  const visibleContact = {
+    name: "Jessie Guest",
+    email: "jessie@example.com",
+    phone: "(519) 881-6869",
+  };
+
+  assert.equal(isCheckoutContactComplete(visibleContact), true);
+  assert.deepEqual(canonicalizeCheckoutContact(visibleContact), {
+    name: "Jessie Guest",
+    email: "jessie@example.com",
+    phone: "+15198816869",
+  });
 });
 
 test("resolvePickupTimestamp maps quick and custom pickup selections", () => {

@@ -13,6 +13,7 @@ from app.availability.models import ProductAvailability
 from app.catalog.repository import CatalogRepository
 from app.catalog.schemas import (
     CatalogResponse,
+    CatalogPricingResponse,
     CategoryResponse,
     ModifierOptionResponse,
     ProductModifierGroupResponse,
@@ -30,8 +31,16 @@ CATALOG_CONTRACT_VERSION = "1"
 
 
 class CatalogService:
-    def __init__(self, repository: CatalogRepository) -> None:
+    def __init__(
+        self,
+        repository: CatalogRepository,
+        *,
+        tax_name: str | None = None,
+        tax_rate_millionths: int | None = None,
+    ) -> None:
         self._repository = repository
+        self._tax_name = tax_name
+        self._tax_rate_millionths = tax_rate_millionths
 
     def build_catalog(self) -> CatalogResponse:
         categories = self._repository.list_published_categories()
@@ -74,6 +83,10 @@ class CatalogService:
         return CatalogResponse(
             version=CATALOG_CONTRACT_VERSION,
             generated_at=datetime.now(timezone.utc),
+            pricing=CatalogPricingResponse(
+                tax_name=self._tax_name,
+                tax_rate_millionths=self._tax_rate_millionths,
+            ),
             categories=[
                 CategoryResponse(
                     id=str(category.id),

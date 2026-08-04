@@ -63,12 +63,25 @@ ORDER_CLOVER_COLUMN_NAMES = frozenset(
         "clover_checkout_url",
         "clover_checkout_expires_at",
         "customer_user_id",
+        "tax_name",
+        "tax_rate_millionths",
     }
 )
 ORDER_HEAD_ONLY_CHECK_NAMES = frozenset(
     {
         "ck_orders_status_valid",
         "ck_orders_clover_checkout_consistent",
+        "ck_orders_tax_name_nonblank",
+        "ck_orders_tax_rate_millionths_valid",
+    }
+)
+AVAILABILITY_HEAD_ONLY_COLUMN_NAMES = frozenset(
+    {"tax_name", "tax_rate_millionths"}
+)
+AVAILABILITY_HEAD_ONLY_CHECK_NAMES = frozenset(
+    {
+        "ck_business_settings_tax_name_nonblank",
+        "ck_business_settings_tax_rate_millionths_valid",
     }
 )
 MIGRATION_LOCK_NAME = "guesthouse_preorder_alembic"
@@ -279,7 +292,18 @@ def _validate_availability_baseline(engine: Engine) -> None:
     problems = [
         problem
         for table_name in sorted(AVAILABILITY_TABLE_NAMES)
-        for problem in _validate_table(engine, table_name)
+        for problem in _validate_table(
+            engine,
+            table_name,
+            excluded_column_names=(
+                AVAILABILITY_HEAD_ONLY_COLUMN_NAMES
+                if table_name == "business_settings" else frozenset()
+            ),
+            excluded_check_names=(
+                AVAILABILITY_HEAD_ONLY_CHECK_NAMES
+                if table_name == "business_settings" else frozenset()
+            ),
+        )
     ]
     if problems:
         formatted = "\n- ".join(problems)

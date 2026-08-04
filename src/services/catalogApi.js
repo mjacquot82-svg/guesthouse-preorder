@@ -50,6 +50,8 @@ export async function fetchCatalog({
     !payload ||
     typeof payload !== "object" ||
     typeof payload.version !== "string" ||
+    !payload.pricing ||
+    typeof payload.pricing !== "object" ||
     !Array.isArray(payload.categories)
   ) {
     throw new CatalogApiError("The catalog response has an invalid shape.", {

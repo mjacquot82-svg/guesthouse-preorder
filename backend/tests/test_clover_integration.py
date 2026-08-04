@@ -202,7 +202,7 @@ def test_clover_network_failures_and_insecure_checkout_urls_are_rejected() -> No
         )
 
 
-def test_checkout_payload_matches_authoritative_total_and_rejects_tax() -> None:
+def test_checkout_payload_matches_authoritative_total_with_tax() -> None:
     now = datetime.now(timezone.utc)
     order = Order(
         idempotency_key="checkout-payload-key",
@@ -215,8 +215,10 @@ def test_checkout_payload_matches_authoritative_total_and_rejects_tax() -> None:
         business_timezone="America/New_York",
         currency="USD",
         subtotal_cents=500,
-        tax_cents=0,
-        total_cents=500,
+        tax_cents=65,
+        tax_name="HST",
+        tax_rate_millionths=1_300_000,
+        total_cents=565,
         expires_at=now,
     )
     order.items.append(
@@ -234,9 +236,11 @@ def test_checkout_payload_matches_authoritative_total_and_rejects_tax() -> None:
     payload = _checkout_payload(order, settings())
     assert payload["shoppingCart"]["lineItems"][0]["price"] == 250
     assert payload["shoppingCart"]["lineItems"][0]["unitQty"] == 2
+    assert payload["shoppingCart"]["lineItems"][0]["taxRates"] == [
+        {"name": "HST", "rate": 1_300_000}
+    ]
     assert payload["customer"]["lastName"] == "Guest"
 
-    order.tax_cents = 40
-    order.total_cents = 540
-    with pytest.raises(ValueError, match="tax-rate"):
+    order.total_cents = 564
+    with pytest.raises(ValueError, match="does not match"):
         _checkout_payload(order, settings())

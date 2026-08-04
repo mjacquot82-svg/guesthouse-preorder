@@ -122,7 +122,8 @@ def test_create_order_returns_public_pending_snapshot(
         "phone": "+15551234567",
     }
     assert body["subtotal_cents"] == 1620
-    assert body["total_cents"] == 1620
+    assert body["tax_cents"] == 211
+    assert body["total_cents"] == 1831
     assert body["items"][0]["variant_key"] == "large"
     assert [modifier["option_key"] for modifier in body["items"][0]["modifiers"]] == [
         "oat",

@@ -8,7 +8,12 @@ import {
 
 test("fetchCatalog requests the same-origin versioned catalog", async () => {
   const calls = [];
-  const payload = { version: "1", generated_at: "2026-07-27T00:00:00Z", categories: [] };
+  const payload = {
+    version: "1",
+    generated_at: "2026-07-27T00:00:00Z",
+    pricing: { tax_name: "HST", tax_rate_millionths: 1_300_000 },
+    categories: [],
+  };
 
   const result = await fetchCatalog({
     fetchImpl: async (...args) => {
@@ -43,7 +48,11 @@ test("fetchCatalog supports an explicit API base URL and abort signal", async ()
       return {
         ok: true,
         status: 200,
-        json: async () => ({ version: "1", categories: [] }),
+        json: async () => ({
+          version: "1",
+          pricing: { tax_name: "HST", tax_rate_millionths: 1_300_000 },
+          categories: [],
+        }),
       };
     },
   });

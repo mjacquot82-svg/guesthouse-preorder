@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.catalog.repository import CatalogRepository
 from app.catalog.schemas import CatalogResponse
 from app.catalog.service import CatalogService
+from app.availability.repository import AvailabilityRepository
+from app.orders.pricing import DEFAULT_TAX_NAME, DEFAULT_TAX_RATE_MILLIONTHS
 
 router = APIRouter()
 
@@ -28,7 +30,15 @@ def get_catalog(
     session: Session = Depends(get_catalog_session),
 ) -> CatalogResponse:
     try:
-        return CatalogService(CatalogRepository(session)).build_catalog()
+        pricing = AvailabilityRepository(session).get_business_settings()
+        return CatalogService(
+            CatalogRepository(session),
+            tax_name=pricing.tax_name if pricing else DEFAULT_TAX_NAME,
+            tax_rate_millionths=(
+                pricing.tax_rate_millionths
+                if pricing else DEFAULT_TAX_RATE_MILLIONTHS
+            ),
+        ).build_catalog()
     except SQLAlchemyError as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
