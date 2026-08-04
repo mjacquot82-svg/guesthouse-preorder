@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { UserRound } from "lucide-react";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerProfile, updateCustomerProfile } from "../services/customerAccountApi.js";
@@ -12,13 +12,7 @@ export default function AccountPage() {
     if (session) fetchCustomerProfile().then(setProfile).catch((error) => setMessage(error.message));
   }, [session]);
   if (authStatus === "loading") return <section className="page-section compact-section"><p>Checking your account…</p></section>;
-  if (!session) return (
-    <section className="page-section ordering-page app-simple-page">
-      <div className="ordering-top-card compact-app-heading"><div><p className="eyebrow">Cafe profile</p><h1>Account</h1><p>Sign in for faster checkout and your order history.</p></div></div>
-      <div className="content-block app-content-block account-card"><span className="account-avatar"><UserRound size={24} /></span><div><h2>Guest ordering is always available</h2><p>Create an account only if you want saved details and order history.</p></div></div>
-      <div className="form-actions"><Link className="primary-button" to="/login">Sign In</Link><Link className="secondary-button" to="/register">Create Account</Link></div>
-    </section>
-  );
+  if (!session) return <Navigate replace to="/account/sign-in" />;
   async function save(event) {
     event.preventDefault(); setMessage("");
     try { setProfile(await updateCustomerProfile(profile, session.csrf_token)); setMessage("Profile saved."); }
@@ -27,7 +21,8 @@ export default function AccountPage() {
   return (
     <section className="page-section ordering-page app-simple-page">
       <div className="ordering-top-card compact-app-heading"><div><p className="eyebrow">Cafe profile</p><h1>Account</h1><p>Your defaults for faster checkout.</p></div></div>
-      {profile ? <form className="content-block app-content-block product-form" onSubmit={save}>
+      {profile ? <form id="profile" className="content-block app-content-block product-form" onSubmit={save}>
+        <div className="account-card"><span className="account-avatar"><UserRound size={24} /></span><div><h2>Profile</h2><p>Manage the details saved to your account.</p></div></div>
         <label><span>Name</span><input required value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} /></label>
         <label><span>Email</span><input disabled value={profile.email} /></label>
         <label><span>Phone</span><input required type="tel" value={profile.phone} onChange={(event) => setProfile({ ...profile, phone: event.target.value })} /></label>
@@ -35,7 +30,7 @@ export default function AccountPage() {
         <label><span>Preferred pickup information</span><textarea maxLength={500} rows="3" value={profile.preferred_pickup_notes} onChange={(event) => setProfile({ ...profile, preferred_pickup_notes: event.target.value })} /></label>
         <button className="primary-button" type="submit">Save profile</button>{message ? <p className="form-status">{message}</p> : null}
       </form> : <p>Loading your profile…</p>}
-      <div className="form-actions"><Link className="secondary-button" to="/orders">Order history</Link><button className="secondary-button" type="button" onClick={logout}>Sign out</button></div>
+      <div className="form-actions"><a className="secondary-button" href="#profile">Profile</a><Link className="secondary-button" to="/orders">My Orders</Link><button className="secondary-button" type="button" onClick={logout}>Logout</button></div>
     </section>
   );
 }

@@ -24,6 +24,14 @@ const customerResetSource = await readFile(
   new URL("../../src/pages/CustomerResetPage.jsx", import.meta.url),
   "utf8"
 );
+const customerLayoutSource = await readFile(
+  new URL("../../src/layouts/AppLayout.jsx", import.meta.url),
+  "utf8"
+);
+const accountSource = await readFile(
+  new URL("../../src/pages/AccountPage.jsx", import.meta.url),
+  "utf8"
+);
 
 test("customer authentication routes are registered", () => {
   for (const path of [
@@ -35,6 +43,15 @@ test("customer authentication routes are registered", () => {
   ]) {
     assert.match(appSource, new RegExp(`path=["']${path.replace("/", "\\/")}["']`));
   }
+});
+
+test("primary navigation exposes the authentication-aware customer account flow", () => {
+  assert.match(customerLayoutSource, /label: "Account"/);
+  assert.match(customerLayoutSource, /session \? "\/account" : "\/account\/sign-in"/);
+  assert.doesNotMatch(customerLayoutSource, /label: "Orders"/);
+  assert.match(accountSource, />Profile</);
+  assert.match(accountSource, />My Orders</);
+  assert.match(accountSource, />Logout</);
 });
 
 test("owner session lookup remains lazy outside protected owner routes", () => {
