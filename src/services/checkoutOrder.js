@@ -1,7 +1,6 @@
 import { OrderApiError } from "./orderApi.js";
 import { normalizeCustomerPhone } from "./customerPhone.js";
 
-const PICKUP_INTERVAL_MINUTES = 5;
 const PENDING_ORDER_SUBMISSION_KEY = "guesthouse-pending-order-submission";
 
 function canonicalize(value) {
@@ -44,42 +43,6 @@ function requireBackendId(value, field) {
     throw new Error(`${field} is unavailable.`);
   }
   return numericValue;
-}
-
-function roundPickupForward(value) {
-  const intervalMilliseconds = PICKUP_INTERVAL_MINUTES * 60 * 1000;
-  return new Date(
-    Math.ceil(value.getTime() / intervalMilliseconds) * intervalMilliseconds
-  );
-}
-
-export function resolvePickupTimestamp({
-  pickupTime,
-  customPickupTime,
-  quickPickupMinutes,
-  now = new Date(),
-}) {
-  if (pickupTime !== "custom") {
-    return roundPickupForward(
-      new Date(now.getTime() + quickPickupMinutes * 60 * 1000)
-    ).toISOString();
-  }
-
-  const [hours, minutes] = customPickupTime.split(":").map(Number);
-  if (
-    !Number.isInteger(hours) ||
-    !Number.isInteger(minutes) ||
-    hours < 0 ||
-    hours > 23 ||
-    minutes < 0 ||
-    minutes > 59
-  ) {
-    throw new Error("Choose a valid pickup time.");
-  }
-
-  const pickup = new Date(now);
-  pickup.setHours(hours, minutes, 0, 0);
-  return pickup.toISOString();
 }
 
 export function buildPendingOrderRequest({

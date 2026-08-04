@@ -9,7 +9,6 @@ import {
   getOrderErrorMessage,
   isCheckoutContactComplete,
   prepareOrderSubmission,
-  resolvePickupTimestamp,
   resolveVisibleCheckoutContact,
 } from "../../src/services/checkoutOrder.js";
 import { OrderApiError } from "../../src/services/orderApi.js";
@@ -107,31 +106,6 @@ test("visible autofilled checkout values override stale React contact state", ()
       phone: "+15198816869",
     }
   );
-});
-
-test("resolvePickupTimestamp maps quick and custom pickup selections", () => {
-  const now = new Date("2026-07-28T12:01:30.000Z");
-
-  assert.equal(
-    resolvePickupTimestamp({
-      pickupTime: "asap",
-      customPickupTime: "08:30",
-      quickPickupMinutes: 15,
-      now,
-    }),
-    "2026-07-28T12:20:00.000Z"
-  );
-
-  const custom = resolvePickupTimestamp({
-    pickupTime: "custom",
-    customPickupTime: "14:35",
-    quickPickupMinutes: 15,
-    now,
-  });
-  const customDate = new Date(custom);
-  assert.equal(customDate.getHours(), 14);
-  assert.equal(customDate.getMinutes(), 35);
-  assert.equal(customDate.getSeconds(), 0);
 });
 
 test("buildPendingOrderRequest rejects missing opaque identifiers", () => {

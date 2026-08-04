@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from enum import Enum
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -29,6 +29,29 @@ class PickupValidation:
     code: PickupValidationCode
     requested_at: datetime
     message: str | None = None
+
+
+@dataclass(frozen=True)
+class QuickPickupOption:
+    key: str
+    label: str
+    requested_at: datetime
+    preference_minutes: int | None = None
+
+
+@dataclass(frozen=True)
+class SchedulingOptions:
+    server_now: datetime
+    business_timezone: str
+    ordering_available: bool
+    unavailable_reason: str | None
+    minimum_lead_time_minutes: int
+    pickup_interval_minutes: int
+    maximum_advance_days: int
+    earliest_pickup_at: datetime | None
+    quick_pickup_options: tuple[QuickPickupOption, ...]
+    custom_pickup_at: datetime | None = None
+    custom_pickup_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -63,6 +86,8 @@ def _round_forward(value: datetime, interval_minutes: int) -> datetime:
 
 
 class PickupSchedulingService:
+    QUICK_PICKUP_PREFERENCES = (10, 20, 30, 60)
+
     def __init__(self, repository: AvailabilityRepositoryProtocol) -> None:
         self._repository = repository
 
@@ -196,6 +221,99 @@ class PickupSchedulingService:
             candidate = self._next_day(candidate)
 
         return None
+
+    def options(
+        self,
+        *,
+        now: datetime,
+        custom_pickup_time: time | None = None,
+    ) -> SchedulingOptions:
+        """Build customer pickup choices from the authoritative business rules."""
+        _require_aware(now, "now")
+        settings = self._settings()
+        timezone = _business_timezone(settings)
+        local_now = now.astimezone(timezone)
+
+        if not settings.ordering_enabled:
+            return self._options_unavailable(
+                local_now,
+                settings,
+                "Online ordering is currently unavailable.",
+            )
+
+        earliest = self.earliest_pickup(now=now)
+        if earliest is None:
+            return self._options_unavailable(
+                local_now,
+                settings,
+                "No pickup times are currently available.",
+            )
+
+        options = [QuickPickupOption("asap", "ASAP", earliest)]
+        seen = {earliest}
+        for minutes in self.QUICK_PICKUP_PREFERENCES:
+            candidate = _round_forward(
+                local_now + timedelta(minutes=minutes),
+                settings.pickup_interval_minutes,
+            )
+            validation = self.validate(candidate, now=now)
+            if not validation.is_valid or validation.requested_at in seen:
+                continue
+            seen.add(validation.requested_at)
+            options.append(
+                QuickPickupOption(
+                    key=f"preference-{minutes}",
+                    label=f"{minutes} min",
+                    requested_at=validation.requested_at,
+                    preference_minutes=minutes,
+                )
+            )
+
+        custom_pickup_at = None
+        custom_pickup_error = None
+        if custom_pickup_time is not None:
+            custom_candidate = datetime.combine(
+                local_now.date(),
+                custom_pickup_time.replace(tzinfo=None),
+                tzinfo=timezone,
+            )
+            custom_validation = self.validate(custom_candidate, now=now)
+            if custom_validation.is_valid:
+                custom_pickup_at = custom_validation.requested_at
+            else:
+                custom_pickup_error = custom_validation.message
+
+        return SchedulingOptions(
+            server_now=local_now,
+            business_timezone=settings.timezone,
+            ordering_available=True,
+            unavailable_reason=None,
+            minimum_lead_time_minutes=settings.minimum_lead_time_minutes,
+            pickup_interval_minutes=settings.pickup_interval_minutes,
+            maximum_advance_days=settings.maximum_advance_days,
+            earliest_pickup_at=earliest,
+            quick_pickup_options=tuple(options),
+            custom_pickup_at=custom_pickup_at,
+            custom_pickup_error=custom_pickup_error,
+        )
+
+    @staticmethod
+    def _options_unavailable(
+        local_now: datetime,
+        settings: BusinessSettings,
+        reason: str,
+    ) -> SchedulingOptions:
+        return SchedulingOptions(
+            server_now=local_now,
+            business_timezone=settings.timezone,
+            ordering_available=False,
+            unavailable_reason=reason,
+            minimum_lead_time_minutes=settings.minimum_lead_time_minutes,
+            pickup_interval_minutes=settings.pickup_interval_minutes,
+            maximum_advance_days=settings.maximum_advance_days,
+            earliest_pickup_at=None,
+            quick_pickup_options=(),
+        )
 
     def _settings(self) -> BusinessSettings:
         settings = self._repository.get_business_settings()

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ClipboardList, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import { resolveCart } from "../services/cartCatalog.js";
@@ -10,7 +10,6 @@ import {
   prepareOrderSubmission,
   resolveVisibleCheckoutContact,
   isCheckoutContactComplete,
-  resolvePickupTimestamp,
 } from "../services/checkoutOrder.js";
 import { createPendingOrder } from "../services/orderApi.js";
 import { createCloverCheckout } from "../services/cloverService.js";
@@ -19,34 +18,11 @@ import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerProfile } from "../services/customerAccountApi.js";
 import { formatCustomerPhone } from "../services/customerPhone.js";
 import { formatTaxLabel, getOrderPricing } from "../services/orderPricing.js";
-
-const quickPickupOptions = [
-  {
-    value: "asap",
-    label: "ASAP",
-    minutes: 15,
-  },
-  {
-    value: "10",
-    label: "10 min",
-    minutes: 10,
-  },
-  {
-    value: "20",
-    label: "20 min",
-    minutes: 20,
-  },
-  {
-    value: "30",
-    label: "30 min",
-    minutes: 30,
-  },
-  {
-    value: "60",
-    label: "1 hour",
-    minutes: 60,
-  },
-];
+import {
+  buildSchedulingLines,
+  fetchSchedulingOptions,
+  resolveSchedulingSelection,
+} from "../services/schedulingApi.js";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-US", {
@@ -67,38 +43,27 @@ function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
-function getStoredPickupTime() {
+function getStoredPickupIntent() {
   try {
-    const storedPickupTime = window.localStorage.getItem("guesthouse-pickup-time");
-    const isSupportedPickupTime =
-      storedPickupTime === "custom" ||
-      quickPickupOptions.some((option) => option.value === storedPickupTime);
-
-    return isSupportedPickupTime ? storedPickupTime : quickPickupOptions[0].value;
+    const stored = window.localStorage.getItem("guesthouse-pickup-intent");
+    const intent = stored ? JSON.parse(stored) : null;
+    if (intent?.type === "custom" || intent?.type === "asap") return intent;
+    if (intent?.type === "preference" && Number.isInteger(intent.minutes)) return intent;
   } catch {
-    return quickPickupOptions[0].value;
+    // Fall through to the backend ASAP default.
   }
+  return { type: "asap" };
 }
 
-function storePickupTime(value) {
-  window.localStorage.setItem("guesthouse-pickup-time", value);
-}
-
-function getRoundedPickupTime(addMinutes = 20) {
-  const nextTime = new Date(Date.now() + addMinutes * 60 * 1000);
-  const roundedMinutes = Math.ceil(nextTime.getMinutes() / 5) * 5;
-  nextTime.setMinutes(roundedMinutes, 0, 0);
-
-  return `${String(nextTime.getHours()).padStart(2, "0")}:${String(
-    nextTime.getMinutes()
-  ).padStart(2, "0")}`;
+function storePickupIntent(intent) {
+  window.localStorage.setItem("guesthouse-pickup-intent", JSON.stringify(intent));
 }
 
 function getStoredCustomPickupTime() {
   try {
-    return window.localStorage.getItem("guesthouse-custom-pickup-time") || getRoundedPickupTime();
+    return window.localStorage.getItem("guesthouse-custom-pickup-time") || "";
   } catch {
-    return getRoundedPickupTime();
+    return "";
   }
 }
 
@@ -106,39 +71,23 @@ function storeCustomPickupTime(value) {
   window.localStorage.setItem("guesthouse-custom-pickup-time", value);
 }
 
-function formatReadyTime(date) {
+function formatReadyTime(date, timeZone) {
   return new Intl.DateTimeFormat("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone,
   }).format(date);
-}
-
-function getCustomPickupDate(timeValue) {
-  const [hours, minutes] = timeValue.split(":").map(Number);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return getCustomPickupDate(getRoundedPickupTime());
-  }
-
-  const readyTime = new Date();
-  readyTime.setHours(hours || 0, minutes || 0, 0, 0);
-
-  return readyTime;
-}
-
-function getLocalDateKey(value = new Date()) {
-  return [
-    value.getFullYear(),
-    String(value.getMonth() + 1).padStart(2, "0"),
-    String(value.getDate()).padStart(2, "0"),
-  ].join("-");
 }
 
 export default function CartPage() {
   const { session } = useCustomerAuth();
   const { status, catalog, reload } = useCustomerCatalog();
   const [cart, setCart] = useState(getStoredCart);
-  const [pickupTime, setPickupTime] = useState(getStoredPickupTime);
+  const [pickupIntent, setPickupIntent] = useState(getStoredPickupIntent);
   const [customPickupTime, setCustomPickupTime] = useState(getStoredCustomPickupTime);
+  const [schedule, setSchedule] = useState(null);
+  const [scheduleStatus, setScheduleStatus] = useState("loading");
+  const [scheduleError, setScheduleError] = useState("");
   const [checkoutContact, setCheckoutContact] = useState({
     name: "",
     email: "",
@@ -165,8 +114,9 @@ export default function CartPage() {
         };
         checkoutContactRef.current = contact;
         setCheckoutContact(contact);
-        const preferredOption = quickPickupOptions.find((option) => option.minutes === profile.preferred_pickup_minutes);
-        if (preferredOption) updatePickupTime(preferredOption.value);
+        if (profile.preferred_pickup_minutes != null) {
+          updatePickupIntent({ type: "preference", minutes: profile.preferred_pickup_minutes });
+        }
         if (profile.preferred_pickup_notes) setOrderNotes(profile.preferred_pickup_notes);
       })
       .catch(() => {
@@ -183,20 +133,45 @@ export default function CartPage() {
     () => resolveCart(catalog, cart),
     [catalog, cart]
   );
+  const schedulingLines = useMemo(
+    () => buildSchedulingLines(resolvedCart.lines),
+    [resolvedCart.lines]
+  );
+  const schedulingLinesKey = JSON.stringify(schedulingLines);
+  const refreshScheduling = useCallback(async ({ signal } = {}) => {
+    if (!schedulingLines.length) return null;
+    setScheduleStatus("loading");
+    try {
+      const value = await fetchSchedulingOptions({
+        lines: schedulingLines,
+        customPickupTime: pickupIntent.type === "custom" ? customPickupTime : null,
+      }, { signal });
+      setSchedule(value);
+      setScheduleStatus("ready");
+      setScheduleError("");
+      return value;
+    } catch (error) {
+      if (error?.name === "AbortError") return null;
+      setSchedule(null);
+      setScheduleStatus("error");
+      setScheduleError(error.message || "Pickup scheduling is currently unavailable.");
+      return null;
+    }
+  }, [customPickupTime, pickupIntent.type, schedulingLinesKey]);
+  useEffect(() => {
+    if (status !== "ready" || resolvedCart.hasStaleLines || !schedulingLines.length) return;
+    const controller = new AbortController();
+    refreshScheduling({ signal: controller.signal });
+    return () => controller.abort();
+  }, [refreshScheduling, resolvedCart.hasStaleLines, schedulingLines.length, status]);
   const orderPricing = useMemo(
     () => getOrderPricing(resolvedCart.totalCents, catalog.pricing),
     [catalog.pricing, resolvedCart.totalCents]
   );
-  const selectedQuickPickupTime =
-    quickPickupOptions.find((option) => option.value === pickupTime) || quickPickupOptions[0];
-  const pickupSummary = useMemo(() => {
-    if (pickupTime === "custom") {
-      return `Ready around ${formatReadyTime(getCustomPickupDate(customPickupTime))}`;
-    }
-
-    const readyTime = new Date(Date.now() + selectedQuickPickupTime.minutes * 60 * 1000);
-    return `Ready around ${formatReadyTime(readyTime)}`;
-  }, [customPickupTime, pickupTime, selectedQuickPickupTime]);
+  const selectedPickup = resolveSchedulingSelection(schedule, pickupIntent);
+  const pickupSummary = selectedPickup?.requested_pickup_at
+    ? `Ready around ${formatReadyTime(new Date(selectedPickup.requested_pickup_at), schedule.business_timezone)}`
+    : scheduleStatus === "loading" ? "Checking pickup times…" : "Pickup time unavailable";
 
   function updateQuantity(itemId, nextQuantity) {
     if (submissionGate.current.isInFlight()) {
@@ -214,12 +189,12 @@ export default function CartPage() {
     }
   }
 
-  function updatePickupTime(value) {
+  function updatePickupIntent(intent) {
     if (submissionGate.current.isInFlight()) {
       return;
     }
-    setPickupTime(value);
-    storePickupTime(value);
+    setPickupIntent(intent);
+    storePickupIntent(intent);
   }
 
   function updateCustomPickupTime(value) {
@@ -227,7 +202,7 @@ export default function CartPage() {
 
     setCustomPickupTime(value);
     storeCustomPickupTime(value);
-    updatePickupTime("custom");
+    updatePickupIntent({ type: "custom" });
   }
 
   function updateCheckoutContact(field, value) {
@@ -318,11 +293,10 @@ export default function CartPage() {
     setCheckoutError("");
 
     try {
-      const requestedPickupAt = resolvePickupTimestamp({
-        pickupTime,
-        customPickupTime,
-        quickPickupMinutes: selectedQuickPickupTime.minutes,
-      });
+      if (!schedule?.ordering_available || !selectedPickup?.requested_pickup_at) {
+        throw new Error(schedule?.unavailable_reason || schedule?.custom_pickup_error || "Choose an available pickup time.");
+      }
+      const requestedPickupAt = selectedPickup.requested_pickup_at;
       const request = buildPendingOrderRequest({
         contact: canonicalContact,
         idempotencyKey: "",
@@ -330,23 +304,17 @@ export default function CartPage() {
         notes: orderNotes,
         requestedPickupAt,
       });
-      const submission = await prepareOrderSubmission(request, {
-        fingerprintPayload: {
-          ...request,
-          requested_pickup_at: {
-            business_date: getLocalDateKey(),
-            custom_time:
-              pickupTime === "custom" ? customPickupTime : null,
-            selection: pickupTime,
-          },
-        },
-      });
+      const submission = await prepareOrderSubmission(request);
       const order = await createPendingOrder(submission);
       const checkout = await createCloverCheckout(order.public_token);
 
       window.location.assign(checkout.checkout_url);
     } catch (error) {
       setCheckoutError(getOrderErrorMessage(error));
+      if (error?.code === "pickup_invalid") {
+        clearOrderSubmission();
+        await refreshScheduling();
+      }
     } finally {
       submissionGate.current.end();
       setIsPlacingOrder(false);
@@ -468,33 +436,41 @@ export default function CartPage() {
             <strong>{pickupSummary}</strong>
           </div>
           <div className="pickup-time-options" role="radiogroup" aria-label="Quick pickup timing">
-            {quickPickupOptions.map((option) => (
-              <label key={option.value} className={option.value === pickupTime ? "selected" : ""}>
+            {(schedule?.quick_pickup_options || []).map((option) => {
+              const optionIntent = option.preference_minutes == null
+                ? { type: "asap" }
+                : { type: "preference", minutes: option.preference_minutes };
+              const isSelected = selectedPickup?.key === option.key && pickupIntent.type !== "custom";
+              return (
+              <label key={option.key} className={isSelected ? "selected" : ""}>
                 <input
-                  checked={option.value === pickupTime}
+                  checked={isSelected}
                   disabled={isPlacingOrder}
                   name="pickup-time"
                   type="radio"
-                  value={option.value}
-                  onChange={() => updatePickupTime(option.value)}
+                  value={option.key}
+                  onChange={() => updatePickupIntent(optionIntent)}
                 />
                 <span>{option.label}</span>
               </label>
-            ))}
+              );
+            })}
           </div>
-          <div className={`custom-pickup-time${pickupTime === "custom" ? " selected" : ""}`}>
+          <div className={`custom-pickup-time${pickupIntent.type === "custom" ? " selected" : ""}`}>
             <label htmlFor="custom-pickup-time">Ready around...</label>
             <input
               id="custom-pickup-time"
               disabled={isPlacingOrder}
-              min="06:00"
               required
-              step="300"
+              step={schedule ? schedule.pickup_interval_minutes * 60 : undefined}
               type="time"
               value={customPickupTime}
               onChange={(event) => updateCustomPickupTime(event.target.value)}
-              onFocus={() => updatePickupTime("custom")}
+              onFocus={() => updatePickupIntent({ type: "custom" })}
             />
+            {pickupIntent.type === "custom" && schedule?.custom_pickup_error ? (
+              <small role="alert">{schedule.custom_pickup_error}</small>
+            ) : null}
           </div>
         </div>
         <div className="cart-summary-detail">
@@ -577,7 +553,11 @@ export default function CartPage() {
           <span>Estimated Total</span>
           <strong>{formatPrice(orderPricing.totalCents / 100)}</strong>
         </div>
-        {checkoutError ? (
+        {!schedule?.ordering_available && schedule?.unavailable_reason ? (
+          <p className="form-status checkout-error" role="alert">{schedule.unavailable_reason}</p>
+        ) : scheduleError ? (
+          <p className="form-status checkout-error" role="alert">{scheduleError}</p>
+        ) : checkoutError ? (
           <p className="form-status checkout-error" role="alert">
             {checkoutError}
           </p>
@@ -590,7 +570,7 @@ export default function CartPage() {
           <button
             aria-busy={isPlacingOrder}
             className="primary-button"
-            disabled={isPlacingOrder}
+            disabled={isPlacingOrder || scheduleStatus !== "ready" || !schedule?.ordering_available || !selectedPickup}
             type="button"
             onClick={placeOrder}
           >

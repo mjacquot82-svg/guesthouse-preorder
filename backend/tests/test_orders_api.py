@@ -138,6 +138,66 @@ def test_create_order_returns_public_pending_snapshot(
 
 
 @pytest.mark.postgresql
+def test_scheduling_options_accept_cart_identifiers_and_return_exact_timestamps(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+) -> None:
+    client, _, ids = orders_api
+
+    response = client.post(
+        "/api/v1/scheduling/options",
+        json={
+            "lines": [{
+                "product_id": ids["product"],
+                "variant_id": ids["large"],
+                "quantity": 2,
+            }],
+            "custom_pickup_time": "08:30",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["ordering_available"] is True
+    assert body["minimum_lead_time_minutes"] == 15
+    assert body["pickup_interval_minutes"] == 5
+    assert body["maximum_advance_days"] == 14
+    assert body["earliest_pickup_at"] == local_datetime(8, 15).isoformat()
+    assert body["quick_pickup_options"][0] == {
+        "key": "asap",
+        "label": "ASAP",
+        "requested_pickup_at": local_datetime(8, 15).isoformat(),
+        "preference_minutes": None,
+    }
+    assert body["custom_pickup_at"] == local_datetime(8, 30).isoformat()
+
+
+@pytest.mark.postgresql
+def test_order_creation_rejects_pickup_that_became_stale_after_scheduling(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+) -> None:
+    client, engine, ids = orders_api
+    schedule = client.post(
+        "/api/v1/scheduling/options",
+        json={"lines": [{"product_id": ids["product"], "variant_id": ids["large"], "quantity": 1}]},
+    ).json()
+
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE business_settings SET minimum_lead_time_minutes = 30 WHERE id = 1"))
+
+    response = client.post(
+        "/api/v1/orders",
+        json=order_payload(
+            ids,
+            idempotency_key="stale-scheduled-pickup",
+            requested_pickup_at=schedule["earliest_pickup_at"],
+        ),
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"]["code"] == "pickup_invalid"
+
+
+@pytest.mark.postgresql
 def test_create_order_replays_idempotently_and_rejects_conflict(
     orders_api: tuple[TestClient, Engine, dict[str, int]],
 ) -> None:

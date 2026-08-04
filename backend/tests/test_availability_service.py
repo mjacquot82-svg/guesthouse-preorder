@@ -225,6 +225,108 @@ def test_earliest_pickup_skips_closures_and_closed_days() -> None:
     assert result == local_datetime(2026, 8, 3, 7)
 
 
+def test_scheduling_options_expose_authoritative_open_day_configuration() -> None:
+    repository = FakeAvailabilityRepository()
+    result = PickupSchedulingService(repository).options(
+        now=local_datetime(2026, 7, 28, 8, 2),
+    )
+
+    assert result.ordering_available is True
+    assert result.server_now == local_datetime(2026, 7, 28, 8, 2)
+    assert result.business_timezone == "America/New_York"
+    assert result.minimum_lead_time_minutes == 15
+    assert result.pickup_interval_minutes == 5
+    assert result.maximum_advance_days == 14
+    assert result.earliest_pickup_at == local_datetime(2026, 7, 28, 8, 20)
+    assert result.quick_pickup_options[0].key == "asap"
+    assert result.quick_pickup_options[0].requested_at == result.earliest_pickup_at
+
+
+def test_scheduling_options_skip_closed_weekdays_and_closure_dates() -> None:
+    repository = FakeAvailabilityRepository()
+    repository.closures[date(2026, 8, 1)] = BusinessClosure(
+        business_date=date(2026, 8, 1), reason="Private event"
+    )
+    result = PickupSchedulingService(repository).options(
+        now=local_datetime(2026, 7, 31, 14, 55),
+    )
+
+    # Saturday is closed by date, Sunday by weekday, so Monday is authoritative.
+    assert result.earliest_pickup_at == local_datetime(2026, 8, 3, 7)
+    assert result.quick_pickup_options[0].requested_at == local_datetime(2026, 8, 3, 7)
+
+
+def test_scheduling_options_report_ordering_disabled() -> None:
+    repository = FakeAvailabilityRepository()
+    repository.settings.ordering_enabled = False
+    result = PickupSchedulingService(repository).options(
+        now=local_datetime(2026, 7, 28, 8),
+    )
+
+    assert result.ordering_available is False
+    assert result.unavailable_reason == "Online ordering is currently unavailable."
+    assert result.earliest_pickup_at is None
+    assert result.quick_pickup_options == ()
+
+
+def test_scheduling_options_follow_lead_time_and_interval_changes() -> None:
+    repository = FakeAvailabilityRepository()
+    repository.settings.minimum_lead_time_minutes = 23
+    repository.settings.pickup_interval_minutes = 10
+    result = PickupSchedulingService(repository).options(
+        now=local_datetime(2026, 7, 28, 8, 2),
+    )
+
+    assert result.earliest_pickup_at == local_datetime(2026, 7, 28, 8, 30)
+    assert result.minimum_lead_time_minutes == 23
+    assert result.pickup_interval_minutes == 10
+    assert all(option.requested_at.minute % 10 == 0 for option in result.quick_pickup_options)
+
+
+def test_scheduling_options_respect_horizon_and_report_no_valid_pickup() -> None:
+    repository = FakeAvailabilityRepository()
+    repository.settings.maximum_advance_days = 1
+    for hours in repository.hours.values():
+        hours.is_closed = True
+        hours.opens_at = None
+        hours.closes_at = None
+    result = PickupSchedulingService(repository).options(
+        now=local_datetime(2026, 7, 28, 8),
+    )
+
+    assert result.maximum_advance_days == 1
+    assert result.ordering_available is False
+    assert result.unavailable_reason == "No pickup times are currently available."
+    assert result.quick_pickup_options == ()
+
+
+def test_scheduling_options_use_business_timezone_at_date_boundary() -> None:
+    repository = FakeAvailabilityRepository()
+    result = PickupSchedulingService(repository).options(
+        now=datetime(2026, 7, 29, 1, 2, tzinfo=timezone.utc),
+    )
+
+    assert result.server_now == local_datetime(2026, 7, 28, 21, 2)
+    assert result.earliest_pickup_at == local_datetime(2026, 7, 29, 7)
+
+
+def test_custom_pickup_is_resolved_and_validated_by_scheduling_service() -> None:
+    repository = FakeAvailabilityRepository()
+    service = PickupSchedulingService(repository)
+
+    valid = service.options(
+        now=local_datetime(2026, 7, 28, 8), custom_pickup_time=time(8, 30)
+    )
+    invalid = service.options(
+        now=local_datetime(2026, 7, 28, 8), custom_pickup_time=time(8, 10)
+    )
+
+    assert valid.custom_pickup_at == local_datetime(2026, 7, 28, 8, 30)
+    assert valid.custom_pickup_error is None
+    assert invalid.custom_pickup_at is None
+    assert invalid.custom_pickup_error == "Pickup time does not meet the minimum lead time."
+
+
 def test_pickup_validation_rejects_naive_datetimes_and_unknown_timezone() -> None:
     repository = FakeAvailabilityRepository()
     service = PickupSchedulingService(repository)
