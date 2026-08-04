@@ -123,6 +123,14 @@ export function canonicalizeCheckoutContact(contact = {}) {
   };
 }
 
+export function resolveVisibleCheckoutContact(stateContact = {}, inputContact = {}) {
+  return canonicalizeCheckoutContact({
+    name: typeof inputContact.name === "string" ? inputContact.name : stateContact.name,
+    email: typeof inputContact.email === "string" ? inputContact.email : stateContact.email,
+    phone: typeof inputContact.phone === "string" ? inputContact.phone : stateContact.phone,
+  });
+}
+
 export function isCheckoutContactComplete(contact) {
   const canonical = canonicalizeCheckoutContact(contact);
   return Boolean(canonical.name && canonical.email && canonical.phone);

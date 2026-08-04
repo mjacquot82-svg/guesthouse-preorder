@@ -10,6 +10,7 @@ import {
   isCheckoutContactComplete,
   prepareOrderSubmission,
   resolvePickupTimestamp,
+  resolveVisibleCheckoutContact,
 } from "../../src/services/checkoutOrder.js";
 import { OrderApiError } from "../../src/services/orderApi.js";
 
@@ -88,6 +89,24 @@ test("profile defaults and formatted phones share one canonical checkout contact
     email: "jessie@example.com",
     phone: "+15198816869",
   });
+});
+
+test("visible autofilled checkout values override stale React contact state", () => {
+  assert.deepEqual(
+    resolveVisibleCheckoutContact(
+      { name: "", email: "", phone: "" },
+      {
+        name: "Jessie Guest",
+        email: "jessie@example.com",
+        phone: "(519) 881-6869",
+      }
+    ),
+    {
+      name: "Jessie Guest",
+      email: "jessie@example.com",
+      phone: "+15198816869",
+    }
+  );
 });
 
 test("resolvePickupTimestamp maps quick and custom pickup selections", () => {

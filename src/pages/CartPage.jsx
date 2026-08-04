@@ -4,11 +4,11 @@ import { ClipboardList, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import { resolveCart } from "../services/cartCatalog.js";
 import {
   buildPendingOrderRequest,
-  canonicalizeCheckoutContact,
   clearOrderSubmission,
   createSubmissionGate,
   getOrderErrorMessage,
   prepareOrderSubmission,
+  resolveVisibleCheckoutContact,
   isCheckoutContactComplete,
   resolvePickupTimestamp,
 } from "../services/checkoutOrder.js";
@@ -145,6 +145,7 @@ export default function CartPage() {
     phone: "",
   });
   const checkoutContactRef = useRef(checkoutContact);
+  const checkoutContactInputsRef = useRef({});
   const [orderNotes, setOrderNotes] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
@@ -228,7 +229,16 @@ export default function CartPage() {
   }
 
   async function placeOrder() {
-    const canonicalContact = canonicalizeCheckoutContact(checkoutContactRef.current);
+    const visibleContact = Object.fromEntries(
+      Object.entries(checkoutContactInputsRef.current).map(([field, input]) => [
+        field,
+        input?.value,
+      ])
+    );
+    const canonicalContact = resolveVisibleCheckoutContact(
+      checkoutContactRef.current,
+      visibleContact
+    );
     const validation = {
       checkoutContact: {
         name: checkoutContact.name,
@@ -240,6 +250,7 @@ export default function CartPage() {
         email: checkoutContactRef.current.email,
         phone: checkoutContactRef.current.phone,
       },
+      visibleContact,
       normalizedPhone: canonicalContact.phone,
       conditions: {
         nameComplete: Boolean(canonicalContact.name),
@@ -477,6 +488,7 @@ export default function CartPage() {
                 autoComplete="name"
                 disabled={isPlacingOrder}
                 required
+                ref={(input) => { checkoutContactInputsRef.current.name = input; }}
                 value={checkoutContact.name}
                 onChange={(event) =>
                   updateCheckoutContact("name", event.target.value)
@@ -489,6 +501,7 @@ export default function CartPage() {
                 autoComplete="email"
                 disabled={isPlacingOrder}
                 required
+                ref={(input) => { checkoutContactInputsRef.current.email = input; }}
                 type="email"
                 value={checkoutContact.email}
                 onChange={(event) =>
@@ -502,6 +515,7 @@ export default function CartPage() {
                 autoComplete="tel"
                 disabled={isPlacingOrder}
                 required
+                ref={(input) => { checkoutContactInputsRef.current.phone = input; }}
                 type="tel"
                 value={checkoutContact.phone}
                 onChange={(event) =>
