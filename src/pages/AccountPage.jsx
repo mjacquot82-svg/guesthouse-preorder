@@ -28,7 +28,12 @@ export default function AccountPage() {
     }
     setIsSaving(true);
     try {
-      const saved = await updateCustomerProfile({ ...profile, phone: normalizeCustomerPhone(profile.phone) }, session.csrf_token);
+      const saved = await updateCustomerProfile({
+        name: profile.name,
+        phone: normalizeCustomerPhone(profile.phone),
+        preferred_pickup_minutes: profile.preferred_pickup_minutes,
+        preferred_pickup_notes: profile.preferred_pickup_notes,
+      }, session.csrf_token);
       setProfile({ ...saved, phone: formatCustomerPhone(saved.phone) });
       setMessage("Profile saved.");
     } catch (error) {

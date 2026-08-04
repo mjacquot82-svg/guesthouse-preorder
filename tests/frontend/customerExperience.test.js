@@ -52,6 +52,12 @@ test("checkout renders saved phone data as a controlled value, not a placeholder
   assert.doesNotMatch(cartPageSource, /placeholder="\(519\) 881-6869"/);
 });
 
+test("profile saves exclude the read-only email returned by profile hydration", () => {
+  assert.doesNotMatch(accountPageSource, /updateCustomerProfile\(\{ \.\.\.profile/);
+  assert.match(accountPageSource, /name: profile\.name/);
+  assert.match(accountPageSource, /phone: normalizeCustomerPhone\(profile\.phone\)/);
+});
+
 test("checkout cursor styling distinguishes idle, disabled, and submitting states", async () => {
   const styleSource = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
 
