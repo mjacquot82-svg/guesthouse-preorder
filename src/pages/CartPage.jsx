@@ -168,7 +168,6 @@ export default function CartPage() {
     () => getOrderPricing(resolvedCart.totalCents, catalog.pricing),
     [catalog.pricing, resolvedCart.totalCents]
   );
-  const canPlaceOrder = isCheckoutContactComplete(checkoutContact);
   const selectedQuickPickupTime =
     quickPickupOptions.find((option) => option.value === pickupTime) || quickPickupOptions[0];
   const pickupSummary = useMemo(() => {
@@ -230,6 +229,7 @@ export default function CartPage() {
 
   async function placeOrder() {
     if (!submissionGate.current.begin()) {
+      setCheckoutError("Your order is already being submitted. Please wait.");
       return;
     }
     const canonicalContact = canonicalizeCheckoutContact(checkoutContactRef.current);
@@ -513,8 +513,9 @@ export default function CartPage() {
           </Link>
         ) : (
           <button
+            aria-busy={isPlacingOrder}
             className="primary-button"
-            disabled={isPlacingOrder || !canPlaceOrder}
+            disabled={isPlacingOrder}
             type="button"
             onClick={placeOrder}
           >

@@ -39,5 +39,17 @@ test("customer forms default persistence and expose guarded pending states", () 
   assert.match(verifyPageSource, /disabled=\{isResending\}/);
   assert.match(accountPageSource, /disabled=\{isSaving\}/);
   assert.match(cartPageSource, /disabled=\{isPlacingOrder\}/);
+  assert.doesNotMatch(cartPageSource, /disabled=\{isPlacingOrder \|\| !canPlaceOrder\}/);
+  assert.match(cartPageSource, /aria-busy=\{isPlacingOrder\}/);
   assert.match(cartPageSource, /Placing order…/);
+  assert.match(cartPageSource, /Your order is already being submitted\. Please wait\./);
+  assert.match(cartPageSource, /Add a name, email, and phone number before placing your order\./);
+});
+
+test("checkout cursor styling distinguishes idle, disabled, and submitting states", async () => {
+  const styleSource = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
+
+  assert.match(styleSource, /\.cart-review \.primary-button \{\s*cursor: pointer;/);
+  assert.match(styleSource, /\.cart-review \.primary-button:disabled \{\s*cursor: not-allowed;/);
+  assert.match(styleSource, /\.cart-review \.primary-button\[aria-busy="true"\] \{\s*cursor: progress;/);
 });
