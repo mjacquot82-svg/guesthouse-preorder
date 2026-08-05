@@ -682,15 +682,17 @@ async def hosted_checkout_webhook(
     webhook_diagnostic = {
         "webhook_type": event_type,
         "webhook_status": payment_status,
-        "merchant_id": merchant_id,
+        "merchant_id_masked": _masked_identifier(
+            merchant_id if isinstance(merchant_id, str) else None
+        ),
         "checkout_session_id": checkout_session_id,
     }
-    logger.info(
+    logger.warning(
         "Clover Hosted Checkout webhook received: %s",
         json.dumps(webhook_diagnostic, default=str, sort_keys=True),
     )
     if merchant_id != settings.merchant_id:
-        logger.info(
+        logger.warning(
             "Clover Hosted Checkout webhook ignored: %s",
             json.dumps(
                 {
@@ -715,7 +717,7 @@ async def hosted_checkout_webhook(
             reason = "checkout_session_id_is_missing_or_invalid"
         else:
             reason = "merchant_id_is_missing_or_invalid"
-        logger.info(
+        logger.warning(
             "Clover Hosted Checkout webhook ignored: %s",
             json.dumps(
                 {
@@ -745,7 +747,7 @@ async def hosted_checkout_webhook(
             detail={"code": "webhook_persistence_failed"},
         ) from error
     if order is None:
-        logger.info(
+        logger.warning(
             "Clover Hosted Checkout webhook did not match an order: %s",
             json.dumps(
                 {
@@ -777,7 +779,7 @@ async def hosted_checkout_webhook(
             reason = "unsupported_payment_status"
         else:
             reason = "order_already_has_target_status"
-        logger.info(
+        logger.warning(
             "Clover Hosted Checkout webhook transition skipped: %s",
             json.dumps(
                 {
@@ -801,7 +803,7 @@ async def hosted_checkout_webhook(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "webhook_persistence_failed"},
         ) from error
-    logger.info(
+    logger.warning(
         "Clover Hosted Checkout webhook transition applied: %s",
         json.dumps(
             {
