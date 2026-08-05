@@ -88,27 +88,64 @@ class AuthenticationService:
         self.registration_stage = "not_started"
         self.verification_stage = "not_started"
         self.password_reset_stage = "not_started"
+        self.login_stage = "not_started"
 
     def login(self, email: str, password: str, *, now: datetime, user_agent: str | None, allowed_roles: frozenset[str] | None = None, persistent: bool = False) -> IssuedSession:
-        authentication = self._provider.authenticate_password(email, password)
-        if not authentication.identity.email_verified:
-            raise EmailVerificationRequired("Email verification is required.")
-        with self._session.begin():
-            identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
-            if identity is None or identity.user.status != "active" or identity.user.credential_state != "active":
-                raise MembershipInactive("An active JDS membership is required.")
-            application, organization = self._scope()
-            membership = self._repo.active_membership(identity.user_id, application.id, organization.id)
-            if membership is None:
-                raise MembershipInactive("An active JDS membership is required.")
-            role = self._session.get(Role, membership.role_id)
-            if role is None or (allowed_roles is not None and role.key not in allowed_roles):
-                raise MembershipInactive("This account is not authorized for this experience.")
-            identity.user.last_authenticated_at = now
-            identity.user.email_verified_at = identity.user.email_verified_at or now
-            identity.provider_email = authentication.identity.email
-            issued = self._issue(identity.user, membership, authentication, now, user_agent, persistent)
-            self._audit.record("auth.login", "success", organization_id=organization.id, actor_user_id=identity.user_id, session_id=issued.principal.session_id)
+        logger.warning("customer_login_started")
+        try:
+            self.login_stage = "supabase_password_authentication"
+            authentication = self._provider.authenticate_password(email, password)
+            self.login_stage = "email_verification_validation"
+            if not authentication.identity.email_verified:
+                raise EmailVerificationRequired("Email verification is required.")
+            with self._session.begin():
+                self.login_stage = "local_identity_lookup"
+                identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
+                logger.warning(
+                    "customer_login_local_identity_lookup outcome=%s",
+                    "found" if identity is not None else "not_found",
+                )
+                if identity is None:
+                    logger.warning("customer_login_credential_state_validation outcome=skipped reason=identity_not_found")
+                    raise MembershipInactive("An active JDS membership is required.")
+                self.login_stage = "credential_state_validation"
+                credential_active = identity.user.status == "active" and identity.user.credential_state == "active"
+                logger.warning(
+                    "customer_login_credential_state_validation outcome=%s",
+                    "active" if credential_active else "inactive",
+                )
+                if not credential_active:
+                    raise MembershipInactive("An active JDS membership is required.")
+                self.login_stage = "application_scope_lookup"
+                application, organization = self._scope()
+                self.login_stage = "customer_membership_lookup"
+                membership = self._repo.active_membership(identity.user_id, application.id, organization.id)
+                logger.warning(
+                    "customer_login_membership_lookup outcome=%s membership_active=%s",
+                    "found" if membership is not None else "not_found",
+                    membership is not None,
+                )
+                if membership is None:
+                    raise MembershipInactive("An active JDS membership is required.")
+                self.login_stage = "role_resolution"
+                role = self._session.get(Role, membership.role_id)
+                logger.warning(
+                    "customer_login_role_resolved role=%s",
+                    role.key if role is not None else "not_found",
+                )
+                if role is None or (allowed_roles is not None and role.key not in allowed_roles):
+                    raise MembershipInactive("This account is not authorized for this experience.")
+                self.login_stage = "session_issuance"
+                identity.user.last_authenticated_at = now
+                identity.user.email_verified_at = identity.user.email_verified_at or now
+                identity.provider_email = authentication.identity.email
+                issued = self._issue(identity.user, membership, authentication, now, user_agent, persistent)
+                self._audit.record("auth.login", "success", organization_id=organization.id, actor_user_id=identity.user_id, session_id=issued.principal.session_id)
+        except Exception:
+            logger.warning("customer_login_failed stage=%s", self.login_stage)
+            raise
+        self.login_stage = "complete"
+        logger.warning("customer_login_completed")
         return issued
 
     def register_customer(self, email: str, password: str, display_name: str, phone: str, *, now: datetime) -> None:

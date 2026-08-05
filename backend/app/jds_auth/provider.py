@@ -93,8 +93,48 @@ class SupabaseIdentityProvider:
             json={"email": email, "password": password},
         )
         if response.status_code in {400, 401}:
-            raise InvalidCredentialsError("Authentication failed.")
-        return self._authentication(response)
+            provider_code = "unknown"
+            provider_message = "unknown"
+            try:
+                payload = response.json()
+                if isinstance(payload, dict):
+                    candidate = payload.get("code") or payload.get("error_code")
+                    if isinstance(candidate, str) and candidate:
+                        provider_code = self._diagnostic_value(candidate).replace(password, "[redacted-password]")
+                    candidate = payload.get("message") or payload.get("msg") or payload.get("error_description")
+                    if isinstance(candidate, str) and candidate:
+                        provider_message = self._diagnostic_value(candidate).replace(password, "[redacted-password]")
+            except (ValueError, TypeError):
+                pass
+            logger.warning(
+                "supabase_password_authentication outcome=failed status=%s code=%s message=%r user_id_returned=false",
+                response.status_code,
+                provider_code,
+                provider_message,
+            )
+            raise InvalidCredentialsError(
+                "Authentication failed.",
+                provider_status=response.status_code,
+                provider_code=provider_code,
+                provider_message=provider_message,
+                provider_operation="/auth/v1/token",
+                provider_method="POST",
+            )
+        try:
+            authentication = self._authentication(response)
+        except IdentityProviderError as error:
+            logger.warning(
+                "supabase_password_authentication outcome=failed status=%s code=%s message=%r user_id_returned=false",
+                error.provider_status,
+                error.provider_code,
+                error.provider_message,
+            )
+            raise
+        logger.warning(
+            "supabase_password_authentication outcome=succeeded status=%s code=none message=none user_id_returned=true",
+            response.status_code,
+        )
+        return authentication
 
     def register_user(self, email: str, password: str, redirect_url: str) -> ProviderIdentity:
         response = self._request(
