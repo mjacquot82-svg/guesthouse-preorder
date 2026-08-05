@@ -85,10 +85,19 @@ async def test_database_diagnostics_reports_only_runtime_schema_state(
     assert response.status_code == 200
     payload = response.json()
     assert set(payload) <= {
-        "database", "schema", "current_user", "search_path",
+        "inet_server_addr", "inet_server_port", "pg_postmaster_start_time",
+        "postgresql_version", "database", "schema", "current_user", "search_path",
+        "database_url_host", "supabase_project_reference", "database_fingerprint",
+        "auth_instances_sha256", "auth_instances_row_count", "unavailable_fields",
         "table_detection_sql", "tables", "information_schema_rows",
-        "alembic_revision",
+        "public_table_rows", "alembic_revision",
     }
+    assert len(payload["database_fingerprint"]["sha256"]) == 64
+    assert payload["database_fingerprint"]["source"] in {
+        "postgres_system_identifier", "stable_connection_identifiers"
+    }
+    assert payload["database_url_host"] is None
+    assert payload["supabase_project_reference"] is None
     assert payload["table_detection_sql"] == (
         "SELECT pg_catalog.to_regclass(:table_name) IS NOT NULL"
     )
@@ -96,12 +105,16 @@ async def test_database_diagnostics_reports_only_runtime_schema_state(
         set(row) == {"table_schema", "table_name"}
         for row in payload["information_schema_rows"]
     )
+    assert all(
+        set(row) == {"table_schema", "table_name"}
+        for row in payload["public_table_rows"]
+    )
     assert set(payload["tables"]) == {
         "alembic_version", "jds_applications", "organizations", "jds_users",
         "auth_permissions", "auth_roles", "external_identities",
         "organization_memberships", "owner_sessions", "customer_profiles",
     }
     assert all(isinstance(exists, bool) for exists in payload["tables"].values())
-    assert "url" not in response.text.lower()
-    assert "token" not in response.text.lower()
-    assert "password" not in response.text.lower()
+    assert not {
+        "database_url", "username", "password", "token", "connection_string"
+    } & set(payload)
