@@ -399,6 +399,7 @@ def create_hosted_checkout(
         if order.clover_checkout_expires_at <= now:
             raise ValueError("Clover returned an expired checkout session.")
         order.status = OrderStatus.PAYMENT_PENDING
+        order.version += 1
         session.commit()
     except (CloverApiError, SQLAlchemyError, TypeError, ValueError) as error:
         session.rollback()
@@ -484,7 +485,7 @@ async def hosted_checkout_webhook(
     if order is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    if payment_status == "APPROVED":
+    if payment_status == "APPROVED" and order.status != OrderStatus.PAID:
         order.status = OrderStatus.PAID
     elif (
         payment_status in {"DECLINED", "FAILED"}
@@ -493,6 +494,7 @@ async def hosted_checkout_webhook(
         order.status = OrderStatus.PAYMENT_FAILED
     else:
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+    order.version += 1
     try:
         session.commit()
     except SQLAlchemyError as error:

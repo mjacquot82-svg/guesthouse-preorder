@@ -65,6 +65,12 @@ ORDER_CLOVER_COLUMN_NAMES = frozenset(
         "customer_user_id",
         "tax_name",
         "tax_rate_millionths",
+        "fulfillment_status",
+        "fulfillment_updated_at",
+        "preparing_at",
+        "ready_at",
+        "completed_at",
+        "cancelled_at",
     }
 )
 ORDER_HEAD_ONLY_CHECK_NAMES = frozenset(
@@ -73,6 +79,7 @@ ORDER_HEAD_ONLY_CHECK_NAMES = frozenset(
         "ck_orders_clover_checkout_consistent",
         "ck_orders_tax_name_nonblank",
         "ck_orders_tax_rate_millionths_valid",
+        "ck_orders_fulfillment_status_valid",
     }
 )
 AVAILABILITY_HEAD_ONLY_COLUMN_NAMES = frozenset(

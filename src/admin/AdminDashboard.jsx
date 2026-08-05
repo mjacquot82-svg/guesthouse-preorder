@@ -6,17 +6,19 @@ import {
 } from "../services/cloverService.js";
 import { useCatalogProducts } from "../stores/catalogStore.js";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
+import { fetchOwnerOrderSummary } from "../services/ownerOrdersApi.js";
 
-const metrics = [
-  { label: "Open orders", value: "0", note: "Awaiting live queue" },
-  { label: "Today revenue", value: "$0", note: "Pending payment integration" },
-];
+const money = (cents, currency) => new Intl.NumberFormat("en-CA", {
+  currency,
+  style: "currency",
+}).format(cents / 100);
 
 export default function AdminDashboard() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { logout } = useOwnerAuth();
   const [clover, setClover] = useState({ status: "loading" });
+  const [orderSummary, setOrderSummary] = useState({ status: "loading" });
   const { products } = useCatalogProducts();
   const availableCount = products.filter((product) => product.available).length;
 
@@ -24,6 +26,9 @@ export default function AdminDashboard() {
     fetchCloverConnection()
       .then((connection) => setClover({ status: "ready", ...connection }))
       .catch(() => setClover({ status: "error" }));
+    fetchOwnerOrderSummary()
+      .then((summary) => setOrderSummary({ status: "ready", ...summary }))
+      .catch(() => setOrderSummary({ status: "error" }));
   }, []);
 
   async function handleLogout() {
@@ -48,6 +53,16 @@ export default function AdminDashboard() {
       </div>
 
       <div className="dashboard-grid">
+        <Link className="metric-card metric-card-link" to="/admin/orders">
+          <span>New orders</span>
+          <strong>{orderSummary.status === "loading" ? "—" : orderSummary.status === "ready" ? orderSummary.new : "Unavailable"}</strong>
+          <p>{orderSummary.status === "ready" ? `${orderSummary.preparing} preparing · ${orderSummary.ready} ready` : orderSummary.status === "loading" ? "Loading today’s queue…" : "Orders could not be loaded."}</p>
+        </Link>
+        <Link className="metric-card metric-card-link" to="/admin/orders">
+          <span>Today’s paid pickups</span>
+          <strong>{orderSummary.status === "loading" ? "—" : orderSummary.status === "ready" ? orderSummary.today_paid_count : "Unavailable"}</strong>
+          <p>{orderSummary.status === "ready" && orderSummary.today_paid_count === 0 ? "No paid pickup revenue yet" : orderSummary.status === "ready" && orderSummary.today_paid_revenue_cents !== null && orderSummary.currency ? `${money(orderSummary.today_paid_revenue_cents, orderSummary.currency)} paid pickup revenue` : orderSummary.status === "ready" ? "Revenue unavailable across mixed currencies" : orderSummary.status === "loading" ? "Calculating from paid orders…" : "Revenue could not be loaded."}</p>
+        </Link>
         <article className="metric-card">
           <span>Clover</span>
           <strong>
@@ -69,13 +84,6 @@ export default function AdminDashboard() {
           <strong>{products.length}</strong>
           <p>{availableCount} currently available</p>
         </article>
-        {metrics.map((metric) => (
-          <article className="metric-card" key={metric.label}>
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-            <p>{metric.note}</p>
-          </article>
-        ))}
       </div>
     </section>
   );

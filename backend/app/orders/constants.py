@@ -8,6 +8,14 @@ class OrderStatus(str, Enum):
     PAYMENT_FAILED = "payment_failed"
 
 
+class FulfillmentStatus(str, Enum):
+    NEW = "new"
+    PREPARING = "preparing"
+    READY = "ready"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
 DEFAULT_CURRENCY = "USD"
 DEFAULT_PENDING_EXPIRY_MINUTES = 30
 MAX_LINE_QUANTITY = 50

@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -17,7 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.db.base import Base
-from app.orders.constants import MAX_LINE_QUANTITY, OrderStatus
+from app.orders.constants import FulfillmentStatus, MAX_LINE_QUANTITY, OrderStatus
 
 
 class OrderModelValidation:
@@ -66,6 +67,18 @@ class Order(OrderModelValidation, Base):
         CheckConstraint(
             "status IN ('pending', 'payment_pending', 'paid', 'payment_failed')",
             name="status_valid",
+        ),
+        Index(
+            "ix_orders_active_queue",
+            "status",
+            "fulfillment_status",
+            "requested_pickup_at",
+            "created_at",
+        ),
+        CheckConstraint(
+            "fulfillment_status IN "
+            "('new', 'preparing', 'ready', 'completed', 'cancelled')",
+            name="fulfillment_status_valid",
         ),
         CheckConstraint("btrim(idempotency_key) <> ''", name="idempotency_nonblank"),
         CheckConstraint(
@@ -130,6 +143,12 @@ class Order(OrderModelValidation, Base):
         default=OrderStatus.PENDING,
         server_default=OrderStatus.PENDING.value,
     )
+    fulfillment_status: Mapped[FulfillmentStatus] = mapped_column(
+        String(30),
+        default=FulfillmentStatus.NEW,
+        server_default=FulfillmentStatus.NEW.value,
+        index=True,
+    )
     guest_name: Mapped[str] = mapped_column(String(200))
     guest_email: Mapped[str] = mapped_column(String(320))
     guest_phone: Mapped[str] = mapped_column(String(30))
@@ -159,6 +178,13 @@ class Order(OrderModelValidation, Base):
         DateTime(timezone=True)
     )
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    fulfillment_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True)
+    )
+    preparing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -180,6 +206,15 @@ class Order(OrderModelValidation, Base):
             return OrderStatus(value)
         except ValueError as error:
             raise ValueError("status is invalid.") from error
+
+    @validates("fulfillment_status")
+    def validate_fulfillment_status(
+        self, _: str, value: FulfillmentStatus | str
+    ) -> FulfillmentStatus:
+        try:
+            return FulfillmentStatus(value)
+        except ValueError as error:
+            raise ValueError("fulfillment_status is invalid.") from error
 
     @validates("notes")
     def validate_notes(self, _: str, value: str | None) -> str | None:

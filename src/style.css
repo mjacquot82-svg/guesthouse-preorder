@@ -1030,6 +1030,20 @@ h3 {
   font-size: 2rem;
 }
 
+.metric-card-link:focus-visible,
+.owner-order-summary button:focus-visible,
+.owner-orders-toolbar button:focus-visible,
+.owner-order-actions button:focus-visible,
+.owner-cancel-button:focus-visible,
+.owner-danger-button:focus-visible {
+  outline: 3px solid rgba(127, 141, 117, 0.3);
+  outline-offset: 3px;
+}
+
+.metric-card-link:hover {
+  border-color: var(--sage);
+}
+
 .compact-section {
   display: grid;
   min-height: calc(100vh - 92px);
@@ -2024,6 +2038,315 @@ main {
 }
 
 /* Owner scheduling */
+.owner-orders-page {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.owner-orders-heading,
+.owner-orders-toolbar,
+.owner-order-card-top,
+.owner-order-actions,
+.owner-order-badges,
+.owner-orders-error,
+.owner-orders-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.owner-orders-heading {
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.owner-orders-heading h1 {
+  margin: 2px 0 5px;
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.owner-orders-heading p,
+.owner-order-card p,
+.owner-orders-error p {
+  margin: 0;
+}
+
+.owner-orders-heading .secondary-button,
+.owner-order-actions .primary-button,
+.owner-order-actions .secondary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin: 0;
+}
+
+.owner-order-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 20px 0 12px;
+}
+
+.owner-order-summary button {
+  min-height: 92px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 14px;
+  text-align: left;
+}
+
+.owner-order-summary span,
+.owner-pickup-time span,
+.owner-order-customer span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.owner-order-summary strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 1.8rem;
+}
+
+.owner-orders-toolbar {
+  justify-content: space-between;
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.owner-orders-toolbar [role="tablist"] {
+  display: flex;
+  gap: 5px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  padding: 4px;
+}
+
+.owner-orders-toolbar button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.owner-orders-toolbar button[aria-selected="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 3px 10px rgba(48, 40, 32, 0.08);
+}
+
+.owner-orders-notice,
+.owner-orders-error,
+.owner-orders-empty {
+  border: 1px solid rgba(95, 109, 84, 0.25);
+  border-radius: 16px;
+  background: var(--sage-wash);
+  padding: 14px 16px;
+}
+
+.owner-orders-error {
+  align-items: flex-start;
+  border-color: rgba(166, 96, 74, 0.35);
+  background: #fff1ed;
+}
+
+.owner-orders-error div {
+  flex: 1;
+}
+
+.owner-orders-error button {
+  min-height: 40px;
+}
+
+.owner-order-list,
+.owner-order-skeletons {
+  display: grid;
+  gap: 12px;
+}
+
+.owner-order-card,
+.owner-order-skeletons div,
+.owner-orders-empty {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.owner-order-card {
+  border-left: 6px solid var(--sage);
+  padding: 18px;
+}
+
+.owner-order-card.status-new { border-left-color: #b98224; }
+.owner-order-card.status-ready { border-left-color: #3f7a52; }
+.owner-order-card.status-completed,
+.owner-order-card.status-cancelled { border-left-color: #9a958e; }
+.owner-order-card.is-overdue { box-shadow: 0 0 0 2px rgba(166, 96, 74, 0.2), var(--shadow); }
+
+.owner-order-card-top {
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.owner-order-reference {
+  color: var(--sage-ink);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.owner-order-card h2 {
+  margin: 3px 0 5px;
+}
+
+.owner-pickup-time {
+  min-width: 116px;
+  text-align: right;
+}
+
+.owner-pickup-time strong,
+.owner-pickup-time b {
+  display: block;
+}
+
+.owner-pickup-time strong { font-size: 1.4rem; }
+.owner-pickup-time b { margin-top: 3px; color: var(--sage-ink); font-size: 0.78rem; }
+.owner-pickup-time b.overdue { color: var(--cafe-red); }
+
+.owner-order-badges {
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+
+.owner-order-badges > span,
+.order-badge {
+  border-radius: 999px;
+  background: var(--surface-warm);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 7px 10px;
+}
+
+.owner-order-badges > strong { margin-left: auto; }
+.order-badge.payment-paid { background: #e5f3e7; color: #315f3d; }
+.order-badge.payment-payment_pending { background: #fff0cf; color: #765719; }
+.order-badge.payment-payment_failed { background: #fbe1db; color: #864a3b; }
+.order-badge.fulfillment-ready { background: #dcefe0; color: #315f3d; }
+
+.owner-order-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  background: #fff0cf;
+  color: #6d5018;
+  font-weight: 800;
+  padding: 10px 12px;
+}
+
+.owner-order-actions {
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.owner-order-actions .primary-button { margin-left: auto; }
+.owner-cancel-button,
+.owner-danger-button {
+  min-height: 48px;
+  border: 1px solid rgba(166, 96, 74, 0.4);
+  border-radius: 999px;
+  background: transparent;
+  color: #864a3b;
+  cursor: pointer;
+  font-weight: 850;
+  padding: 0 16px;
+}
+
+.owner-danger-button { background: #934f3d; color: white; }
+
+.owner-order-detail {
+  display: grid;
+  gap: 14px;
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.owner-order-customer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+
+.owner-order-customer div { margin-right: auto; }
+.owner-order-customer a { color: var(--sage-ink); font-weight: 750; text-decoration: underline; }
+.owner-order-note { border-radius: 12px; background: #fff6dc; padding: 12px; }
+.owner-order-note p { margin-top: 4px; }
+
+.owner-order-lines { display: grid; gap: 8px; }
+.owner-order-line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; border-bottom: 1px dashed var(--border); padding: 8px 0; }
+.owner-order-line span,
+.owner-order-line small { grid-column: 1; color: var(--muted); }
+.owner-order-line b { grid-column: 2; grid-row: 1 / span 3; }
+.owner-order-totals { width: min(300px, 100%); margin: 0 0 0 auto; }
+.owner-order-totals div { display: flex; justify-content: space-between; gap: 20px; }
+.owner-order-totals dt,
+.owner-order-totals dd { margin: 0; padding: 3px 0; }
+.owner-order-totals div:last-child { border-top: 1px solid var(--border); margin-top: 4px; font-weight: 900; }
+.owner-order-created { color: var(--muted); font-size: 0.8rem; }
+.owner-order-timeline { display: flex; flex-wrap: wrap; gap: 7px; }
+.owner-order-timeline span { border-radius: 999px; background: var(--sage-wash); color: var(--sage-ink); font-size: 0.75rem; font-weight: 750; padding: 6px 9px; }
+
+.owner-order-skeletons div {
+  min-height: 170px;
+  background: linear-gradient(90deg, #fffdf7 20%, #f2eadc 50%, #fffdf7 80%);
+  background-size: 200% 100%;
+  animation: owner-order-loading 1.2s infinite linear;
+}
+
+@keyframes owner-order-loading { to { background-position: -200% 0; } }
+
+.owner-orders-empty { text-align: center; padding: 44px 20px; }
+.owner-orders-empty h2 { margin: 8px 0 4px; }
+
+.owner-confirm-dialog {
+  width: min(460px, 100%);
+  border: 0;
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+  padding: 24px;
+}
+
+.owner-confirm-dialog::backdrop { background: rgba(34, 27, 22, 0.55); }
+
+.owner-confirm-dialog h2 { margin-top: 0; }
+
+@media (max-width: 700px) {
+  .owner-order-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .owner-orders-heading,
+  .owner-orders-toolbar { align-items: stretch; flex-direction: column; }
+  .owner-orders-heading .secondary-button { width: 100%; }
+  .owner-orders-toolbar > span { text-align: right; }
+  .owner-order-card-top { gap: 8px; }
+  .owner-pickup-time strong { font-size: 1.16rem; }
+  .owner-order-actions > button { flex: 1 1 140px; }
+  .owner-order-actions .primary-button { margin-left: 0; }
+}
+
 .owner-scheduling-page {
   display: grid;
   gap: 22px;
