@@ -177,8 +177,31 @@ def test_clover_network_failures_and_insecure_checkout_urls_are_rejected() -> No
         settings(),
         http_client=httpx.Client(transport=httpx.MockTransport(network_failure)),
     )
-    with pytest.raises(CloverApiError, match="Unable to reach Clover"):
+    with pytest.raises(CloverApiError, match="Unable to reach Clover") as captured:
         unavailable.exchange_code("code")
+    assert captured.value.code == "clover_unreachable"
+    assert captured.value.upstream_status is None
+
+
+def test_clover_rejection_preserves_safe_upstream_diagnostics() -> None:
+    rejected = CloverClient(
+        settings(),
+        http_client=httpx.Client(
+            transport=httpx.MockTransport(
+                lambda _: httpx.Response(401, json={"message": "secret detail"})
+            )
+        ),
+    )
+
+    with pytest.raises(CloverApiError) as captured:
+        rejected.create_checkout(
+            access_token="invalid-token",
+            merchant_id="merchant-id",
+            payload={},
+        )
+
+    assert captured.value.code == "clover_rejected_request"
+    assert captured.value.upstream_status == 401
 
     insecure = CloverClient(
         settings(),

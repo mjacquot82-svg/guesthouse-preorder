@@ -1,10 +1,25 @@
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL || "";
 
+export class CloverCheckoutError extends Error {
+  constructor(message, { cause, code, status } = {}) {
+    super(message, { cause });
+    this.name = "CloverCheckoutError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
 function apiUrl(path, apiBaseUrl = API_BASE_URL) {
   return `${apiBaseUrl.replace(/\/+$/, "")}${path}`;
 }
 
-async function readResponse(response) {
+async function readResponse(
+  response,
+  {
+    ErrorType = Error,
+    fallbackMessage = "Clover is unavailable.",
+  } = {},
+) {
   let payload;
   try {
     payload = await response.json();
@@ -12,8 +27,9 @@ async function readResponse(response) {
     payload = null;
   }
   if (!response.ok) {
-    throw new Error(
-      payload?.detail?.message || "Clover checkout is unavailable."
+    throw new ErrorType(
+      payload?.detail?.message || fallbackMessage,
+      { code: payload?.detail?.code, status: response.status },
     );
   }
   return payload;
@@ -23,17 +39,28 @@ export async function createCloverCheckout(
   publicToken,
   { apiBaseUrl = API_BASE_URL, fetchImpl = globalThis.fetch } = {}
 ) {
-  const response = await fetchImpl(
-    apiUrl(
-      `/api/v1/clover/orders/${encodeURIComponent(publicToken)}/checkout`,
-      apiBaseUrl
-    ),
-    {
-      headers: { Accept: "application/json" },
-      method: "POST",
-    }
-  );
-  const payload = await readResponse(response);
+  let response;
+  try {
+    response = await fetchImpl(
+      apiUrl(
+        `/api/v1/clover/orders/${encodeURIComponent(publicToken)}/checkout`,
+        apiBaseUrl
+      ),
+      {
+        headers: { Accept: "application/json" },
+        method: "POST",
+      }
+    );
+  } catch (cause) {
+    throw new CloverCheckoutError(
+      "We couldn’t connect to start payment. Your order was saved; please check your connection and try payment again.",
+      { cause, code: "network_error" },
+    );
+  }
+  const payload = await readResponse(response, {
+    ErrorType: CloverCheckoutError,
+    fallbackMessage: "Your order was saved, but payment is temporarily unavailable.",
+  });
   if (
     typeof payload?.checkout_url !== "string" ||
     typeof payload?.checkout_session_id !== "string"

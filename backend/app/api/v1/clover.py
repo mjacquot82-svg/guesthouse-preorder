@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
@@ -28,6 +29,7 @@ from app.orders.models import Order, OrderItem
 from app.orders.pricing import calculate_tax_cents
 
 router = APIRouter(prefix="/clover", tags=["clover"])
+logger = logging.getLogger(__name__)
 OAUTH_STATE_COOKIE = "guesthouse_clover_oauth_state"
 MAX_WEBHOOK_BODY_BYTES = 64 * 1024
 
@@ -401,11 +403,56 @@ def create_hosted_checkout(
         order.status = OrderStatus.PAYMENT_PENDING
         order.version += 1
         session.commit()
-    except (CloverApiError, SQLAlchemyError, TypeError, ValueError) as error:
+    except CloverApiError as error:
         session.rollback()
+        logger.error(
+            "Clover checkout creation failed",
+            extra={
+                "clover_error_code": error.code,
+                "clover_upstream_status": error.upstream_status,
+                "order_id": order.id,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail={"code": "clover_checkout_failed", "message": "Checkout is unavailable."},
+            detail={
+                "code": error.code,
+                "message": (
+                    "Your order was saved, but we couldn’t reach our payment "
+                    "provider. Please try payment again."
+                    if error.code in {"clover_timeout", "clover_unreachable"}
+                    else "Your order was saved, but secure payment could not "
+                    "be started. Please try payment again."
+                ),
+            },
+        ) from error
+    except SQLAlchemyError as error:
+        session.rollback()
+        logger.exception(
+            "Checkout persistence failed after Clover response",
+            extra={"order_id": order.id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "checkout_persistence_failed",
+                "message": "Your order was saved, but payment is temporarily "
+                "unavailable. Please try payment again.",
+            },
+        ) from error
+    except (TypeError, ValueError) as error:
+        session.rollback()
+        logger.exception(
+            "Checkout response or order totals were invalid",
+            extra={"order_id": order.id},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "checkout_configuration_error",
+                "message": "Your order was saved, but payment is temporarily "
+                "unavailable. Please try payment again.",
+            },
         ) from error
 
     return CloverCheckoutResponse(

@@ -8,7 +8,16 @@ from app.clover.config import CloverSettings
 
 
 class CloverApiError(RuntimeError):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: str = "clover_api_error",
+        upstream_status: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = code
+        self.upstream_status = upstream_status
 
 
 @dataclass(frozen=True)
@@ -35,8 +44,14 @@ class CloverClient:
             timeout = httpx.Timeout(15, connect=5)
             with httpx.Client(timeout=timeout) as client:
                 return client.post(url, **kwargs)
+        except httpx.TimeoutException as error:
+            raise CloverApiError(
+                "Clover request timed out.", code="clover_timeout"
+            ) from error
         except httpx.RequestError as error:
-            raise CloverApiError("Unable to reach Clover.") from error
+            raise CloverApiError(
+                "Unable to reach Clover.", code="clover_unreachable"
+            ) from error
 
     def authorization_url(self, state: str) -> str:
         query = urlencode(
@@ -138,9 +153,21 @@ class CloverClient:
         try:
             data = response.json()
         except ValueError as error:
-            raise CloverApiError(f"{message}: invalid response.") from error
+            raise CloverApiError(
+                f"{message}: invalid response.",
+                code="clover_invalid_response",
+                upstream_status=response.status_code,
+            ) from error
         if not response.is_success:
-            raise CloverApiError(f"{message} ({response.status_code}).")
+            raise CloverApiError(
+                f"{message} ({response.status_code}).",
+                code="clover_rejected_request",
+                upstream_status=response.status_code,
+            )
         if not isinstance(data, dict):
-            raise CloverApiError(f"{message}: invalid response.")
+            raise CloverApiError(
+                f"{message}: invalid response.",
+                code="clover_invalid_response",
+                upstream_status=response.status_code,
+            )
         return data

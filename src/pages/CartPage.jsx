@@ -232,56 +232,11 @@ export default function CartPage() {
       checkoutContactRef.current,
       visibleContact
     );
-    const validation = {
-      checkoutContact: {
-        name: checkoutContact.name,
-        email: checkoutContact.email,
-        phone: checkoutContact.phone,
-      },
-      validatedContact: {
-        name: checkoutContactRef.current.name,
-        email: checkoutContactRef.current.email,
-        phone: checkoutContactRef.current.phone,
-      },
-      visibleContact,
-      normalizedPhone: canonicalContact.phone,
-      conditions: {
-        nameComplete: Boolean(canonicalContact.name),
-        emailComplete: Boolean(canonicalContact.email),
-        phoneComplete: Boolean(canonicalContact.phone),
-      },
-    };
-    const phoneInput = checkoutContactInputsRef.current.phone;
-    console.info(
-      "[checkout-validation] phone snapshot",
-      JSON.stringify({
-        checkoutContactPhone: checkoutContact.phone,
-        validatedContactPhone: checkoutContactRef.current.phone,
-        visibleContactPhone: visibleContact.phone,
-        inputValue: phoneInput?.value,
-        inputDefaultValue: phoneInput?.defaultValue,
-        inputPlaceholder: phoneInput?.placeholder,
-        normalizedPhone: canonicalContact.phone,
-      })
-    );
-    console.info("[checkout-validation]", validation);
-
     if (!submissionGate.current.begin()) {
-      console.info("[checkout-validation] stopped", {
-        condition: "submissionGate.current.begin()",
-        result: false,
-      });
       setCheckoutError("Your order is already being submitted. Please wait.");
       return;
     }
     if (!isCheckoutContactComplete(canonicalContact)) {
-      console.info("[checkout-validation] stopped", {
-        condition: "isCheckoutContactComplete(canonicalContact)",
-        result: false,
-        failedConditions: Object.entries(validation.conditions)
-          .filter(([, result]) => !result)
-          .map(([condition]) => condition),
-      });
       setCheckoutError(
         "Add a name, email, and phone number before placing your order."
       );

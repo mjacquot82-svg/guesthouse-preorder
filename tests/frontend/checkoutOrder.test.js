@@ -12,6 +12,7 @@ import {
   resolveVisibleCheckoutContact,
 } from "../../src/services/checkoutOrder.js";
 import { OrderApiError } from "../../src/services/orderApi.js";
+import { CloverCheckoutError } from "../../src/services/cloverService.js";
 
 function resolvedLine() {
   return {
@@ -141,7 +142,17 @@ test("getOrderErrorMessage translates stable API codes for customers", () => {
     ),
     "Pickup time is outside business hours."
   );
-  assert.match(getOrderErrorMessage(new TypeError("network")), /connection/);
+  assert.doesNotMatch(
+    getOrderErrorMessage(new TypeError("unexpected")),
+    /connection/i,
+  );
+  assert.equal(
+    getOrderErrorMessage(new CloverCheckoutError(
+      "Your order was saved, but secure payment could not be started.",
+      { code: "clover_rejected_request", status: 502 },
+    )),
+    "Your order was saved, but secure payment could not be started.",
+  );
 });
 
 test("submission gate freezes rapid interaction until the request settles", () => {

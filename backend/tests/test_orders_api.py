@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.availability.models import ProductAvailabilityOverride
 from app.api.v1.clover import create_hosted_checkout, get_settings
 from app.api.v1.orders import get_current_time
-from app.clover.client import CloverClient
+from app.clover.client import CloverApiError, CloverClient
 from app.clover.config import CloverSettings
 from app.main import create_app
 from app.orders.models import Order
@@ -423,6 +423,66 @@ def test_clover_checkout_is_idempotent_and_webhook_state_is_monotonic(
         f"/api/v1/orders/{created['public_token']}"
     ).json()["status"] == "paid"
     assert client.post(path).status_code == 409
+    client.app.dependency_overrides.pop(get_settings, None)
+
+
+@pytest.mark.postgresql
+def test_clover_checkout_failure_preserves_order_and_returns_honest_message(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, ids = orders_api
+    settings = CloverSettings(
+        app_id="app-id",
+        app_secret="app-secret",
+        token_encryption_key=Fernet.generate_key().decode(),
+        state_secret="s" * 48,
+        webhook_secret="w" * 48,
+        public_app_url="https://api.example.test",
+        frontend_url="https://shop.example.test",
+        merchant_id="merchant-id",
+        ecommerce_private_token="private-token",
+    )
+    client.app.dependency_overrides[get_settings] = lambda: settings
+    created = client.post("/api/v1/orders", json=order_payload(ids)).json()
+    with Session(engine) as session:
+        order = session.scalar(
+            select(Order).where(
+                Order.public_access_token == created["public_token"]
+            )
+        )
+        assert order is not None
+        order.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        session.commit()
+
+    def rejected_checkout(*_: object, **__: object) -> dict:
+        raise CloverApiError(
+            "Clover checkout request failed (401).",
+            code="clover_rejected_request",
+            upstream_status=401,
+        )
+
+    monkeypatch.setattr(CloverClient, "create_checkout", rejected_checkout)
+    response = client.post(
+        f"/api/v1/clover/orders/{created['public_token']}/checkout"
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "detail": {
+            "code": "clover_rejected_request",
+            "message": "Your order was saved, but secure payment could not "
+            "be started. Please try payment again.",
+        }
+    }
+    with Session(engine) as session:
+        order = session.scalar(
+            select(Order).where(Order.public_access_token == created["public_token"])
+        )
+        assert order is not None
+        assert order.status == "pending"
+        assert order.clover_checkout_session_id is None
+
     client.app.dependency_overrides.pop(get_settings, None)
 
 

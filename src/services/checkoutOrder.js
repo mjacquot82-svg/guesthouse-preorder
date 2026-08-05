@@ -1,4 +1,5 @@
 import { OrderApiError } from "./orderApi.js";
+import { CloverCheckoutError } from "./cloverService.js";
 import { normalizeCustomerPhone } from "./customerPhone.js";
 
 const PENDING_ORDER_SUBMISSION_KEY = "guesthouse-pending-order-submission";
@@ -181,8 +182,11 @@ export function clearOrderSubmission(
 }
 
 export function getOrderErrorMessage(error) {
+  if (error instanceof CloverCheckoutError) {
+    return error.message;
+  }
   if (!(error instanceof OrderApiError)) {
-    return "We couldn’t place your order. Please check your connection and try again.";
+    return "We couldn’t finish your order. Please try again.";
   }
 
   switch (error.code) {
@@ -200,6 +204,6 @@ export function getOrderErrorMessage(error) {
     case "idempotency_conflict":
       return "This order was already submitted with different details. Please refresh and try again.";
     default:
-      return "We couldn’t place your order. Please check your connection and try again.";
+      return error.message || "We couldn’t finish your order. Please try again.";
   }
 }
