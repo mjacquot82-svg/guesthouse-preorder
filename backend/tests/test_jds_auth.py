@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import AsyncIterator, Iterator
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 import logging
 from urllib.parse import parse_qs, urlparse
 from uuid import UUID
@@ -32,7 +32,7 @@ from app.jds_auth.security import hash_secret
 from app.main import create_app
 from app.catalog.models import Product
 from app.catalog.seed import seed_catalog
-from app.availability.models import ProductAvailability
+from app.availability.models import BusinessClosure, BusinessHour, BusinessSettings, ProductAvailability
 from app.orders.models import Order
 from app.customers.models import CustomerProfile
 from tests.test_migrations import make_alembic_config
@@ -374,6 +374,69 @@ async def test_customer_catalog_stays_public_without_owner_session(
 ) -> None:
     response = await auth_client.get("/api/v1/catalog")
     assert response.status_code == 200
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_owner_scheduling_uses_authoritative_preview_and_protected_mutations(
+    auth_client: AsyncClient,
+    auth_engine: Engine,
+) -> None:
+    assert (await auth_client.get("/api/v1/owner/scheduling")).status_code == 401
+    with Session(auth_engine) as session, session.begin():
+        session.query(BusinessClosure).delete()
+        session.query(BusinessHour).delete()
+        settings = session.get(BusinessSettings, 1)
+        if settings is None:
+            settings = BusinessSettings(timezone="America/Toronto")
+            session.add(settings)
+        settings.ordering_enabled = True
+        settings.ordering_mode = "schedule"
+        settings.minimum_lead_time_minutes = 20
+        settings.pickup_interval_minutes = 5
+        settings.maximum_advance_days = 14
+        for weekday in range(7):
+            session.add(BusinessHour(weekday=weekday, is_closed=False, opens_at=time(0), closes_at=time(23, 59)))
+
+    login = await owner_login(auth_client)
+    csrf_headers = {"Origin": "http://test", "X-CSRF-Token": str(login["csrf_token"])}
+    initial = await auth_client.get("/api/v1/owner/scheduling")
+    assert initial.status_code == 200
+    assert len(initial.json()["hours"]) == 7
+    assert initial.json()["preview"]["ordering_available"] is True
+
+    paused = await auth_client.put(
+        "/api/v1/owner/scheduling/ordering",
+        headers=csrf_headers,
+        json={"ordering_mode": "force_closed"},
+    )
+    assert paused.status_code == 200
+    assert paused.json()["preview"]["ordering_status"] == "paused"
+    assert paused.json()["preview"]["status_reason"] == "Paused by owner."
+
+    preferences = await auth_client.put(
+        "/api/v1/owner/scheduling/preferences",
+        headers=csrf_headers,
+        json={
+            "minimum_lead_time_minutes": 30,
+            "pickup_interval_minutes": 10,
+            "maximum_advance_days": 7,
+        },
+    )
+    assert preferences.status_code == 200
+    assert preferences.json()["minimum_lead_time_minutes"] == 30
+
+    closure = await auth_client.post(
+        "/api/v1/owner/scheduling/closures",
+        headers=csrf_headers,
+        json={
+            "business_date": date.today().isoformat(),
+            "reopens_on": (date.today() + timedelta(days=2)).isoformat(),
+            "reason": "Staff holiday",
+        },
+    )
+    assert closure.status_code == 201
+    assert closure.json()["closures"][0]["reason"] == "Staff holiday"
 
 
 def test_auth_settings_require_production_secrets() -> None:

@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Protocol
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.availability.models import (
@@ -65,7 +65,32 @@ class AvailabilityRepository:
         return self._session.scalar(
             select(BusinessClosure).where(
                 BusinessClosure.business_settings_id == 1,
-                BusinessClosure.business_date == business_date,
+                BusinessClosure.business_date <= business_date,
+                or_(
+                    and_(
+                        BusinessClosure.reopens_on.is_(None),
+                        BusinessClosure.business_date == business_date,
+                    ),
+                    BusinessClosure.reopens_on > business_date,
+                ),
+            )
+        )
+
+    def list_business_hours(self) -> list[BusinessHour]:
+        return list(
+            self._session.scalars(
+                select(BusinessHour)
+                .where(BusinessHour.business_settings_id == 1)
+                .order_by(BusinessHour.weekday)
+            )
+        )
+
+    def list_business_closures(self) -> list[BusinessClosure]:
+        return list(
+            self._session.scalars(
+                select(BusinessClosure)
+                .where(BusinessClosure.business_settings_id == 1)
+                .order_by(BusinessClosure.business_date, BusinessClosure.id)
             )
         )
 

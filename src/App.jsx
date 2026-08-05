@@ -3,6 +3,7 @@ import AppLayout from "./layouts/AppLayout.jsx";
 import AdminDashboard from "./admin/AdminDashboard.jsx";
 import OrdersPage from "./admin/OrdersPage.jsx";
 import ProductsPage from "./admin/ProductsPage.jsx";
+import SchedulingPage from "./admin/SchedulingPage.jsx";
 import CartPage from "./pages/CartPage.jsx";
 import ConfirmationPage from "./pages/ConfirmationPage.jsx";
 import HomePage from "./pages/HomePage.jsx";
@@ -38,6 +39,7 @@ export default function App() {
             <Route index element={<AdminDashboard />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="products" element={<ProductsPage />} />
+            <Route path="scheduling" element={<SchedulingPage />} />
             <Route path="*" element={<Navigate replace to="/admin" />} />
           </Route>
         </Route>

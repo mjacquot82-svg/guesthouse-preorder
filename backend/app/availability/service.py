@@ -44,6 +44,10 @@ class SchedulingOptions:
     server_now: datetime
     business_timezone: str
     ordering_available: bool
+    ordering_status: str
+    ordering_mode: str
+    shop_open: bool
+    status_reason: str | None
     unavailable_reason: str | None
     minimum_lead_time_minutes: int
     pickup_interval_minutes: int
@@ -104,7 +108,8 @@ class PickupSchedulingService:
         local_now = now.astimezone(timezone)
         local_requested = requested_at.astimezone(timezone)
 
-        if not settings.ordering_enabled:
+        accepting_orders, _, _, _ = self._current_state(settings, local_now)
+        if not accepting_orders:
             return self._invalid(
                 PickupValidationCode.ORDERING_DISABLED,
                 local_requested,
@@ -176,11 +181,18 @@ class PickupSchedulingService:
     def earliest_pickup(self, *, now: datetime) -> datetime | None:
         _require_aware(now, "now")
         settings = self._settings()
-        if not settings.ordering_enabled:
+        if self._ordering_mode(settings) == "force_closed":
             return None
 
         timezone = _business_timezone(settings)
         local_now = now.astimezone(timezone)
+        return self._earliest_scheduled_pickup(local_now, settings)
+
+    def _earliest_scheduled_pickup(
+        self,
+        local_now: datetime,
+        settings: BusinessSettings,
+    ) -> datetime | None:
         candidate = _round_forward(
             local_now + timedelta(minutes=settings.minimum_lead_time_minutes),
             settings.pickup_interval_minutes,
@@ -204,12 +216,12 @@ class PickupSchedulingService:
             opens_at = datetime.combine(
                 candidate.date(),
                 hours.opens_at,
-                tzinfo=timezone,
+                tzinfo=local_now.tzinfo,
             )
             closes_at = datetime.combine(
                 candidate.date(),
                 hours.closes_at,
-                tzinfo=timezone,
+                tzinfo=local_now.tzinfo,
             )
             candidate = _round_forward(
                 max(candidate, opens_at),
@@ -233,20 +245,32 @@ class PickupSchedulingService:
         settings = self._settings()
         timezone = _business_timezone(settings)
         local_now = now.astimezone(timezone)
+        accepting_orders, shop_open, ordering_status, status_reason = self._current_state(
+            settings, local_now
+        )
+        earliest = self._earliest_scheduled_pickup(local_now, settings)
 
-        if not settings.ordering_enabled:
+        if not accepting_orders:
+            if ordering_status == "paused":
+                earliest = None
+            elif earliest is None:
+                status_reason = "No pickup times are currently available."
             return self._options_unavailable(
                 local_now,
                 settings,
-                "Online ordering is currently unavailable.",
+                status_reason or "Online ordering is currently unavailable.",
+                ordering_status=ordering_status,
+                shop_open=shop_open,
+                earliest_pickup_at=earliest,
             )
 
-        earliest = self.earliest_pickup(now=now)
         if earliest is None:
             return self._options_unavailable(
                 local_now,
                 settings,
                 "No pickup times are currently available.",
+                ordering_status="closed",
+                shop_open=shop_open,
             )
 
         options = [QuickPickupOption("asap", "ASAP", earliest)]
@@ -287,6 +311,10 @@ class PickupSchedulingService:
             server_now=local_now,
             business_timezone=settings.timezone,
             ordering_available=True,
+            ordering_status="open",
+            ordering_mode=self._ordering_mode(settings),
+            shop_open=shop_open,
+            status_reason=status_reason,
             unavailable_reason=None,
             minimum_lead_time_minutes=settings.minimum_lead_time_minutes,
             pickup_interval_minutes=settings.pickup_interval_minutes,
@@ -302,18 +330,71 @@ class PickupSchedulingService:
         local_now: datetime,
         settings: BusinessSettings,
         reason: str,
+        *,
+        ordering_status: str,
+        shop_open: bool,
+        earliest_pickup_at: datetime | None = None,
     ) -> SchedulingOptions:
         return SchedulingOptions(
             server_now=local_now,
             business_timezone=settings.timezone,
             ordering_available=False,
+            ordering_status=ordering_status,
+            ordering_mode=PickupSchedulingService._ordering_mode(settings),
+            shop_open=shop_open,
+            status_reason=reason,
             unavailable_reason=reason,
             minimum_lead_time_minutes=settings.minimum_lead_time_minutes,
             pickup_interval_minutes=settings.pickup_interval_minutes,
             maximum_advance_days=settings.maximum_advance_days,
-            earliest_pickup_at=None,
+            earliest_pickup_at=earliest_pickup_at,
             quick_pickup_options=(),
         )
+
+    @staticmethod
+    def _ordering_mode(settings: BusinessSettings) -> str:
+        if not settings.ordering_enabled:
+            return "force_closed"
+        return settings.ordering_mode or "schedule"
+
+    def _current_state(
+        self,
+        settings: BusinessSettings,
+        local_now: datetime,
+    ) -> tuple[bool, bool, str, str | None]:
+        closure = self._repository.get_business_closure(local_now.date())
+        hours = self._repository.get_business_hour(local_now.weekday())
+        shop_open = bool(
+            closure is None
+            and hours is not None
+            and not hours.is_closed
+            and self._inside_hours(local_now, hours)
+        )
+        mode = self._ordering_mode(settings)
+        if mode == "force_closed":
+            return False, shop_open, "paused", "Paused by owner."
+        if mode == "force_open":
+            return (
+                True,
+                shop_open,
+                "open",
+                "Regular business hours are temporarily overridden.",
+            )
+        if closure is not None:
+            reason = (
+                f"Closed for {closure.reason}."
+                if closure.reason
+                else "Closed for a scheduled closure."
+            )
+            return False, False, "closed", reason
+        if not shop_open:
+            return (
+                False,
+                False,
+                "closed",
+                "The café is currently outside its business hours.",
+            )
+        return True, True, "open", None
 
     def _settings(self) -> BusinessSettings:
         settings = self._repository.get_business_settings()

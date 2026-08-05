@@ -63,6 +63,10 @@ class BusinessSettings(AvailabilityModelValidation, Base):
         CheckConstraint("id = 1", name="singleton"),
         CheckConstraint("btrim(timezone) <> ''", name="timezone_nonblank"),
         CheckConstraint(
+            "ordering_mode IN ('schedule', 'force_open', 'force_closed')",
+            name="ordering_mode_valid",
+        ),
+        CheckConstraint(
             "minimum_lead_time_minutes >= 0",
             name="lead_time_nonnegative",
         ),
@@ -92,6 +96,9 @@ class BusinessSettings(AvailabilityModelValidation, Base):
         Boolean,
         default=True,
         server_default="true",
+    )
+    ordering_mode: Mapped[str] = mapped_column(
+        String(20), default="schedule", server_default="schedule"
     )
     minimum_lead_time_minutes: Mapped[int] = mapped_column(
         Integer,
@@ -138,6 +145,12 @@ class BusinessSettings(AvailabilityModelValidation, Base):
         if not normalized:
             raise ValueError("timezone must not be blank.")
         return normalized
+
+    @validates("ordering_mode")
+    def validate_ordering_mode(self, _: str, value: str) -> str:
+        if value not in {"schedule", "force_open", "force_closed"}:
+            raise ValueError("ordering_mode is invalid.")
+        return value
 
 
 class BusinessHour(Base):
@@ -207,6 +220,10 @@ class BusinessClosure(AvailabilityModelValidation, Base):
         CheckConstraint(
             "reason IS NULL OR btrim(reason) <> ''", name="reason_nonblank"
         ),
+        CheckConstraint(
+            "reopens_on IS NULL OR reopens_on > business_date",
+            name="reopens_after_start",
+        ),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
@@ -217,6 +234,7 @@ class BusinessClosure(AvailabilityModelValidation, Base):
         index=True,
     )
     business_date: Mapped[date] = mapped_column(Date)
+    reopens_on: Mapped[date | None] = mapped_column(Date)
     reason: Mapped[str | None] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

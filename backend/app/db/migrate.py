@@ -76,13 +76,18 @@ ORDER_HEAD_ONLY_CHECK_NAMES = frozenset(
     }
 )
 AVAILABILITY_HEAD_ONLY_COLUMN_NAMES = frozenset(
-    {"tax_name", "tax_rate_millionths"}
+    {"tax_name", "tax_rate_millionths", "ordering_mode"}
 )
 AVAILABILITY_HEAD_ONLY_CHECK_NAMES = frozenset(
     {
         "ck_business_settings_tax_name_nonblank",
         "ck_business_settings_tax_rate_millionths_valid",
+        "ck_business_settings_ordering_mode_valid",
     }
+)
+AVAILABILITY_CLOSURE_HEAD_ONLY_COLUMN_NAMES = frozenset({"reopens_on"})
+AVAILABILITY_CLOSURE_HEAD_ONLY_CHECK_NAMES = frozenset(
+    {"ck_business_closures_reopens_after_start"}
 )
 MIGRATION_LOCK_NAME = "guesthouse_preorder_alembic"
 
@@ -297,11 +302,17 @@ def _validate_availability_baseline(engine: Engine) -> None:
             table_name,
             excluded_column_names=(
                 AVAILABILITY_HEAD_ONLY_COLUMN_NAMES
-                if table_name == "business_settings" else frozenset()
+                if table_name == "business_settings"
+                else AVAILABILITY_CLOSURE_HEAD_ONLY_COLUMN_NAMES
+                if table_name == "business_closures"
+                else frozenset()
             ),
             excluded_check_names=(
                 AVAILABILITY_HEAD_ONLY_CHECK_NAMES
-                if table_name == "business_settings" else frozenset()
+                if table_name == "business_settings"
+                else AVAILABILITY_CLOSURE_HEAD_ONLY_CHECK_NAMES
+                if table_name == "business_closures"
+                else frozenset()
             ),
         )
     ]

@@ -39,6 +39,9 @@ export default function AdminDashboard() {
         <Link className="secondary-button" to="/admin/products">
           Manage products
         </Link>
+        <Link className="secondary-button" to="/admin/scheduling">
+          Manage scheduling
+        </Link>
         <button className="secondary-button" type="button" onClick={handleLogout}>
           Sign out
         </button>

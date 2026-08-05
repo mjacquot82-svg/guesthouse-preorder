@@ -2023,6 +2023,481 @@ main {
   }
 }
 
+/* Owner scheduling */
+.owner-scheduling-page {
+  display: grid;
+  gap: 22px;
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.owner-settings-card,
+.owner-preview-card,
+.owner-override-notice {
+  border: 1px solid rgba(47, 51, 40, 0.14);
+  border-radius: 22px;
+  background: #fffdf8;
+  box-shadow: 0 12px 34px rgba(47, 51, 40, 0.07);
+}
+
+.owner-settings-card,
+.owner-preview-card {
+  padding: clamp(20px, 4vw, 32px);
+}
+
+.owner-card-heading,
+.preview-title-row,
+.owner-override-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.owner-card-heading {
+  margin-bottom: 20px;
+}
+
+.owner-card-heading h2,
+.preview-title-row h2 {
+  margin: 0 0 6px;
+}
+
+.owner-card-heading p,
+.preview-title-row p,
+.owner-override-notice p {
+  margin: 0;
+}
+
+.owner-override-notice {
+  position: sticky;
+  top: 12px;
+  z-index: 5;
+  align-items: center;
+  padding: 16px 18px;
+  border-color: #b98224;
+  background: #fff7e5;
+}
+
+.owner-override-notice.open {
+  border-color: #3f7a52;
+  background: #edf8ef;
+}
+
+.owner-override-notice svg {
+  flex: 0 0 auto;
+}
+
+.owner-override-notice div {
+  flex: 1;
+}
+
+.ordering-mode-options {
+  display: grid;
+  gap: 12px;
+}
+
+.ordering-mode-option {
+  display: flex;
+  gap: 14px;
+  padding: 17px;
+  border: 1px solid rgba(47, 51, 40, 0.18);
+  border-radius: 15px;
+  cursor: pointer;
+}
+
+.ordering-mode-option.selected {
+  border-color: #5c7657;
+  background: #f1f6ed;
+  box-shadow: inset 0 0 0 1px #5c7657;
+}
+
+.ordering-mode-option input {
+  width: 19px;
+  height: 19px;
+  margin-top: 2px;
+  accent-color: #496447;
+}
+
+.ordering-mode-option > span,
+.ordering-mode-option strong,
+.ordering-mode-option em {
+  display: block;
+}
+
+.ordering-mode-option strong {
+  margin-bottom: 3px;
+}
+
+.ordering-mode-option strong small {
+  margin-left: 8px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #dde9d9;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ordering-mode-option em {
+  margin-top: 7px;
+  color: #765615;
+  font-size: 0.88rem;
+  font-style: normal;
+}
+
+.owner-preview-card {
+  border-width: 2px;
+  color: #243126;
+  background: linear-gradient(145deg, #f3f9ef, #fffdf8);
+}
+
+.owner-preview-card.paused,
+.owner-preview-card.closed {
+  border-color: #9e4f43;
+  background: linear-gradient(145deg, #fff0eb, #fffdf8);
+}
+
+.owner-preview-card.open {
+  border-color: #487b50;
+}
+
+.preview-title-row h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(1.45rem, 4vw, 2.15rem);
+}
+
+.owner-preview-card.open .preview-title-row h2 {
+  color: #32653c;
+}
+
+.owner-preview-card.paused .preview-title-row h2,
+.owner-preview-card.closed .preview-title-row h2 {
+  color: #93473d;
+}
+
+.preview-refresh-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.next-pickup-hero {
+  display: grid;
+  gap: 3px;
+  margin: 26px 0;
+  padding: 20px 0;
+  border-block: 1px solid rgba(47, 51, 40, 0.16);
+}
+
+.next-pickup-hero span {
+  font-weight: 700;
+}
+
+.next-pickup-hero strong {
+  font-size: clamp(2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+}
+
+.preview-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 34px;
+  margin: 0;
+}
+
+.preview-details div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 11px 0;
+  border-bottom: 1px solid rgba(47, 51, 40, 0.1);
+}
+
+.preview-details dt {
+  color: #667064;
+}
+
+.preview-details dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 700;
+}
+
+.preview-reason {
+  display: grid;
+  gap: 3px;
+  margin: 18px 0;
+}
+
+.business-hours-list {
+  display: grid;
+  margin-bottom: 20px;
+}
+
+.business-hour-row {
+  display: grid;
+  grid-template-columns: 120px 105px 1fr;
+  align-items: center;
+  gap: 18px;
+  min-height: 70px;
+  border-bottom: 1px solid rgba(47, 51, 40, 0.12);
+}
+
+.day-status-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.day-status-control input {
+  width: 19px;
+  height: 19px;
+  accent-color: #496447;
+}
+
+.business-time-fields {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.business-time-fields label,
+.owner-closure-form label,
+.preference-fields label {
+  display: grid;
+  gap: 6px;
+}
+
+.business-time-fields label span,
+.owner-closure-form label span,
+.preference-fields label > span {
+  font-weight: 700;
+}
+
+.business-time-fields input,
+.owner-closure-form input,
+.preference-fields select {
+  min-height: 45px;
+  border: 1px solid rgba(47, 51, 40, 0.24);
+  border-radius: 10px;
+  background: white;
+  padding: 9px 11px;
+  color: inherit;
+  font: inherit;
+}
+
+.closed-day-note {
+  color: #7c8279;
+  text-align: right;
+}
+
+.compact-button {
+  white-space: nowrap;
+}
+
+.owner-closure-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 4px 0 24px;
+  padding: 20px;
+  border-radius: 15px;
+  background: #f7f2e9;
+}
+
+.closure-reason-field,
+.owner-closure-form .form-helper,
+.owner-closure-form .form-actions {
+  grid-column: 1 / -1;
+}
+
+.owner-closure-form .form-helper {
+  margin: 0;
+}
+
+.closure-list {
+  display: grid;
+}
+
+.closure-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 13px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(47, 51, 40, 0.12);
+}
+
+.closure-row > div:nth-child(2) {
+  display: grid;
+  gap: 2px;
+}
+
+.closure-row small {
+  color: #667064;
+}
+
+.closure-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.closure-actions button {
+  border: 0;
+  background: transparent;
+  color: #405f43;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.empty-owner-state {
+  padding: 18px 0;
+  color: #667064;
+}
+
+.past-closures {
+  margin-top: 16px;
+}
+
+.past-closures summary,
+.scheduling-preferences summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.scheduling-preferences summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  list-style-position: inside;
+}
+
+.scheduling-preferences summary span,
+.scheduling-preferences summary small {
+  display: block;
+}
+
+.scheduling-preferences summary strong {
+  font-size: 1.25rem;
+}
+
+.scheduling-preferences summary small {
+  margin-top: 5px;
+  color: #667064;
+  font-weight: 500;
+}
+
+.scheduling-preferences form {
+  margin-top: 24px;
+}
+
+.preference-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin: 20px 0;
+}
+
+.preference-fields small {
+  color: #667064;
+  line-height: 1.45;
+}
+
+.owner-page-message {
+  position: sticky;
+  bottom: 16px;
+  z-index: 6;
+  margin: 0;
+  padding: 14px 17px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(47, 51, 40, 0.18);
+}
+
+.owner-page-message.success {
+  background: #e4f3e5;
+  color: #285733;
+}
+
+.owner-page-message.error {
+  background: #fee8e3;
+  color: #84392f;
+}
+
+@keyframes owner-spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: owner-spin 0.8s linear infinite;
+}
+
+@media (max-width: 760px) {
+  .owner-card-heading,
+  .preview-title-row,
+  .owner-override-notice {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .owner-override-notice {
+    position: static;
+  }
+
+  .preview-details,
+  .preference-fields,
+  .owner-closure-form {
+    grid-template-columns: 1fr;
+  }
+
+  .owner-closure-form > * {
+    grid-column: 1;
+  }
+
+  .business-hour-row {
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 15px 0;
+  }
+
+  .business-time-fields,
+  .closed-day-note {
+    grid-column: 1 / -1;
+  }
+
+  .business-time-fields {
+    justify-content: stretch;
+  }
+
+  .business-time-fields label {
+    flex: 1;
+  }
+
+  .business-time-fields input {
+    width: 100%;
+  }
+
+  .closed-day-note {
+    text-align: left;
+  }
+
+  .closure-row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .closure-actions {
+    grid-column: 2;
+  }
+}
+
 @media (max-width: 760px) {
   .nav-links {
     display: none;

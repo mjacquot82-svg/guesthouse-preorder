@@ -155,13 +155,13 @@ def test_pickup_validation_uses_business_timezone_and_accepts_valid_time() -> No
         ),
         (
             lambda repository: repository.closures.__setitem__(
-                date(2026, 7, 28),
+                date(2026, 7, 29),
                 BusinessClosure(
-                    business_date=date(2026, 7, 28),
+                    business_date=date(2026, 7, 29),
                     reason="Private event",
                 ),
             ),
-            local_datetime(2026, 7, 28, 8, 30),
+            local_datetime(2026, 7, 29, 8, 30),
             PickupValidationCode.CLOSED_DATE,
         ),
         (
@@ -264,9 +264,32 @@ def test_scheduling_options_report_ordering_disabled() -> None:
     )
 
     assert result.ordering_available is False
-    assert result.unavailable_reason == "Online ordering is currently unavailable."
+    assert result.ordering_status == "paused"
+    assert result.status_reason == "Paused by owner."
     assert result.earliest_pickup_at is None
     assert result.quick_pickup_options == ()
+
+
+def test_scheduling_options_follow_hours_and_support_temporary_overrides() -> None:
+    repository = FakeAvailabilityRepository()
+    service = PickupSchedulingService(repository)
+    after_close = local_datetime(2026, 7, 28, 16)
+
+    scheduled = service.options(now=after_close)
+    assert scheduled.ordering_available is False
+    assert scheduled.ordering_status == "closed"
+    assert scheduled.earliest_pickup_at == local_datetime(2026, 7, 29, 7)
+
+    repository.settings.ordering_mode = "force_open"
+    forced_open = service.options(now=after_close)
+    assert forced_open.ordering_available is True
+    assert forced_open.ordering_status == "open"
+    assert forced_open.earliest_pickup_at == local_datetime(2026, 7, 29, 7)
+
+    repository.settings.ordering_mode = "force_closed"
+    forced_closed = service.options(now=local_datetime(2026, 7, 28, 8))
+    assert forced_closed.ordering_available is False
+    assert forced_closed.ordering_status == "paused"
 
 
 def test_scheduling_options_follow_lead_time_and_interval_changes() -> None:

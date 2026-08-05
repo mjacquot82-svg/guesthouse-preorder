@@ -43,6 +43,10 @@ class SchedulingOptionsResponse(SchedulingSchema):
     server_now: datetime
     business_timezone: str
     ordering_available: bool
+    ordering_status: str
+    ordering_mode: str
+    shop_open: bool
+    status_reason: str | None
     unavailable_reason: str | None
     minimum_lead_time_minutes: int
     pickup_interval_minutes: int
@@ -58,6 +62,10 @@ class SchedulingOptionsResponse(SchedulingSchema):
             server_now=value.server_now,
             business_timezone=value.business_timezone,
             ordering_available=value.ordering_available,
+            ordering_status=value.ordering_status,
+            ordering_mode=value.ordering_mode,
+            shop_open=value.shop_open,
+            status_reason=value.status_reason,
             unavailable_reason=value.unavailable_reason,
             minimum_lead_time_minutes=value.minimum_lead_time_minutes,
             pickup_interval_minutes=value.pickup_interval_minutes,
