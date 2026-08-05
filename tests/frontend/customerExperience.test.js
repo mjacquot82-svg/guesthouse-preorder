@@ -51,8 +51,13 @@ test("saved orders transition checkout to payment-only recovery", () => {
   assert.match(cartPageSource, /createCloverCheckout\(savedOrder\.public_token\)/);
   assert.match(cartPageSource, /savedOrder \? "Retry payment" : "Place order"/);
   assert.match(cartPageSource, /Order saved/);
-  assert.match(cartPageSource, /Payment is still incomplete/);
+  assert.match(cartPageSource, /Payment<\/span><strong>Still required/);
   assert.match(cartPageSource, /contact the café/);
+  assert.match(cartPageSource, /Your order will not be submitted again/);
+  assert.doesNotMatch(cartPageSource, /savedOrder && checkoutError/);
+  assert.match(cartPageSource, /if \(savedOrder\) \{/);
+  assert.match(cartPageSource, /saved-order-details/);
+  assert.doesNotMatch(cartPageSource, /className="cart-summary-detail"/);
 });
 
 test("checkout renders saved phone data as a controlled value, not a placeholder", () => {

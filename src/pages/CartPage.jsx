@@ -347,6 +347,77 @@ export default function CartPage() {
     );
   }
 
+  if (savedOrder) {
+    return (
+      <section className="page-section ordering-page cart-page saved-order-page">
+        <div className="page-heading cart-heading">
+          <span className="eyebrow">Payment required</span>
+          <h1>Your order is saved</h1>
+          <p>Everything is confirmed. Complete payment to finish checking out.</p>
+        </div>
+
+        <div className="saved-order-status" role="status" aria-live="polite">
+          <div className="saved-order-status-heading">
+            <span className="saved-order-check" aria-hidden="true">✓</span>
+            <div>
+              <strong>Order saved</strong>
+              <span>Order {savedOrder.public_token.slice(0, 8).toUpperCase()}</span>
+            </div>
+          </div>
+          <div className="saved-order-milestones" aria-label="Order status">
+            <div><span>Pickup confirmed</span><strong>{formatReadyTime(new Date(savedOrder.requested_pickup_at), savedOrder.business_timezone)}</strong></div>
+            <div><span>Payment</span><strong>Still required</strong></div>
+          </div>
+          {checkoutError ? (
+            <p className="saved-order-payment-note" role="alert">
+              Secure payment could not be started. Try again below. If it continues to fail, contact the café and mention your order number.
+            </p>
+          ) : (
+            <p>Continue to secure payment below. Your order will not be submitted again.</p>
+          )}
+        </div>
+
+        <div className="content-block saved-order-summary">
+          <div className="saved-order-summary-heading">
+            <div><span>Order summary</span><h2>Your café picks</h2></div>
+            <strong>{formatPrice(savedOrder.total_cents / 100)}</strong>
+          </div>
+          <ul>
+            {savedOrder.items.map((item, index) => (
+              <li key={`${item.product_slug}-${item.variant_key || "standard"}-${index}`}>
+                <div>
+                  <strong>{item.quantity} × {item.product_name}</strong>
+                  {item.variant_name ? <span>{item.variant_name}</span> : null}
+                  {item.modifiers?.length ? <small>{item.modifiers.map((modifier) => modifier.option_name).join(", ")}</small> : null}
+                </div>
+                <strong>{formatPrice(item.line_subtotal_cents / 100)}</strong>
+              </li>
+            ))}
+          </ul>
+          <dl className="saved-order-details">
+            <div><dt>Contact</dt><dd>{savedOrder.customer.name}<br />{savedOrder.customer.email}<br />{formatCustomerPhone(savedOrder.customer.phone)}</dd></div>
+            {savedOrder.notes ? <div><dt>Order notes</dt><dd>{savedOrder.notes}</dd></div> : null}
+          </dl>
+          <div className="cart-total-row cart-pricing-breakdown">
+            <span>Subtotal</span><strong>{formatPrice(savedOrder.subtotal_cents / 100)}</strong>
+            <span>{formatTaxLabel(catalog.pricing)}</span><strong>{formatPrice(savedOrder.tax_cents / 100)}</strong>
+            <span>Total</span><strong>{formatPrice(savedOrder.total_cents / 100)}</strong>
+          </div>
+          <button
+            aria-busy={isPlacingOrder}
+            className="primary-button"
+            disabled={isPlacingOrder}
+            type="button"
+            onClick={retryPayment}
+          >
+            <CreditCard size={17} strokeWidth={2.4} />
+            {isPlacingOrder ? "Starting payment…" : "Retry payment"}
+          </button>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="page-section ordering-page cart-page">
       <div className="page-heading cart-heading">
@@ -460,10 +531,6 @@ export default function CartPage() {
             ) : null}
           </div>
         </div>
-        <div className="cart-summary-detail">
-          <span>Preferred pickup time</span>
-          <strong>{pickupSummary}</strong>
-        </div>
         <div className="checkout-contact-panel">
           <div className="checkout-contact-heading">
             <span className="account-avatar" aria-hidden="true">
@@ -540,19 +607,7 @@ export default function CartPage() {
           <span>Estimated Total</span>
           <strong>{formatPrice(orderPricing.totalCents / 100)}</strong>
         </div>
-        {savedOrder ? (
-          <div className="saved-order-status" role="status" aria-live="polite">
-            <strong>Order saved</strong>
-            <span>Order {savedOrder.public_token.slice(0, 8).toUpperCase()}</span>
-            <p>
-              Your order exists and is scheduled for {formatReadyTime(new Date(savedOrder.requested_pickup_at), savedOrder.business_timezone)}. Payment is still incomplete.
-            </p>
-            <p>Retry secure payment below. If payment continues to fail, please contact the café and mention your order number.</p>
-          </div>
-        ) : null}
-        {savedOrder && checkoutError ? (
-          <p className="form-status checkout-error" role="alert">{checkoutError}</p>
-        ) : !savedOrder && !schedule?.ordering_available && schedule?.unavailable_reason ? (
+        {!schedule?.ordering_available && schedule?.unavailable_reason ? (
           <p className="form-status checkout-error" role="alert">{schedule.unavailable_reason}</p>
         ) : scheduleError ? (
           <p className="form-status checkout-error" role="alert">{scheduleError}</p>
