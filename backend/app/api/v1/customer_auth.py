@@ -238,6 +238,10 @@ def complete_password_reset(payload: CustomerPasswordCompletionRequest, request:
         service.complete_password_reset(payload.token_hash, payload.password, access_token=payload.access_token, now=now)
         return MessageResponse(message="Password updated. Sign in again.")
     except (AuthenticationError, IdentityProviderError, SQLAlchemyError) as error:
+        logger.warning(
+            "customer_password_reset_failure_response stage=%s response_code=password_reset_invalid",
+            service.password_reset_stage,
+        )
         logger.error(
             "customer_password_reset_failed stage=%s exception_type=%s "
             "provider_operation=%s provider_method=%s provider_status=%s "

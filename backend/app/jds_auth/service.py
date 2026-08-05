@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import logging
 from uuid import UUID
 from urllib.parse import urlencode
 
@@ -12,6 +13,9 @@ from app.jds_auth.provider import IdentityProvider, ProviderAuthentication
 from app.jds_auth.repository import AuthRepository
 from app.jds_auth.security import create_secret, hash_secret, secret_matches
 from app.customers.models import CustomerProfile
+
+
+logger = logging.getLogger(__name__)
 
 
 class AuthenticationError(ValueError):
@@ -313,19 +317,42 @@ class AuthenticationService:
         self._provider.request_password_reset(email.strip().lower(), redirect_url)
 
     def complete_password_reset(self, token_hash: str | None, password: str, *, access_token: str | None = None, now: datetime) -> None:
+        recovery_method = "access_token" if access_token else "token_hash"
+        logger.warning(
+            "customer_password_reset_started recovery_method=%s",
+            recovery_method,
+        )
         self.password_reset_stage = "recovery_session_validation" if access_token else "recovery_token_verification"
-        authentication = (
-            self._provider.authenticate_access_token(access_token)
-            if access_token
-            else self._provider.verify_email_token(token_hash or "", "recovery")
+        try:
+            authentication = (
+                self._provider.authenticate_access_token(access_token)
+                if access_token
+                else self._provider.verify_email_token(token_hash or "", "recovery")
+            )
+        except Exception:
+            logger.warning(
+                "customer_password_reset_credential_failed recovery_method=%s stage=%s",
+                recovery_method,
+                self.password_reset_stage,
+            )
+            raise
+        logger.warning(
+            "customer_password_reset_credential_succeeded recovery_method=%s stage=%s",
+            recovery_method,
+            self.password_reset_stage,
         )
         with self._session.begin():
             self.password_reset_stage = "identity_lookup"
-            identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
-            if identity is None:
-                identity = self._reconcile_orphaned_customer(authentication, now)
-            if identity.user.status != "active":
-                raise MembershipInactive("An active JDS identity is required.")
+            try:
+                identity = self._repo.identity(authentication.identity.issuer, authentication.identity.subject)
+                if identity is None:
+                    identity = self._reconcile_orphaned_customer(authentication, now)
+                if identity.user.status != "active":
+                    raise MembershipInactive("An active JDS identity is required.")
+            except Exception:
+                logger.warning("customer_password_reset_identity_failed stage=%s", self.password_reset_stage)
+                raise
+            logger.warning("customer_password_reset_identity_resolved stage=%s", self.password_reset_stage)
             self.password_reset_stage = "recovery_pending_persistence"
             identity.user.security_version += 1
             identity.user.credential_state = "recovery_pending"
@@ -333,7 +360,12 @@ class AuthenticationService:
             self._repo.revoke_user_sessions(identity.user_id, now, "password_reset_pending")
             user_id = identity.user_id
         self.password_reset_stage = "supabase_password_update"
-        self._provider.update_password(authentication.access_token, password)
+        try:
+            self._provider.update_password(authentication.access_token, password)
+        except Exception:
+            logger.warning("customer_password_reset_password_update_failed stage=%s", self.password_reset_stage)
+            raise
+        logger.warning("customer_password_reset_password_update_succeeded stage=%s", self.password_reset_stage)
         with self._session.begin():
             self.password_reset_stage = "recovery_completion_persistence"
             user = self._session.get(JdsUser, user_id, with_for_update=True)
