@@ -1301,6 +1301,29 @@ h3 {
   color: var(--cafe-red);
 }
 
+.saved-order-status {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(108, 123, 93, 0.35);
+  border-radius: 14px;
+  background: rgba(242, 246, 236, 0.9);
+  color: var(--ink);
+  padding: 14px;
+}
+
+.saved-order-status strong {
+  color: var(--sage-ink);
+  font-size: 1.05rem;
+}
+
+.saved-order-status span {
+  font-weight: 850;
+}
+
+.saved-order-status p {
+  margin: 0;
+}
+
 .cart-review .primary-button {
   cursor: pointer;
 }

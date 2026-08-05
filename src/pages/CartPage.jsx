@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ClipboardList, Minus, Plus, Trash2, UserRound } from "lucide-react";
+import { ClipboardList, CreditCard, Minus, Plus, Trash2, UserRound } from "lucide-react";
 import { resolveCart } from "../services/cartCatalog.js";
 import {
   buildPendingOrderRequest,
   clearOrderSubmission,
   createSubmissionGate,
   getOrderErrorMessage,
+  formatPickupTimeInput,
   prepareOrderSubmission,
   resolveVisibleCheckoutContact,
   isCheckoutContactComplete,
@@ -98,6 +99,7 @@ export default function CartPage() {
   const [orderNotes, setOrderNotes] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [savedOrder, setSavedOrder] = useState(null);
   const submissionGate = useRef(createSubmissionGate());
   useEffect(() => {
     if (!session) return;
@@ -172,9 +174,14 @@ export default function CartPage() {
   const pickupSummary = selectedPickup?.requested_pickup_at
     ? `Ready around ${formatReadyTime(new Date(selectedPickup.requested_pickup_at), schedule.business_timezone)}`
     : scheduleStatus === "loading" ? "Checking pickup times…" : "Pickup time unavailable";
+  const resolvedPickupTime = formatPickupTimeInput(
+    selectedPickup?.requested_pickup_at,
+    schedule?.business_timezone
+  );
+  const checkoutLocked = isPlacingOrder || Boolean(savedOrder);
 
   function updateQuantity(itemId, nextQuantity) {
-    if (submissionGate.current.isInFlight()) {
+    if (submissionGate.current.isInFlight() || savedOrder) {
       return;
     }
     const nextCart =
@@ -190,7 +197,7 @@ export default function CartPage() {
   }
 
   function updatePickupIntent(intent) {
-    if (submissionGate.current.isInFlight()) {
+    if (submissionGate.current.isInFlight() || savedOrder) {
       return;
     }
     setPickupIntent(intent);
@@ -198,15 +205,24 @@ export default function CartPage() {
   }
 
   function updateCustomPickupTime(value) {
-    if (!value || submissionGate.current.isInFlight()) return;
+    if (!value || submissionGate.current.isInFlight() || savedOrder) return;
 
     setCustomPickupTime(value);
     storeCustomPickupTime(value);
     updatePickupIntent({ type: "custom" });
   }
 
+  function beginCustomPickup() {
+    if (checkoutLocked || pickupIntent.type === "custom") return;
+    if (resolvedPickupTime) {
+      setCustomPickupTime(resolvedPickupTime);
+      storeCustomPickupTime(resolvedPickupTime);
+    }
+    updatePickupIntent({ type: "custom" });
+  }
+
   function updateCheckoutContact(field, value) {
-    if (submissionGate.current.isInFlight()) {
+    if (submissionGate.current.isInFlight() || savedOrder) {
       return;
     }
     const nextContact = { ...checkoutContactRef.current, [field]: value };
@@ -215,7 +231,7 @@ export default function CartPage() {
   }
 
   function updateOrderNotes(value) {
-    if (submissionGate.current.isInFlight()) {
+    if (submissionGate.current.isInFlight() || savedOrder) {
       return;
     }
     setOrderNotes(value);
@@ -261,6 +277,7 @@ export default function CartPage() {
       });
       const submission = await prepareOrderSubmission(request);
       const order = await createPendingOrder(submission);
+      setSavedOrder(order);
       const checkout = await createCloverCheckout(order.public_token);
 
       window.location.assign(checkout.checkout_url);
@@ -270,6 +287,21 @@ export default function CartPage() {
         clearOrderSubmission();
         await refreshScheduling();
       }
+    } finally {
+      submissionGate.current.end();
+      setIsPlacingOrder(false);
+    }
+  }
+
+  async function retryPayment() {
+    if (!savedOrder || !submissionGate.current.begin()) return;
+    setIsPlacingOrder(true);
+    setCheckoutError("");
+    try {
+      const checkout = await createCloverCheckout(savedOrder.public_token);
+      window.location.assign(checkout.checkout_url);
+    } catch (error) {
+      setCheckoutError(getOrderErrorMessage(error));
     } finally {
       submissionGate.current.end();
       setIsPlacingOrder(false);
@@ -351,7 +383,7 @@ export default function CartPage() {
                 {item.resolution === "ready" ? (
                   <div className="quantity-stepper" aria-label={`Quantity for ${item.name}`}>
                     <button
-                      disabled={isPlacingOrder}
+                      disabled={checkoutLocked}
                       type="button"
                       aria-label={`Remove one ${item.name}`}
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -360,7 +392,7 @@ export default function CartPage() {
                     </button>
                     <span>{item.quantity}</span>
                     <button
-                      disabled={isPlacingOrder}
+                      disabled={checkoutLocked}
                       type="button"
                       aria-label={`Add one ${item.name}`}
                       onClick={() => updateQuantity(item.id, item.quantity + 1)}
@@ -371,7 +403,7 @@ export default function CartPage() {
                 ) : null}
                 <button
                   className="remove-cart-item"
-                  disabled={isPlacingOrder}
+                  disabled={checkoutLocked}
                   type="button"
                   aria-label={`Remove ${item.name}`}
                   onClick={() => updateQuantity(item.id, 0)}
@@ -400,7 +432,7 @@ export default function CartPage() {
               <label key={option.key} className={isSelected ? "selected" : ""}>
                 <input
                   checked={isSelected}
-                  disabled={isPlacingOrder}
+                  disabled={checkoutLocked}
                   name="pickup-time"
                   type="radio"
                   value={option.key}
@@ -415,13 +447,13 @@ export default function CartPage() {
             <label htmlFor="custom-pickup-time">Ready around...</label>
             <input
               id="custom-pickup-time"
-              disabled={isPlacingOrder}
+              disabled={checkoutLocked}
               required
               step={schedule ? schedule.pickup_interval_minutes * 60 : undefined}
               type="time"
-              value={customPickupTime}
+              value={pickupIntent.type === "custom" ? customPickupTime : resolvedPickupTime}
               onChange={(event) => updateCustomPickupTime(event.target.value)}
-              onFocus={() => updatePickupIntent({ type: "custom" })}
+              onFocus={beginCustomPickup}
             />
             {pickupIntent.type === "custom" && schedule?.custom_pickup_error ? (
               <small role="alert">{schedule.custom_pickup_error}</small>
@@ -448,7 +480,7 @@ export default function CartPage() {
               <span>Name</span>
               <input
                 autoComplete="name"
-                disabled={isPlacingOrder}
+                disabled={checkoutLocked}
                 required
                 ref={(input) => { checkoutContactInputsRef.current.name = input; }}
                 value={checkoutContact.name}
@@ -461,7 +493,7 @@ export default function CartPage() {
               <span>Email</span>
               <input
                 autoComplete="email"
-                disabled={isPlacingOrder}
+                disabled={checkoutLocked}
                 required
                 ref={(input) => { checkoutContactInputsRef.current.email = input; }}
                 type="email"
@@ -475,7 +507,7 @@ export default function CartPage() {
               <span>Phone</span>
               <input
                 autoComplete="tel"
-                disabled={isPlacingOrder}
+                disabled={checkoutLocked}
                 required
                 ref={(input) => { checkoutContactInputsRef.current.phone = input; }}
                 type="tel"
@@ -493,7 +525,7 @@ export default function CartPage() {
           <span>Order notes</span>
           <textarea
             maxLength={2000}
-            disabled={isPlacingOrder}
+            disabled={checkoutLocked}
             placeholder="Milk preference, pastry warming, or pickup notes"
             rows={3}
             value={orderNotes}
@@ -508,7 +540,19 @@ export default function CartPage() {
           <span>Estimated Total</span>
           <strong>{formatPrice(orderPricing.totalCents / 100)}</strong>
         </div>
-        {!schedule?.ordering_available && schedule?.unavailable_reason ? (
+        {savedOrder ? (
+          <div className="saved-order-status" role="status" aria-live="polite">
+            <strong>Order saved</strong>
+            <span>Order {savedOrder.public_token.slice(0, 8).toUpperCase()}</span>
+            <p>
+              Your order exists and is scheduled for {formatReadyTime(new Date(savedOrder.requested_pickup_at), savedOrder.business_timezone)}. Payment is still incomplete.
+            </p>
+            <p>Retry secure payment below. If payment continues to fail, please contact the café and mention your order number.</p>
+          </div>
+        ) : null}
+        {savedOrder && checkoutError ? (
+          <p className="form-status checkout-error" role="alert">{checkoutError}</p>
+        ) : !savedOrder && !schedule?.ordering_available && schedule?.unavailable_reason ? (
           <p className="form-status checkout-error" role="alert">{schedule.unavailable_reason}</p>
         ) : scheduleError ? (
           <p className="form-status checkout-error" role="alert">{scheduleError}</p>
@@ -525,12 +569,16 @@ export default function CartPage() {
           <button
             aria-busy={isPlacingOrder}
             className="primary-button"
-            disabled={isPlacingOrder || scheduleStatus !== "ready" || !schedule?.ordering_available || !selectedPickup}
+            disabled={isPlacingOrder || (!savedOrder && (scheduleStatus !== "ready" || !schedule?.ordering_available || !selectedPickup))}
             type="button"
-            onClick={placeOrder}
+            onClick={savedOrder ? retryPayment : placeOrder}
           >
-            <ClipboardList size={17} strokeWidth={2.4} />
-            {isPlacingOrder ? "Placing order…" : "Place order"}
+            {savedOrder
+              ? <CreditCard size={17} strokeWidth={2.4} />
+              : <ClipboardList size={17} strokeWidth={2.4} />}
+            {isPlacingOrder
+              ? savedOrder ? "Starting payment…" : "Placing order…"
+              : savedOrder ? "Retry payment" : "Place order"}
           </button>
         )}
       </div>

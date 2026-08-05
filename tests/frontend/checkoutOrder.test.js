@@ -7,6 +7,7 @@ import {
   clearOrderSubmission,
   createSubmissionGate,
   getOrderErrorMessage,
+  formatPickupTimeInput,
   isCheckoutContactComplete,
   prepareOrderSubmission,
   resolveVisibleCheckoutContact,
@@ -89,6 +90,14 @@ test("profile defaults and formatted phones share one canonical checkout contact
     email: "jessie@example.com",
     phone: "+15198816869",
   });
+});
+
+test("resolved pickup times populate the native time control in the business timezone", () => {
+  assert.equal(
+    formatPickupTimeInput("2026-08-05T17:25:00.000Z", "America/Toronto"),
+    "13:25"
+  );
+  assert.equal(formatPickupTimeInput(null, "America/Toronto"), "");
 });
 
 test("visible autofilled checkout values override stale React contact state", () => {

@@ -100,6 +100,20 @@ export function isCheckoutContactComplete(contact) {
   return Boolean(canonical.name && canonical.email && canonical.phone);
 }
 
+export function formatPickupTimeInput(requestedPickupAt, timeZone) {
+  if (!requestedPickupAt || !timeZone) return "";
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    timeZone,
+  }).formatToParts(new Date(requestedPickupAt));
+  const hour = parts.find((part) => part.type === "hour")?.value;
+  const minute = parts.find((part) => part.type === "minute")?.value;
+  return hour && minute ? `${hour}:${minute}` : "";
+}
+
 export function createSubmissionGate() {
   let inFlight = false;
 

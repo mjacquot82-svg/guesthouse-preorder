@@ -38,12 +38,21 @@ test("customer forms default persistence and expose guarded pending states", () 
   assert.match(resetPageSource, /Updating…/);
   assert.match(verifyPageSource, /disabled=\{isResending\}/);
   assert.match(accountPageSource, /disabled=\{isSaving\}/);
-  assert.match(cartPageSource, /disabled=\{isPlacingOrder\}/);
+  assert.match(cartPageSource, /disabled=\{checkoutLocked\}/);
   assert.doesNotMatch(cartPageSource, /disabled=\{isPlacingOrder \|\| !canPlaceOrder\}/);
   assert.match(cartPageSource, /aria-busy=\{isPlacingOrder\}/);
   assert.match(cartPageSource, /Placing order…/);
   assert.match(cartPageSource, /Your order is already being submitted\. Please wait\./);
   assert.match(cartPageSource, /Add a name, email, and phone number before placing your order\./);
+});
+
+test("saved orders transition checkout to payment-only recovery", () => {
+  assert.match(cartPageSource, /setSavedOrder\(order\)/);
+  assert.match(cartPageSource, /createCloverCheckout\(savedOrder\.public_token\)/);
+  assert.match(cartPageSource, /savedOrder \? "Retry payment" : "Place order"/);
+  assert.match(cartPageSource, /Order saved/);
+  assert.match(cartPageSource, /Payment is still incomplete/);
+  assert.match(cartPageSource, /contact the café/);
 });
 
 test("checkout renders saved phone data as a controlled value, not a placeholder", () => {
