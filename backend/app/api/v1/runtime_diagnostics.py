@@ -1,10 +1,9 @@
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.jds_auth.provider import IdentityProviderError
+from app.api.v1.customer_auth import current_customer
+from app.jds_auth.service import AuthPrincipal
 
 
 router = APIRouter(prefix="/diagnostics", tags=["runtime-diagnostics"])
@@ -23,28 +22,10 @@ TABLE_NAMES = (
 )
 
 
-def authenticate(
-    request: Request,
-    authorization: Annotated[str | None, Header()] = None,
-) -> None:
-    provider = request.app.state.auth_provider
-    if provider is None:
-        raise HTTPException(status_code=503, detail="Diagnostics authentication is unavailable.")
-    scheme, separator, token = (authorization or "").partition(" ")
-    if not separator or scheme.lower() != "bearer" or not token.strip():
-        raise HTTPException(status_code=401, detail="Authentication is required.")
-    try:
-        authentication = provider.authenticate_access_token(token.strip())
-    except IdentityProviderError as error:
-        raise HTTPException(status_code=401, detail="Authentication is invalid.") from error
-    if not authentication.identity.email_verified:
-        raise HTTPException(status_code=403, detail="A verified identity is required.")
-
-
 @router.get("/database")
 def database_diagnostics(
     request: Request,
-    _: None = Depends(authenticate),
+    _: AuthPrincipal = Depends(current_customer),
 ) -> dict[str, object]:
     engine = request.app.state.db_engine
     if engine is None:
