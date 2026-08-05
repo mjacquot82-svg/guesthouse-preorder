@@ -7,7 +7,7 @@ from cryptography.fernet import Fernet
 from fastapi import HTTPException, Response
 
 import app.api.v1.clover as clover_api
-from app.api.v1.clover import _checkout_payload
+from app.api.v1.clover import _checkout_payload, _masked_identifier
 from app.clover.client import CloverApiError, CloverClient
 from app.clover.config import CloverConfigurationError, CloverSettings
 from app.clover.security import (
@@ -47,6 +47,12 @@ def test_clover_settings_expose_registered_callback_and_environment_hosts() -> N
     assert config.launch_url == "https://api.example.com/api/v1/clover/oauth/start"
     assert config.authorize_base_url == "https://sandbox.dev.clover.com"
     assert config.api_base_url == "https://apisandbox.dev.clover.com"
+
+
+def test_clover_diagnostic_identifiers_are_safely_masked() -> None:
+    assert _masked_identifier("ABCD12345678WXYZ") == "ABCD...WXYZ"
+    assert _masked_identifier("app-id") == "******"
+    assert _masked_identifier(None) is None
 
 
 def test_clover_settings_reject_insecure_public_urls() -> None:
@@ -228,7 +234,11 @@ def test_tax_rates_diagnostic_returns_clover_error_details(
     with pytest.raises(HTTPException) as captured:
         clover_api.debug_clover_tax_rates(
             response=Response(),
-            session=object(),
+            session=type(
+                "EmptySession",
+                (),
+                {"scalar": lambda *_: None},
+            )(),
             settings=settings(ecommerce_private_token="private-token"),
             _=object(),
         )
@@ -238,7 +248,9 @@ def test_tax_rates_diagnostic_returns_clover_error_details(
         "code": "clover_rejected_request",
         "credential_diagnostic": {
             "credential_source": "CLOVER_ECOMMERCE_PRIVATE_TOKEN",
-            "merchant_id": "merchant-id",
+            "configured_app_id_masked": "******",
+            "persisted_installation_app_id_masked": None,
+            "merchant_id_masked": "merc...t-id",
             "token_refreshed": False,
             "stored_expiration": None,
             "current_utc_time": captured.value.detail["credential_diagnostic"][

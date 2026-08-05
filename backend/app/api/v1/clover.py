@@ -34,6 +34,14 @@ OAUTH_STATE_COOKIE = "guesthouse_clover_oauth_state"
 MAX_WEBHOOK_BODY_BYTES = 64 * 1024
 
 
+def _masked_identifier(value: str | None) -> str | None:
+    if not value:
+        return None
+    if len(value) <= 8:
+        return "*" * len(value)
+    return f"{value[:4]}...{value[-4:]}"
+
+
 class CloverConnectionResponse(BaseModel):
     configured: bool
     connected: bool
@@ -357,16 +365,18 @@ def debug_clover_tax_rates(
         else "OAuth installation"
     )
     stored_expiration_before = None
-    if credential_source == "OAuth installation":
-        installation = session.scalar(
-            select(CloverInstallation).where(
-                CloverInstallation.merchant_id == settings.merchant_id,
-                CloverInstallation.environment == settings.environment,
-                CloverInstallation.app_id == settings.app_id,
-            )
+    installation = session.scalar(
+        select(CloverInstallation).where(
+            CloverInstallation.merchant_id == settings.merchant_id,
+            CloverInstallation.environment == settings.environment,
+            CloverInstallation.app_id == settings.app_id,
         )
-        if installation is not None:
-            stored_expiration_before = installation.access_token_expires_at
+    )
+    persisted_installation_app_id = (
+        installation.app_id if installation is not None else None
+    )
+    if credential_source == "OAuth installation" and installation is not None:
+        stored_expiration_before = installation.access_token_expires_at
 
     merchant_id, access_token = _active_credential(session, settings)
     stored_expiration = stored_expiration_before
@@ -383,11 +393,16 @@ def debug_clover_tax_rates(
         )
         if installation is not None:
             stored_expiration = installation.access_token_expires_at
+            persisted_installation_app_id = installation.app_id
             token_refreshed = stored_expiration != stored_expiration_before
 
     credential_diagnostic = {
         "credential_source": credential_source,
-        "merchant_id": merchant_id,
+        "configured_app_id_masked": _masked_identifier(settings.app_id),
+        "persisted_installation_app_id_masked": _masked_identifier(
+            persisted_installation_app_id
+        ),
+        "merchant_id_masked": _masked_identifier(merchant_id),
         "token_refreshed": token_refreshed,
         "stored_expiration": (
             stored_expiration.isoformat() if stored_expiration is not None else None
@@ -424,7 +439,7 @@ def debug_clover_tax_rates(
             "Clover tax rates diagnostic failed: %s",
             json.dumps(
                 {
-                    "merchant_id": merchant_id,
+                    "merchant_id_masked": _masked_identifier(merchant_id),
                     "upstream_status": error.upstream_status,
                     "response_body": error.upstream_response_body,
                     "request_id": request_id,
@@ -448,7 +463,7 @@ def debug_clover_tax_rates(
         "Clover tax rates diagnostic: %s",
         json.dumps(
             {
-                "merchant_id": merchant_id,
+                "merchant_id_masked": _masked_identifier(merchant_id),
                 "upstream_status": upstream_status,
                 "response_body": data,
                 "upstream_headers": upstream_headers,
