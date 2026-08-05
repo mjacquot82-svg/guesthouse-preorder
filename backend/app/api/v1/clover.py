@@ -679,13 +679,55 @@ async def hosted_checkout_webhook(
         or payload.get("merchant_id")
         or payload.get("MerchantId")
     )
+    webhook_diagnostic = {
+        "webhook_type": event_type,
+        "webhook_status": payment_status,
+        "merchant_id": merchant_id,
+        "checkout_session_id": checkout_session_id,
+    }
+    logger.info(
+        "Clover Hosted Checkout webhook received: %s",
+        json.dumps(webhook_diagnostic, default=str, sort_keys=True),
+    )
     if merchant_id != settings.merchant_id:
+        logger.info(
+            "Clover Hosted Checkout webhook ignored: %s",
+            json.dumps(
+                {
+                    **webhook_diagnostic,
+                    "matching_order_found": False,
+                    "order_status_changed": False,
+                    "reason": "merchant_id_does_not_match_configured_merchant",
+                },
+                default=str,
+                sort_keys=True,
+            ),
+        )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     if (
         event_type != "PAYMENT"
         or not isinstance(checkout_session_id, str)
         or not isinstance(merchant_id, str)
     ):
+        if event_type != "PAYMENT":
+            reason = "unsupported_webhook_type"
+        elif not isinstance(checkout_session_id, str):
+            reason = "checkout_session_id_is_missing_or_invalid"
+        else:
+            reason = "merchant_id_is_missing_or_invalid"
+        logger.info(
+            "Clover Hosted Checkout webhook ignored: %s",
+            json.dumps(
+                {
+                    **webhook_diagnostic,
+                    "matching_order_found": False,
+                    "order_status_changed": False,
+                    "reason": reason,
+                },
+                default=str,
+                sort_keys=True,
+            ),
+        )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     try:
@@ -703,8 +745,24 @@ async def hosted_checkout_webhook(
             detail={"code": "webhook_persistence_failed"},
         ) from error
     if order is None:
+        logger.info(
+            "Clover Hosted Checkout webhook did not match an order: %s",
+            json.dumps(
+                {
+                    **webhook_diagnostic,
+                    "matching_order_found": False,
+                    "order_status_changed": False,
+                    "reason": (
+                        "no_order_matches_both_checkout_session_id_and_merchant_id"
+                    ),
+                },
+                default=str,
+                sort_keys=True,
+            ),
+        )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    previous_status = order.status
     if payment_status == "APPROVED" and order.status != OrderStatus.PAID:
         order.status = OrderStatus.PAID
     elif (
@@ -713,6 +771,26 @@ async def hosted_checkout_webhook(
     ):
         order.status = OrderStatus.PAYMENT_FAILED
     else:
+        if order.status == OrderStatus.PAID:
+            reason = "paid_order_transition_is_monotonic"
+        elif payment_status not in {"APPROVED", "DECLINED", "FAILED"}:
+            reason = "unsupported_payment_status"
+        else:
+            reason = "order_already_has_target_status"
+        logger.info(
+            "Clover Hosted Checkout webhook transition skipped: %s",
+            json.dumps(
+                {
+                    **webhook_diagnostic,
+                    "matching_order_found": True,
+                    "order_status_changed": False,
+                    "order_status": str(order.status),
+                    "reason": reason,
+                },
+                default=str,
+                sort_keys=True,
+            ),
+        )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     order.version += 1
     try:
@@ -723,4 +801,18 @@ async def hosted_checkout_webhook(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "webhook_persistence_failed"},
         ) from error
+    logger.info(
+        "Clover Hosted Checkout webhook transition applied: %s",
+        json.dumps(
+            {
+                **webhook_diagnostic,
+                "matching_order_found": True,
+                "order_status_changed": True,
+                "previous_order_status": str(previous_status),
+                "order_status": str(order.status),
+            },
+            default=str,
+            sort_keys=True,
+        ),
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
