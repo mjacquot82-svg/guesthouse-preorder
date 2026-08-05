@@ -7,7 +7,11 @@ from cryptography.fernet import Fernet
 from fastapi import HTTPException, Response
 
 import app.api.v1.clover as clover_api
-from app.api.v1.clover import _checkout_payload, _masked_identifier
+from app.api.v1.clover import (
+    _checkout_payload,
+    _masked_identifier,
+    _parse_clover_checkout_expiration,
+)
 from app.clover.client import CloverApiError, CloverClient
 from app.clover.config import CloverConfigurationError, CloverSettings
 from app.clover.security import (
@@ -53,6 +57,14 @@ def test_clover_diagnostic_identifiers_are_safely_masked() -> None:
     assert _masked_identifier("ABCD12345678WXYZ") == "ABCD...WXYZ"
     assert _masked_identifier("app-id") == "******"
     assert _masked_identifier(None) is None
+
+
+def test_clover_checkout_expiration_accepts_iso_8601_and_milliseconds() -> None:
+    expected = datetime(2026, 8, 5, 23, 5, 34, 367000, tzinfo=timezone.utc)
+
+    assert _parse_clover_checkout_expiration("2026-08-05T23:05:34.367Z") == expected
+    assert _parse_clover_checkout_expiration(1_785_971_134_367) == expected
+    assert _parse_clover_checkout_expiration("1785971134367") == expected
 
 
 def test_clover_settings_reject_insecure_public_urls() -> None:

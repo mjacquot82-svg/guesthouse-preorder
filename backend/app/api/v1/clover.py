@@ -42,6 +42,30 @@ def _masked_identifier(value: str | None) -> str | None:
     return f"{value[:4]}...{value[-4:]}"
 
 
+def _parse_clover_checkout_expiration(value: object) -> datetime:
+    if isinstance(value, bool):
+        raise ValueError("Clover returned an invalid checkout expiration.")
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+    if isinstance(value, str):
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Clover returned an invalid checkout expiration.")
+        try:
+            return datetime.fromtimestamp(int(normalized) / 1000, tz=timezone.utc)
+        except ValueError:
+            try:
+                parsed = datetime.fromisoformat(normalized.replace("Z", "+00:00"))
+            except ValueError as error:
+                raise ValueError(
+                    "Clover returned an invalid checkout expiration."
+                ) from error
+            if parsed.tzinfo is None or parsed.utcoffset() is None:
+                raise ValueError("Clover returned an invalid checkout expiration.")
+            return parsed.astimezone(timezone.utc)
+    raise ValueError("Clover returned an invalid checkout expiration.")
+
+
 class CloverConnectionResponse(BaseModel):
     configured: bool
     connected: bool
@@ -534,7 +558,7 @@ def create_hosted_checkout(
         order.clover_checkout_url = result["href"]
         expiration = result.get("expirationTime")
         order.clover_checkout_expires_at = (
-            datetime.fromtimestamp(int(expiration) / 1000, tz=timezone.utc)
+            _parse_clover_checkout_expiration(expiration)
             if expiration
             else now + timedelta(minutes=15)
         )
