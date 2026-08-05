@@ -430,6 +430,7 @@ def test_clover_checkout_is_idempotent_and_webhook_state_is_monotonic(
 def test_clover_checkout_failure_preserves_order_and_returns_honest_message(
     orders_api: tuple[TestClient, Engine, dict[str, int]],
     monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     client, engine, ids = orders_api
     settings = CloverSettings(
@@ -460,6 +461,14 @@ def test_clover_checkout_failure_preserves_order_and_returns_honest_message(
             "Clover checkout request failed (401).",
             code="clover_rejected_request",
             upstream_status=401,
+            upstream_error_code="AUTH-401",
+            upstream_error_message="Hosted Checkout is not authorized.",
+            upstream_response_body={
+                "code": "AUTH-401",
+                "message": "Hosted Checkout is not authorized.",
+                "token": "[REDACTED]",
+            },
+            upstream_response_headers={"x-request-id": "clover-request-123"},
         )
 
     monkeypatch.setattr(CloverClient, "create_checkout", rejected_checkout)
@@ -475,6 +484,13 @@ def test_clover_checkout_failure_preserves_order_and_returns_honest_message(
             "be started. Please try payment again.",
         }
     }
+    log_message = caplog.messages[-1]
+    assert "Clover checkout creation failed" in log_message
+    assert '"upstream_http_status": 401' in log_message
+    assert '"upstream_error_code": "AUTH-401"' in log_message
+    assert '"x-request-id": "clover-request-123"' in log_message
+    assert "[REDACTED]" in log_message
+    assert "private-token" not in log_message
     with Session(engine) as session:
         order = session.scalar(
             select(Order).where(Order.public_access_token == created["public_token"])

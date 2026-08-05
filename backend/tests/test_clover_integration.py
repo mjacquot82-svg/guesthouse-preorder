@@ -182,13 +182,58 @@ def test_clover_network_failures_and_insecure_checkout_urls_are_rejected() -> No
     assert captured.value.code == "clover_unreachable"
     assert captured.value.upstream_status is None
 
+    def timeout(request: httpx.Request) -> httpx.Response:
+        raise httpx.ReadTimeout("timed out", request=request)
+
+    timed_out = CloverClient(
+        settings(),
+        http_client=httpx.Client(transport=httpx.MockTransport(timeout)),
+    )
+    with pytest.raises(CloverApiError) as timeout_error:
+        timed_out.create_checkout(
+            access_token="private-token",
+            merchant_id="merchant-id",
+            payload={},
+        )
+    assert timeout_error.value.code == "clover_timeout"
+    assert timeout_error.value.timeout_information == {
+        "exception_type": "ReadTimeout",
+        "method": "POST",
+        "phase": "read",
+        "production_timeout_seconds": {
+            "connect": 5,
+            "pool": 15,
+            "read": 15,
+            "write": 15,
+        },
+        "url_host": "apisandbox.dev.clover.com",
+        "url_path": "/invoicingcheckoutservice/v1/checkouts",
+    }
+
 
 def test_clover_rejection_preserves_safe_upstream_diagnostics() -> None:
     rejected = CloverClient(
         settings(),
         http_client=httpx.Client(
             transport=httpx.MockTransport(
-                lambda _: httpx.Response(401, json={"message": "secret detail"})
+                lambda _: httpx.Response(
+                    401,
+                    headers={
+                        "Authorization": "Bearer response-secret",
+                        "X-Request-Id": "clover-request-123",
+                    },
+                    json={
+                        "code": "AUTH-401",
+                        "message": "Hosted Checkout rejected private@example.test for Jessie Guest.",
+                        "customer": {
+                            "email": "private@example.test",
+                            "firstName": "Jessie",
+                            "lastName": "Guest",
+                            "phoneNumber": "+1 613-555-0199",
+                        },
+                        "access_token": "response-secret",
+                    },
+                )
             )
         ),
     )
@@ -202,6 +247,20 @@ def test_clover_rejection_preserves_safe_upstream_diagnostics() -> None:
 
     assert captured.value.code == "clover_rejected_request"
     assert captured.value.upstream_status == 401
+    assert captured.value.upstream_error_code == "AUTH-401"
+    assert captured.value.upstream_error_message == (
+        "Hosted Checkout rejected [REDACTED] for [REDACTED] [REDACTED]."
+    )
+    assert captured.value.upstream_response_headers == {
+        "content-type": "application/json",
+        "x-request-id": "clover-request-123"
+    }
+    assert captured.value.upstream_response_body == {
+        "code": "AUTH-401",
+        "message": "Hosted Checkout rejected [REDACTED] for [REDACTED] [REDACTED].",
+        "customer": "[REDACTED]",
+        "access_token": "[REDACTED]",
+    }
 
     insecure = CloverClient(
         settings(),
@@ -217,12 +276,18 @@ def test_clover_rejection_preserves_safe_upstream_diagnostics() -> None:
             )
         ),
     )
-    with pytest.raises(CloverApiError, match="invalid checkout"):
+    with pytest.raises(CloverApiError, match="invalid checkout") as invalid_response:
         insecure.create_checkout(
             access_token="token",
             merchant_id="merchant-id",
             payload={},
         )
+    assert invalid_response.value.code == "clover_invalid_response"
+    assert invalid_response.value.upstream_status == 200
+    assert invalid_response.value.upstream_response_body == {
+        "href": "http://checkout.example.test/session",
+        "checkoutSessionId": "session-id",
+    }
 
 
 def test_checkout_payload_matches_authoritative_total_with_tax() -> None:

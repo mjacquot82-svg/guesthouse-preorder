@@ -409,12 +409,21 @@ def create_hosted_checkout(
     except CloverApiError as error:
         session.rollback()
         logger.error(
-            "Clover checkout creation failed",
-            extra={
-                "clover_error_code": error.code,
-                "clover_upstream_status": error.upstream_status,
-                "order_id": order.id,
-            },
+            "Clover checkout creation failed: %s",
+            json.dumps(
+                {
+                    "clover_error_code": error.code,
+                    "upstream_http_status": error.upstream_status,
+                    "upstream_error_code": error.upstream_error_code,
+                    "upstream_error_message": error.upstream_error_message,
+                    "upstream_response_body": error.upstream_response_body,
+                    "upstream_response_headers": error.upstream_response_headers,
+                    "timeout_information": error.timeout_information,
+                    "order_id": order.id,
+                },
+                default=str,
+                sort_keys=True,
+            ),
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
