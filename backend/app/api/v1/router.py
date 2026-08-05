@@ -9,6 +9,7 @@ from app.api.v1.owner_scheduling import router as owner_scheduling_router
 from app.api.v1.customer_auth import router as customer_auth_router
 from app.api.v1.customer_account import router as customer_account_router
 from app.api.v1.scheduling import router as scheduling_router
+from app.api.v1.runtime_diagnostics import router as runtime_diagnostics_router
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(catalog_router)
@@ -20,3 +21,4 @@ router.include_router(owner_scheduling_router)
 router.include_router(customer_auth_router)
 router.include_router(customer_account_router)
 router.include_router(scheduling_router)
+router.include_router(runtime_diagnostics_router)
