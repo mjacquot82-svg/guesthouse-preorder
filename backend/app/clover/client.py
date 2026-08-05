@@ -226,6 +226,40 @@ class CloverClient:
                 "Unable to reach Clover.", code="clover_unreachable"
             ) from error
 
+    def _get(self, url: str, **kwargs: object) -> httpx.Response:
+        try:
+            if self.http_client is not None:
+                return self.http_client.get(url, **kwargs)
+            timeout = httpx.Timeout(15, connect=5)
+            with httpx.Client(timeout=timeout) as client:
+                return client.get(url, **kwargs)
+        except httpx.TimeoutException as error:
+            try:
+                request = error.request
+            except RuntimeError:
+                request = None
+            raise CloverApiError(
+                "Clover request timed out.",
+                code="clover_timeout",
+                timeout_information={
+                    "exception_type": type(error).__name__,
+                    "method": request.method if request else None,
+                    "phase": type(error).__name__.removesuffix("Timeout").lower(),
+                    "production_timeout_seconds": {
+                        "connect": 5,
+                        "pool": 15,
+                        "read": 15,
+                        "write": 15,
+                    },
+                    "url_host": request.url.host if request else None,
+                    "url_path": request.url.path if request else None,
+                },
+            ) from error
+        except httpx.RequestError as error:
+            raise CloverApiError(
+                "Unable to reach Clover.", code="clover_unreachable"
+            ) from error
+
     def authorization_url(self, state: str) -> str:
         query = urlencode(
             {
@@ -326,6 +360,27 @@ class CloverClient:
                 upstream_response_headers=_diagnostic_headers(response),
             )
         return data
+
+    def get_merchant_tax_rates(
+        self,
+        *,
+        access_token: str,
+        merchant_id: str,
+    ) -> tuple[dict, int, dict[str, str]]:
+        """Temporary diagnostic read of the merchant's configured tax rates."""
+        response = self._get(
+            (
+                f"{self.settings.api_base_url}/v3/merchants/"
+                f"{merchant_id}/tax_rates"
+            ),
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": "guesthouse-preorder/0.1",
+            },
+        )
+        data = self._response_json(response, "Clover tax rates request failed")
+        return data, response.status_code, _diagnostic_headers(response)
 
     @staticmethod
     def _response_json(response: httpx.Response, message: str) -> dict:

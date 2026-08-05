@@ -4,7 +4,9 @@ from urllib.parse import parse_qs, urlparse
 import httpx
 import pytest
 from cryptography.fernet import Fernet
+from fastapi import HTTPException, Response
 
+import app.api.v1.clover as clover_api
 from app.api.v1.clover import _checkout_payload
 from app.clover.client import CloverApiError, CloverClient
 from app.clover.config import CloverConfigurationError, CloverSettings
@@ -167,6 +169,77 @@ def test_hosted_checkout_uses_server_side_bearer_token() -> None:
     assert captured is not None
     assert captured.headers["authorization"] == "Bearer private-token"
     assert captured.headers["x-clover-merchant-id"] == "merchant-id"
+
+
+def test_merchant_tax_rates_uses_oauth_bearer_token_and_returns_diagnostics() -> None:
+    captured: httpx.Request | None = None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured
+        captured = request
+        return httpx.Response(
+            200,
+            headers={"X-Request-Id": "tax-request-123"},
+            json={
+                "elements": [
+                    {"id": "tax-id", "name": "HST", "rate": 1_300_000}
+                ]
+            },
+        )
+
+    client = CloverClient(
+        settings(),
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    data, upstream_status, upstream_headers = client.get_merchant_tax_rates(
+        access_token="oauth-access-token",
+        merchant_id="merchant-id",
+    )
+
+    assert data["elements"][0]["rate"] == 1_300_000
+    assert upstream_status == 200
+    assert upstream_headers["x-request-id"] == "tax-request-123"
+    assert captured is not None
+    assert captured.method == "GET"
+    assert captured.url.path == "/v3/merchants/merchant-id/tax_rates"
+    assert captured.headers["authorization"] == "Bearer oauth-access-token"
+
+
+def test_tax_rates_diagnostic_returns_clover_error_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        clover_api,
+        "_active_credential",
+        lambda *_: ("merchant-id", "oauth-access-token"),
+    )
+
+    def rejected(*_: object, **__: object) -> tuple[dict, int, dict[str, str]]:
+        raise CloverApiError(
+            "Clover tax rates request failed (403).",
+            code="clover_rejected_request",
+            upstream_status=403,
+            upstream_response_body={"message": "Forbidden"},
+            upstream_response_headers={"x-correlation-id": "correlation-123"},
+        )
+
+    monkeypatch.setattr(CloverClient, "get_merchant_tax_rates", rejected)
+
+    with pytest.raises(HTTPException) as captured:
+        clover_api.debug_clover_tax_rates(
+            response=Response(),
+            session=object(),
+            settings=settings(),
+            _=object(),
+        )
+
+    assert captured.value.status_code == 502
+    assert captured.value.detail == {
+        "code": "clover_rejected_request",
+        "upstream_status": 403,
+        "response_body": {"message": "Forbidden"},
+        "request_id": "correlation-123",
+    }
 
 
 def test_clover_network_failures_and_insecure_checkout_urls_are_rejected() -> None:

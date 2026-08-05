@@ -341,6 +341,77 @@ def _checkout_payload(order: Order, settings: CloverSettings) -> dict:
     return payload
 
 
+@router.get("/debug/tax-rates")
+def debug_clover_tax_rates(
+    response: Response,
+    session: Session = Depends(get_db_session),
+    settings: CloverSettings = Depends(get_settings),
+    _: object = Depends(require_read_permission("integrations.manage")),
+) -> dict:
+    """Temporary authenticated diagnostic for Clover merchant tax rates."""
+    response.headers["Cache-Control"] = "no-store"
+    merchant_id, access_token = _active_credential(session, settings)
+    try:
+        data, upstream_status, upstream_headers = (
+            CloverClient(settings).get_merchant_tax_rates(
+                access_token=access_token,
+                merchant_id=merchant_id,
+            )
+        )
+    except CloverApiError as error:
+        request_id = next(
+            (
+                error.upstream_response_headers.get(name)
+                for name in (
+                    "x-request-id",
+                    "x-correlation-id",
+                    "trace-id",
+                    "x-trace-id",
+                    "cf-ray",
+                )
+                if error.upstream_response_headers.get(name)
+            ),
+            None,
+        )
+        logger.error(
+            "Clover tax rates diagnostic failed: %s",
+            json.dumps(
+                {
+                    "merchant_id": merchant_id,
+                    "upstream_status": error.upstream_status,
+                    "response_body": error.upstream_response_body,
+                    "request_id": request_id,
+                },
+                default=str,
+                sort_keys=True,
+            ),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": error.code,
+                "upstream_status": error.upstream_status,
+                "response_body": error.upstream_response_body,
+                "request_id": request_id,
+            },
+        ) from error
+
+    logger.info(
+        "Clover tax rates diagnostic: %s",
+        json.dumps(
+            {
+                "merchant_id": merchant_id,
+                "upstream_status": upstream_status,
+                "response_body": data,
+                "upstream_headers": upstream_headers,
+            },
+            default=str,
+            sort_keys=True,
+        ),
+    )
+    return data
+
+
 @router.post(
     "/orders/{public_token}/checkout",
     response_model=CloverCheckoutResponse,
