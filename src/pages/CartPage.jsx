@@ -351,29 +351,29 @@ export default function CartPage() {
     return (
       <section className="page-section ordering-page cart-page saved-order-page">
         <div className="page-heading cart-heading">
-          <span className="eyebrow">Payment required</span>
-          <h1>Your order is saved</h1>
-          <p>Everything is confirmed. Complete payment to finish checking out.</p>
+          <span className="eyebrow">Order accepted</span>
+          <h1>The café has your order</h1>
+          <p>Your pickup time is confirmed. Payment is the only step left.</p>
         </div>
 
         <div className="saved-order-status" role="status" aria-live="polite">
           <div className="saved-order-status-heading">
             <span className="saved-order-check" aria-hidden="true">✓</span>
             <div>
-              <strong>Order saved</strong>
+              <strong>Your order is confirmed</strong>
               <span>Order {savedOrder.public_token.slice(0, 8).toUpperCase()}</span>
             </div>
           </div>
           <div className="saved-order-milestones" aria-label="Order status">
-            <div><span>Pickup confirmed</span><strong>{formatReadyTime(new Date(savedOrder.requested_pickup_at), savedOrder.business_timezone)}</strong></div>
-            <div><span>Payment</span><strong>Still required</strong></div>
+            <div className="saved-order-complete"><span>✓ Pickup confirmed</span><strong>{formatReadyTime(new Date(savedOrder.requested_pickup_at), savedOrder.business_timezone)}</strong></div>
+            <div className="saved-order-payment-pending"><span>Payment needed</span><strong>Complete now</strong></div>
           </div>
           {checkoutError ? (
             <p className="saved-order-payment-note" role="alert">
-              Secure payment could not be started. Try again below. If it continues to fail, contact the café and mention your order number.
+              Secure payment could not be started. Please try again. If it continues to fail, contact the café and mention your order number.
             </p>
           ) : (
-            <p>Continue to secure payment below. Your order will not be submitted again.</p>
+            <p>Complete secure payment below. Your order will not be submitted again.</p>
           )}
         </div>
 
@@ -411,7 +411,7 @@ export default function CartPage() {
             onClick={retryPayment}
           >
             <CreditCard size={17} strokeWidth={2.4} />
-            {isPlacingOrder ? "Starting payment…" : "Retry payment"}
+            {isPlacingOrder ? "Starting secure payment…" : "Complete secure payment"}
           </button>
         </div>
       </section>
@@ -624,16 +624,12 @@ export default function CartPage() {
           <button
             aria-busy={isPlacingOrder}
             className="primary-button"
-            disabled={isPlacingOrder || (!savedOrder && (scheduleStatus !== "ready" || !schedule?.ordering_available || !selectedPickup))}
+            disabled={isPlacingOrder || scheduleStatus !== "ready" || !schedule?.ordering_available || !selectedPickup}
             type="button"
-            onClick={savedOrder ? retryPayment : placeOrder}
+            onClick={placeOrder}
           >
-            {savedOrder
-              ? <CreditCard size={17} strokeWidth={2.4} />
-              : <ClipboardList size={17} strokeWidth={2.4} />}
-            {isPlacingOrder
-              ? savedOrder ? "Starting payment…" : "Placing order…"
-              : savedOrder ? "Retry payment" : "Place order"}
+            <ClipboardList size={17} strokeWidth={2.4} />
+            {isPlacingOrder ? "Placing order…" : "Place order"}
           </button>
         )}
       </div>

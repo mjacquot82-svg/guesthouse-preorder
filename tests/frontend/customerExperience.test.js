@@ -49,9 +49,11 @@ test("customer forms default persistence and expose guarded pending states", () 
 test("saved orders transition checkout to payment-only recovery", () => {
   assert.match(cartPageSource, /setSavedOrder\(order\)/);
   assert.match(cartPageSource, /createCloverCheckout\(savedOrder\.public_token\)/);
-  assert.match(cartPageSource, /savedOrder \? "Retry payment" : "Place order"/);
-  assert.match(cartPageSource, /Order saved/);
-  assert.match(cartPageSource, /Payment<\/span><strong>Still required/);
+  assert.match(cartPageSource, /The café has your order/);
+  assert.match(cartPageSource, /Payment needed<\/span><strong>Complete now/);
+  assert.match(cartPageSource, /Complete secure payment/);
+  assert.doesNotMatch(cartPageSource, /finish checking out/i);
+  assert.doesNotMatch(cartPageSource, /Retry payment/);
   assert.match(cartPageSource, /contact the café/);
   assert.match(cartPageSource, /Your order will not be submitted again/);
   assert.doesNotMatch(cartPageSource, /savedOrder && checkoutError/);

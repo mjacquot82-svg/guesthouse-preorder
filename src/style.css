@@ -1348,6 +1348,22 @@ h3 {
   padding: 12px;
 }
 
+.saved-order-milestones .saved-order-payment-pending {
+  border: 1px solid rgba(178, 112, 30, 0.32);
+  background: rgba(255, 244, 221, 0.92);
+  box-shadow: inset 4px 0 0 rgba(178, 112, 30, 0.72);
+  padding-left: 16px;
+}
+
+.saved-order-payment-pending span,
+.saved-order-payment-pending strong {
+  color: #7a4612;
+}
+
+.saved-order-payment-pending strong {
+  font-size: 1.05rem;
+}
+
 .saved-order-milestones span,
 .saved-order-summary-heading span,
 .saved-order-details dt {
@@ -1360,6 +1376,12 @@ h3 {
   border-top: 1px solid rgba(108, 123, 93, 0.25);
   padding-top: 14px;
   font-weight: 750;
+}
+
+.saved-order-page .primary-button {
+  min-height: 50px;
+  font-size: 1rem;
+  box-shadow: 0 12px 24px rgba(42, 38, 31, 0.12);
 }
 
 .saved-order-summary {
