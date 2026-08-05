@@ -66,6 +66,15 @@ def _parse_clover_checkout_expiration(value: object) -> datetime:
     raise ValueError("Clover returned an invalid checkout expiration.")
 
 
+def _hosted_checkout_session_id(payload: dict) -> object:
+    return (
+        payload.get("checkoutSessionId")
+        or payload.get("checkout_session_id")
+        or payload.get("data")
+        or payload.get("Data")
+    )
+
+
 class CloverConnectionResponse(BaseModel):
     configured: bool
     connected: bool
@@ -669,7 +678,7 @@ async def hosted_checkout_webhook(
             detail={"code": "invalid_clover_webhook", "message": str(error)},
         ) from error
 
-    checkout_session_id = payload.get("data") or payload.get("Data")
+    checkout_session_id = _hosted_checkout_session_id(payload)
     event_type = str(payload.get("type") or payload.get("Type") or "").upper()
     payment_status = str(
         payload.get("status") or payload.get("Status") or ""

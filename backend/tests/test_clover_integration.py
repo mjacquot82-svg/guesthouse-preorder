@@ -9,6 +9,7 @@ from fastapi import HTTPException, Response
 import app.api.v1.clover as clover_api
 from app.api.v1.clover import (
     _checkout_payload,
+    _hosted_checkout_session_id,
     _masked_identifier,
     _parse_clover_checkout_expiration,
 )
@@ -65,6 +66,17 @@ def test_clover_checkout_expiration_accepts_iso_8601_and_milliseconds() -> None:
     assert _parse_clover_checkout_expiration("2026-08-05T23:05:34.367Z") == expected
     assert _parse_clover_checkout_expiration(1_785_971_134_367) == expected
     assert _parse_clover_checkout_expiration("1785971134367") == expected
+
+
+def test_hosted_checkout_webhook_accepts_current_and_legacy_session_fields() -> None:
+    assert _hosted_checkout_session_id(
+        {"checkoutSessionId": "current-session", "data": "legacy-session"}
+    ) == "current-session"
+    assert _hosted_checkout_session_id(
+        {"checkout_session_id": "snake-session"}
+    ) == "snake-session"
+    assert _hosted_checkout_session_id({"data": "legacy-session"}) == "legacy-session"
+    assert _hosted_checkout_session_id({"Data": "legacy-session"}) == "legacy-session"
 
 
 def test_clover_settings_reject_insecure_public_urls() -> None:
