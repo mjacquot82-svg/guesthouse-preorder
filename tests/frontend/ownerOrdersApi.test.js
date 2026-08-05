@@ -74,4 +74,11 @@ test("dashboard uses real order metrics with honest loading and error states", a
   assert.match(dashboard, /Loading today’s queue/);
   assert.match(dashboard, /Unavailable/);
   assert.doesNotMatch(dashboard, /Awaiting live queue|Pending payment integration/);
+  assert.match(dashboard, /Determining Clover connection/);
+  assert.match(dashboard, /Owner session expired\. Please sign in again\./);
+  assert.match(dashboard, /Clover configuration is incomplete\./);
+  assert.match(dashboard, /Connection to the server failed\./);
+  assert.match(dashboard, /Unable to determine Clover status\./);
+  assert.match(dashboard, /clover\.status === "ready" && !clover\.connected/);
+  assert.match(dashboard, /\s+Retry\s+<\/button>/);
 });

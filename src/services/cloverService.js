@@ -9,6 +9,15 @@ export class CloverCheckoutError extends Error {
   }
 }
 
+export class CloverConnectionError extends Error {
+  constructor(message, { cause, code, status } = {}) {
+    super(message, { cause });
+    this.name = "CloverConnectionError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
 function apiUrl(path, apiBaseUrl = API_BASE_URL) {
   return `${apiBaseUrl.replace(/\/+$/, "")}${path}`;
 }
@@ -74,11 +83,25 @@ export async function fetchCloverConnection({
   apiBaseUrl = API_BASE_URL,
   fetchImpl = globalThis.fetch,
 } = {}) {
-  const response = await fetchImpl(
-    apiUrl("/api/v1/clover/connection", apiBaseUrl),
-    { headers: { Accept: "application/json" } }
-  );
-  return readResponse(response);
+  let response;
+  try {
+    response = await fetchImpl(
+      apiUrl("/api/v1/clover/connection", apiBaseUrl),
+      {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      },
+    );
+  } catch (cause) {
+    throw new CloverConnectionError("Connection to the server failed.", {
+      cause,
+      code: "network_error",
+    });
+  }
+  return readResponse(response, {
+    ErrorType: CloverConnectionError,
+    fallbackMessage: "Unable to determine Clover status.",
+  });
 }
 
 export function getCloverConnectUrl(apiBaseUrl = API_BASE_URL) {

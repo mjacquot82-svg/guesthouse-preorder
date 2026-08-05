@@ -312,6 +312,18 @@ async def test_clover_management_routes_require_owner_integration_permission(
     connection = await auth_client.get("/api/v1/clover/connection")
     assert connection.status_code == 200
     assert connection.json()["connected"] is True
+    assert connection.json()["environment"] == "sandbox"
+    assert connection.json()["merchant_id"] == "merchant-id"
+
+    monkeypatch.delenv("CLOVER_ECOMMERCE_PRIVATE_TOKEN")
+    disconnected = await auth_client.get("/api/v1/clover/connection")
+    assert disconnected.status_code == 200
+    assert disconnected.json() == {
+        "configured": True,
+        "connected": False,
+        "environment": "sandbox",
+        "merchant_id": "merchant-id",
+    }
 
 
 @pytest.mark.anyio

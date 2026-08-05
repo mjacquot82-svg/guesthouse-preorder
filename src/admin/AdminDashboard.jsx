@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   fetchCloverConnection,
   getCloverConnectUrl,
+  CloverConnectionError,
 } from "../services/cloverService.js";
 import { useCatalogProducts } from "../stores/catalogStore.js";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
@@ -16,24 +17,91 @@ const money = (cents, currency) => new Intl.NumberFormat("en-CA", {
 export default function AdminDashboard() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { logout } = useOwnerAuth();
+  const { logout, refreshSession } = useOwnerAuth();
   const [clover, setClover] = useState({ status: "loading" });
   const [orderSummary, setOrderSummary] = useState({ status: "loading" });
   const { products } = useCatalogProducts();
   const availableCount = products.filter((product) => product.available).length;
 
-  useEffect(() => {
+  const loadCloverConnection = useCallback(() => {
+    setClover({ status: "loading" });
     fetchCloverConnection()
       .then((connection) => setClover({ status: "ready", ...connection }))
-      .catch(() => setClover({ status: "error" }));
+      .catch((error) => {
+        if (!(error instanceof CloverConnectionError)) {
+          setClover({ status: "server-error" });
+          return;
+        }
+        if (error.status === 401) setClover({ status: "authentication-error" });
+        else if (error.status === 403) setClover({ status: "permission-error" });
+        else if (error.status === 404 || error.code === "clover_not_configured") {
+          setClover({ status: "configuration-error" });
+        } else if (error.code === "network_error") setClover({ status: "network-error" });
+        else setClover({ status: "server-error" });
+      });
+  }, []);
+
+  useEffect(() => {
+    loadCloverConnection();
     fetchOwnerOrderSummary()
       .then((summary) => setOrderSummary({ status: "ready", ...summary }))
       .catch(() => setOrderSummary({ status: "error" }));
-  }, []);
+  }, [loadCloverConnection]);
+
+  const cloverDisplay = (() => {
+    if (clover.status === "loading") return {
+      detail: "Determining Clover connection...",
+      heading: "Checking…",
+    };
+    if (clover.status === "ready" && !clover.configured) return {
+      detail: "Clover configuration is incomplete.",
+      heading: "Configuration needed",
+    };
+    if (clover.status === "ready" && clover.connected) return {
+      detail: [
+        clover.environment ? `Environment: ${clover.environment}` : null,
+        clover.merchant_id ? `Merchant: ${clover.merchant_id}` : null,
+      ].filter(Boolean).join(" · ") || "Clover is ready.",
+      heading: "Connected",
+    };
+    if (clover.status === "ready") return {
+      detail: "Clover is not connected.",
+      heading: "Not connected",
+    };
+    if (clover.status === "authentication-error") return {
+      detail: "Owner session expired. Please sign in again.",
+      heading: "Sign-in required",
+    };
+    if (clover.status === "permission-error") return {
+      detail: "Your account does not have permission to view Clover settings.",
+      heading: "Permission required",
+    };
+    if (clover.status === "configuration-error") return {
+      detail: "Clover configuration is incomplete.",
+      heading: "Configuration needed",
+    };
+    if (clover.status === "network-error") return {
+      detail: "Connection to the server failed.",
+      heading: "Status unavailable",
+    };
+    return {
+      detail: "Unable to determine Clover status.",
+      heading: "Status unavailable",
+    };
+  })();
 
   async function handleLogout() {
     await logout();
     navigate("/owner/login?returnTo=%2Fadmin", { replace: true });
+  }
+
+  async function handleSignInAgain() {
+    try {
+      await refreshSession();
+      loadCloverConnection();
+    } catch {
+      navigate("/owner/login?returnTo=%2Fadmin", { replace: true });
+    }
   }
 
   return (
@@ -65,18 +133,26 @@ export default function AdminDashboard() {
         </Link>
         <article className="metric-card">
           <span>Clover</span>
-          <strong>
-            {clover.connected ? "Connected" : clover.status === "loading" ? "Checking…" : "Not connected"}
-          </strong>
-          <p>
-            {searchParams.get("clover") === "connected"
-              ? "Authorization completed."
-              : "Authorize REST and Hosted Checkout access."}
+          <strong>{cloverDisplay.heading}</strong>
+          <p aria-live="polite">
+            {searchParams.get("clover") === "connected" && clover.connected
+              ? `Authorization completed. ${cloverDisplay.detail}`
+              : cloverDisplay.detail}
           </p>
-          {!clover.connected ? (
+          {clover.status === "ready" && !clover.connected ? (
             <a className="secondary-button" href={getCloverConnectUrl()}>
               Connect Clover
             </a>
+          ) : null}
+          {clover.status === "authentication-error" ? (
+            <button className="secondary-button" type="button" onClick={handleSignInAgain}>
+              Sign in again
+            </button>
+          ) : null}
+          {!["loading", "ready", "authentication-error"].includes(clover.status) ? (
+            <button className="secondary-button" type="button" onClick={loadCloverConnection}>
+              Retry
+            </button>
           ) : null}
         </article>
         <article className="metric-card">

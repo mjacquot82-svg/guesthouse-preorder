@@ -3,9 +3,69 @@ import test from "node:test";
 
 import {
   CloverCheckoutError,
+  CloverConnectionError,
   createCloverCheckout,
+  fetchCloverConnection,
   getCloverConnectUrl,
 } from "../../src/services/cloverService.js";
+
+test("Clover connection uses the authenticated Owner session", async () => {
+  let request;
+  const connection = await fetchCloverConnection({
+    apiBaseUrl: "https://api.example.test/",
+    fetchImpl: async (...args) => {
+      request = args;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          configured: true,
+          connected: true,
+          environment: "production",
+          merchant_id: "merchant-id",
+        }),
+      };
+    },
+  });
+
+  assert.equal(request[1].credentials, "include");
+  assert.equal(connection.connected, true);
+  assert.equal(connection.merchant_id, "merchant-id");
+});
+
+test("Clover connection preserves authentication and backend errors", async () => {
+  await assert.rejects(
+    fetchCloverConnection({
+      fetchImpl: async () => ({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          detail: { code: "unauthenticated", message: "Authentication is required." },
+        }),
+      }),
+    }),
+    (error) => {
+      assert.ok(error instanceof CloverConnectionError);
+      assert.equal(error.code, "unauthenticated");
+      assert.equal(error.status, 401);
+      return true;
+    },
+  );
+});
+
+test("Clover connection distinguishes a network failure", async () => {
+  await assert.rejects(
+    fetchCloverConnection({
+      fetchImpl: async () => { throw new TypeError("offline"); },
+    }),
+    (error) => {
+      assert.ok(error instanceof CloverConnectionError);
+      assert.equal(error.code, "network_error");
+      assert.equal(error.status, undefined);
+      return true;
+    },
+  );
+});
 
 test("createCloverCheckout requests the server-owned checkout endpoint", async () => {
   let request;

@@ -38,6 +38,7 @@ class CloverConnectionResponse(BaseModel):
     configured: bool
     connected: bool
     environment: str | None = None
+    merchant_id: str | None = None
 
 
 class CloverCheckoutResponse(BaseModel):
@@ -178,6 +179,7 @@ def connection_status(
             configured=True,
             connected=True,
             environment=settings.environment,
+            merchant_id=settings.merchant_id,
         )
     try:
         installation = session.scalar(
@@ -196,6 +198,7 @@ def connection_status(
         configured=True,
         connected=installation is not None,
         environment=settings.environment,
+        merchant_id=settings.merchant_id,
     )
 
 
