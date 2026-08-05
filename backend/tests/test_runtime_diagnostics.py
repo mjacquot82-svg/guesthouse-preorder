@@ -85,8 +85,17 @@ async def test_database_diagnostics_reports_only_runtime_schema_state(
     assert response.status_code == 200
     payload = response.json()
     assert set(payload) <= {
-        "database", "schema", "search_path", "tables", "alembic_revision"
+        "database", "schema", "current_user", "search_path",
+        "table_detection_sql", "tables", "information_schema_rows",
+        "alembic_revision",
     }
+    assert payload["table_detection_sql"] == (
+        "SELECT pg_catalog.to_regclass(:table_name) IS NOT NULL"
+    )
+    assert all(
+        set(row) == {"table_schema", "table_name"}
+        for row in payload["information_schema_rows"]
+    )
     assert set(payload["tables"]) == {
         "alembic_version", "jds_applications", "organizations", "jds_users",
         "auth_permissions", "auth_roles", "external_identities",
@@ -95,3 +104,4 @@ async def test_database_diagnostics_reports_only_runtime_schema_state(
     assert all(isinstance(exists, bool) for exists in payload["tables"].values())
     assert "url" not in response.text.lower()
     assert "token" not in response.text.lower()
+    assert "password" not in response.text.lower()
