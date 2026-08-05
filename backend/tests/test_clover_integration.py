@@ -229,13 +229,22 @@ def test_tax_rates_diagnostic_returns_clover_error_details(
         clover_api.debug_clover_tax_rates(
             response=Response(),
             session=object(),
-            settings=settings(),
+            settings=settings(ecommerce_private_token="private-token"),
             _=object(),
         )
 
     assert captured.value.status_code == 502
     assert captured.value.detail == {
         "code": "clover_rejected_request",
+        "credential_diagnostic": {
+            "credential_source": "CLOVER_ECOMMERCE_PRIVATE_TOKEN",
+            "merchant_id": "merchant-id",
+            "token_refreshed": False,
+            "stored_expiration": None,
+            "current_utc_time": captured.value.detail["credential_diagnostic"][
+                "current_utc_time"
+            ],
+        },
         "upstream_status": 403,
         "response_body": {"message": "Forbidden"},
         "request_id": "correlation-123",

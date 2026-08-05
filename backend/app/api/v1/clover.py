@@ -350,7 +350,54 @@ def debug_clover_tax_rates(
 ) -> dict:
     """Temporary authenticated diagnostic for Clover merchant tax rates."""
     response.headers["Cache-Control"] = "no-store"
+    current_time = datetime.now(timezone.utc)
+    credential_source = (
+        "CLOVER_ECOMMERCE_PRIVATE_TOKEN"
+        if settings.ecommerce_private_token
+        else "OAuth installation"
+    )
+    stored_expiration_before = None
+    if credential_source == "OAuth installation":
+        installation = session.scalar(
+            select(CloverInstallation).where(
+                CloverInstallation.merchant_id == settings.merchant_id,
+                CloverInstallation.environment == settings.environment,
+                CloverInstallation.app_id == settings.app_id,
+            )
+        )
+        if installation is not None:
+            stored_expiration_before = installation.access_token_expires_at
+
     merchant_id, access_token = _active_credential(session, settings)
+    stored_expiration = stored_expiration_before
+    token_refreshed = False
+    if credential_source == "OAuth installation":
+        installation = session.scalar(
+            select(CloverInstallation)
+            .where(
+                CloverInstallation.merchant_id == settings.merchant_id,
+                CloverInstallation.environment == settings.environment,
+                CloverInstallation.app_id == settings.app_id,
+            )
+            .execution_options(populate_existing=True)
+        )
+        if installation is not None:
+            stored_expiration = installation.access_token_expires_at
+            token_refreshed = stored_expiration != stored_expiration_before
+
+    credential_diagnostic = {
+        "credential_source": credential_source,
+        "merchant_id": merchant_id,
+        "token_refreshed": token_refreshed,
+        "stored_expiration": (
+            stored_expiration.isoformat() if stored_expiration is not None else None
+        ),
+        "current_utc_time": current_time.isoformat(),
+    }
+    logger.info(
+        "Clover tax rates credential diagnostic: %s",
+        json.dumps(credential_diagnostic, sort_keys=True),
+    )
     try:
         data, upstream_status, upstream_headers = (
             CloverClient(settings).get_merchant_tax_rates(
@@ -390,6 +437,7 @@ def debug_clover_tax_rates(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail={
                 "code": error.code,
+                "credential_diagnostic": credential_diagnostic,
                 "upstream_status": error.upstream_status,
                 "response_body": error.upstream_response_body,
                 "request_id": request_id,
@@ -409,7 +457,10 @@ def debug_clover_tax_rates(
             sort_keys=True,
         ),
     )
-    return data
+    return {
+        "credential_diagnostic": credential_diagnostic,
+        "clover_response": data,
+    }
 
 
 @router.post(
