@@ -19,8 +19,10 @@ from app.jds_auth.foundation import ensure_foundation
 from app.jds_auth.provision_foundation import main as provision_foundation
 from app.jds_auth.models import (
     ExternalIdentity,
+    JdsApplication,
     JdsUser,
     Membership,
+    Organization,
     OwnerInvitation,
     OwnerSession,
     Permission,
@@ -1218,6 +1220,68 @@ async def test_customer_password_reset_reconciles_verified_orphaned_supabase_ide
     )
     assert new_password_login.status_code == 200
     assert new_password_login.json()["role"] == "customer"
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_active_owner_can_use_customer_experience_without_duplicate_identity_or_membership(
+    auth_client: AsyncClient,
+    auth_engine: Engine,
+    fake_provider: FakeIdentityProvider,
+) -> None:
+    with Session(auth_engine) as session:
+        application = session.scalar(select(JdsApplication).where(JdsApplication.key == "jds-commerce"))
+        organization = session.scalar(select(Organization).where(Organization.slug == "the-guest-house"))
+        user = session.scalar(select(JdsUser).where(JdsUser.primary_email == fake_provider.identity.email))
+        assert application is not None
+        assert organization is not None
+        assert user is not None
+        user_id = user.id
+        application_id = application.id
+        organization_id = organization.id
+        identity_ids_before = list(session.scalars(select(ExternalIdentity.id).where(ExternalIdentity.user_id == user_id)))
+        membership_ids_before = list(session.scalars(select(Membership.id).where(Membership.user_id == user_id)))
+        assert len(identity_ids_before) == 1
+        assert len(membership_ids_before) == 1
+
+    customer_login = await auth_client.post(
+        "/api/v1/customer/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": fake_provider.identity.email, "password": "correct horse battery staple"},
+    )
+
+    assert customer_login.status_code == 200
+    customer_payload = customer_login.json()
+    assert customer_payload["role"] == "owner"
+    assert customer_payload["organization_id"] == str(organization_id)
+
+    customer_session = await auth_client.get("/api/v1/customer/auth/session")
+    assert customer_session.status_code == 200
+    assert customer_session.json()["role"] == "owner"
+    customer_orders = await auth_client.get("/api/v1/customer/orders")
+    assert customer_orders.status_code == 200
+    assert customer_orders.json() == []
+
+    owner_login_response = await auth_client.post(
+        "/api/v1/owner/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": fake_provider.identity.email, "password": "correct horse battery staple"},
+    )
+    assert owner_login_response.status_code == 200
+    assert owner_login_response.json()["role"] == "owner"
+
+    with Session(auth_engine) as session:
+        identities_after = list(session.scalars(select(ExternalIdentity).where(ExternalIdentity.user_id == user_id)))
+        memberships_after = list(session.scalars(select(Membership).where(Membership.user_id == user_id)))
+        assert [identity.id for identity in identities_after] == identity_ids_before
+        assert [membership.id for membership in memberships_after] == membership_ids_before
+        membership = memberships_after[0]
+        role = session.get(Role, membership.role_id)
+        assert role is not None
+        assert role.key == "owner"
+        assert membership.status == "active"
+        assert membership.application_id == application_id
+        assert membership.organization_id == organization_id
 
 
 @pytest.mark.anyio
