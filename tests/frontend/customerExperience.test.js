@@ -46,6 +46,11 @@ test("customer forms default persistence and expose guarded pending states", () 
   assert.match(cartPageSource, /Add a name, email, and phone number before placing your order\./);
 });
 
+test("customer registration and recovery require 12-character passwords", () => {
+  assert.match(authPageSource, /minLength=\{creating \? 12 : 8\}/);
+  assert.match(resetPageSource, /minLength=\{hasRecovery \? 12 : undefined\}/);
+});
+
 test("saved orders transition checkout to payment-only recovery", () => {
   assert.match(cartPageSource, /setSavedOrder\(order\)/);
   assert.match(cartPageSource, /createCloverCheckout\(savedOrder\.public_token\)/);

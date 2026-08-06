@@ -28,6 +28,7 @@ from app.jds_auth.models import (
     RolePermission,
 )
 from app.jds_auth.provider import IdentityProviderError, InvalidCredentialsError, ProviderAuthentication, ProviderIdentity, SupabaseIdentityProvider
+from app.jds_auth.schemas import CustomerPasswordCompletionRequest, CustomerRegistrationRequest, PasswordCompletionRequest
 from app.jds_auth.security import hash_secret
 from app.main import create_app
 from app.catalog.models import Product
@@ -454,6 +455,34 @@ async def test_owner_scheduling_uses_authoritative_preview_and_protected_mutatio
 def test_auth_settings_require_production_secrets() -> None:
     with pytest.raises(Exception, match="Missing JDS authentication"):
         AuthSettings("", "", "", "", "").validate()
+
+
+def test_customer_passwords_require_12_characters_without_weakening_owner_completion() -> None:
+    CustomerRegistrationRequest(
+        display_name="Customer",
+        email="customer@example.com",
+        password="twelve-chars",
+        phone="+15198816869",
+    )
+    CustomerPasswordCompletionRequest(
+        access_token="recovery-access-token",
+        password="twelve-chars",
+    )
+
+    with pytest.raises(ValueError):
+        CustomerRegistrationRequest(
+            display_name="Customer",
+            email="customer@example.com",
+            password="eleven-char",
+            phone="+15198816869",
+        )
+    with pytest.raises(ValueError):
+        CustomerPasswordCompletionRequest(
+            access_token="recovery-access-token",
+            password="eleven-char",
+        )
+    with pytest.raises(ValueError):
+        PasswordCompletionRequest(token_hash="t" * 32, password="twelve-chars")
 
 
 def test_supabase_adapter_keeps_admin_secret_server_side(
