@@ -64,13 +64,17 @@ function toWriteProduct(product, categories, modifierGroups) {
   };
 }
 
-export function useCatalogProducts() {
+export function useCatalogProducts({ enabled = true } = {}) {
   const { session } = useOwnerAuth();
   const [catalog, setCatalog] = useState({ categories: [], modifierGroups: [], products: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const reload = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       setCatalog(adaptOwnerCatalog(await fetchOwnerCatalog()));
@@ -81,7 +85,7 @@ export function useCatalogProducts() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => { reload().catch(() => {}); }, [reload]);
 

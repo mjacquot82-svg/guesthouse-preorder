@@ -9,12 +9,48 @@ export function canManageProductAvailability(session) {
   return session?.permissions?.includes("availability.manage") === true;
 }
 
+export function hasPermission(session, permission) {
+  return session?.permissions?.includes(permission) === true;
+}
+
+export function isOperationsAdministrator(session) {
+  return ["owner", "manager"].includes(session?.role);
+}
+
 export function canEditProducts(session) {
   const permissions = new Set(session?.permissions || []);
   return catalogEditingPermissions.every((permission) => permissions.has(permission));
 }
 
 export function canAccessOwnerPath(session, pathname) {
-  if (["owner", "manager"].includes(session?.role)) return true;
-  return pathname === "/admin/products" && canManageProductAvailability(session);
+  if (isOperationsAdministrator(session)) return true;
+  if (pathname === "/admin") return operationsLinks(session).length > 0;
+  if (pathname === "/admin/orders") return hasPermission(session, "orders.read");
+  if (pathname === "/admin/products") {
+    return hasPermission(session, "catalog.read") && canManageProductAvailability(session);
+  }
+  if (pathname === "/admin/communications") return hasPermission(session, "orders.read");
+  return false;
+}
+
+export function operationsLinks(session) {
+  const links = [];
+  if (isOperationsAdministrator(session) || session?.permissions?.length) {
+    links.push({ end: true, label: "Overview", to: "/admin" });
+  }
+  if (isOperationsAdministrator(session) || hasPermission(session, "orders.read")) {
+    links.push({ label: "Orders", to: "/admin/orders" });
+  }
+  if (isOperationsAdministrator(session) || (
+    hasPermission(session, "catalog.read") && canManageProductAvailability(session)
+  )) {
+    links.push({ label: "Products", to: "/admin/products" });
+  }
+  if (isOperationsAdministrator(session)) {
+    links.push({ label: "Scheduling", to: "/admin/scheduling" });
+  }
+  if (isOperationsAdministrator(session) || hasPermission(session, "orders.read")) {
+    links.push({ label: "Communications", to: "/admin/communications" });
+  }
+  return links;
 }

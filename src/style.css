@@ -114,6 +114,20 @@ button {
   padding: 0 0 10px;
 }
 
+.operations-nav {
+  margin-top: 12px;
+  overflow-x: auto;
+  padding: 6px 0;
+  scrollbar-width: thin;
+}
+
+.operations-nav a {
+  flex: 0 0 auto;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
 .nav-links a,
 .admin-links a {
   border-radius: 999px;
@@ -1664,9 +1678,7 @@ h3 {
     width: min(100% - 22px, 860px);
   }
 
-  .admin-links {
-    display: none;
-  }
+  .admin-links { display: flex; }
 
   .home-page,
   .page-section {

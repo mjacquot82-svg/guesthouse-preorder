@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, RefreshCw, ShoppingBag } from "lucide-react";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
+import { hasPermission, isOperationsAdministrator } from "../auth/ownerProductPermissions.js";
 import {
   fetchActiveOwnerOrders,
   fetchOwnerOrderHistory,
@@ -56,7 +57,7 @@ function itemSummary(order) {
     + (order.items.length > 2 ? ` + ${order.items.length - 2} more` : "");
 }
 
-function OrderDetail({ order }) {
+function OrderDetail({ order, showFinancials }) {
   return (
     <div className="owner-order-detail">
       <div className="owner-order-customer">
@@ -73,15 +74,15 @@ function OrderDetail({ order }) {
             {item.modifiers.map((modifier) => (
               <small key={`${modifier.group_key}-${modifier.option_key}`}>{modifier.group_name}: {modifier.option_name}</small>
             ))}
-            <b>{money(item.line_subtotal_cents, order.currency)}</b>
+            {showFinancials ? <b>{money(item.line_subtotal_cents, order.currency)}</b> : null}
           </div>
         ))}
       </div>
-      <dl className="owner-order-totals">
+      {showFinancials ? <dl className="owner-order-totals">
         <div><dt>Subtotal</dt><dd>{money(order.subtotal_cents, order.currency)}</dd></div>
         <div><dt>{order.tax_name}</dt><dd>{money(order.tax_cents, order.currency)}</dd></div>
         <div><dt>Total</dt><dd>{money(order.total_cents, order.currency)}</dd></div>
-      </dl>
+      </dl> : null}
       <div className="owner-order-timeline" aria-label="Order progress">
         <span>Received {operationalTime(order.created_at, order.business_timezone)}</span>
         {order.fulfillment_timestamps.preparing_at ? <span>Preparing {operationalTime(order.fulfillment_timestamps.preparing_at, order.business_timezone)}</span> : null}
@@ -94,10 +95,11 @@ function OrderDetail({ order }) {
   );
 }
 
-function OrderCard({ busy, now, onAction, onCancel, order }) {
+function OrderCard({ administrator, busy, canFulfill, now, onAction, onCancel, order }) {
   const [expanded, setExpanded] = useState(false);
   const next = NEXT_ACTION[order.fulfillment_status];
-  const actionable = order.payment_status === "paid" && next;
+  const actionable = canFulfill && order.payment_status === "paid" && next
+    && (administrator || next[1] !== "completed");
   const overdue = new Date(order.requested_pickup_at) < now;
   return (
     <article className={`owner-order-card status-${order.fulfillment_status} ${overdue ? "is-overdue" : ""}`}>
@@ -116,12 +118,12 @@ function OrderCard({ busy, now, onAction, onCancel, order }) {
         <span className={`order-badge fulfillment-${order.fulfillment_status}`}>{STATUS_LABELS[order.fulfillment_status]}</span>
         <span className={`order-badge payment-${order.payment_status}`}>{PAYMENT_LABELS[order.payment_status]}</span>
         <span>{order.item_count} item{order.item_count === 1 ? "" : "s"}</span>
-        <strong>{money(order.total_cents, order.currency)}</strong>
+        {administrator ? <strong>{money(order.total_cents, order.currency)}</strong> : null}
       </div>
       {order.payment_status !== "paid" ? (
         <p className="owner-order-warning"><AlertTriangle size={17} /> Do not prepare—payment is not complete.</p>
       ) : null}
-      {expanded ? <OrderDetail order={order} /> : null}
+      {expanded ? <OrderDetail order={order} showFinancials={administrator} /> : null}
       <div className="owner-order-actions">
         <button className="secondary-button" type="button" onClick={() => setExpanded(!expanded)}>
           {expanded ? "Hide Details" : "View Details"}
@@ -131,7 +133,7 @@ function OrderCard({ busy, now, onAction, onCancel, order }) {
             {busy ? "Updating…" : next[0]}
           </button>
         ) : null}
-        {order.payment_status === "paid" && !["completed", "cancelled"].includes(order.fulfillment_status) ? (
+        {administrator && order.payment_status === "paid" && !["completed", "cancelled"].includes(order.fulfillment_status) ? (
           <button className="owner-cancel-button" disabled={busy} type="button" onClick={() => onCancel(order)}>Cancel Order</button>
         ) : null}
       </div>
@@ -159,6 +161,8 @@ function CancelDialog({ busy, onCancel, onClose, order }) {
 
 export default function OrdersPage() {
   const { session } = useOwnerAuth();
+  const administrator = isOperationsAdministrator(session);
+  const canFulfill = administrator || hasPermission(session, "orders.fulfill");
   const [active, setActive] = useState([]);
   const [history, setHistory] = useState([]);
   const [view, setView] = useState("active");
@@ -245,7 +249,7 @@ export default function OrdersPage() {
       <div className="owner-orders-toolbar">
         <div role="tablist" aria-label="Order views">
           <button aria-selected={view === "active"} role="tab" type="button" onClick={() => setView("active")}>Active orders</button>
-          <button aria-selected={view === "history"} role="tab" type="button" onClick={showHistory}>Recent history</button>
+          {administrator ? <button aria-selected={view === "history"} role="tab" type="button" onClick={showHistory}>Recent history</button> : null}
         </div>
         <span>{lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "Not updated yet"}</span>
       </div>
@@ -253,8 +257,8 @@ export default function OrdersPage() {
       {error ? <div className="owner-orders-error" role="alert"><AlertTriangle size={18} /><div><strong>Orders may be out of date.</strong><p>{error}</p></div><button type="button" onClick={() => view === "history" ? showHistory() : refresh()}>Try again</button></div> : null}
       {displayLoading ? <div className="owner-order-skeletons" aria-label="Loading orders"><div /><div /><div /></div> : null}
       {!displayLoading && !orders.length ? <div className="owner-orders-empty"><ShoppingBag size={28} /><h2>{view === "active" ? "No active orders" : "No recent order history"}</h2><p>{view === "active" ? "New paid orders will appear here automatically." : "Completed and cancelled orders will appear here."}</p></div> : null}
-      {!displayLoading && orders.length ? <div className="owner-order-list">{orders.map((order) => <OrderCard busy={busyId === order.id} key={order.id} now={now} onAction={transition} onCancel={setCancelOrder} order={order} />)}</div> : null}
-      {cancelOrder ? <CancelDialog busy={busyId === cancelOrder.id} onCancel={() => transition(cancelOrder, "cancelled")} onClose={() => setCancelOrder(null)} order={cancelOrder} /> : null}
+      {!displayLoading && orders.length ? <div className="owner-order-list">{orders.map((order) => <OrderCard administrator={administrator} busy={busyId === order.id} canFulfill={canFulfill} key={order.id} now={now} onAction={transition} onCancel={setCancelOrder} order={order} />)}</div> : null}
+      {administrator && cancelOrder ? <CancelDialog busy={busyId === cancelOrder.id} onCancel={() => transition(cancelOrder, "cancelled")} onClose={() => setCancelOrder(null)} order={cancelOrder} /> : null}
     </section>
   );
 }

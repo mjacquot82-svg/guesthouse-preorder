@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, CheckCircle2, Mail, MessageSquareText, RefreshCw } from "lucide-react";
 import { fetchOwnerCommunications } from "../services/ownerCommunicationsApi.js";
+import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
+import { isOperationsAdministrator } from "../auth/ownerProductPermissions.js";
 
 const labels = { email: "Email", sms: "SMS", email_sms: "Email + SMS", disabled: "Disabled" };
 const healthLabel = { connected: "Connected", healthy: "Healthy", not_configured: "Action required" };
 
 export default function CommunicationsPage() {
+  const { session } = useOwnerAuth();
+  const administrator = isOperationsAdministrator(session);
   const [state, setState] = useState({ status: "loading", data: null, message: "" });
   const load = useCallback(() => {
     const controller = new AbortController();
@@ -37,8 +41,8 @@ export default function CommunicationsPage() {
       <section className="communications-panel" aria-labelledby="health-heading"><div className="panel-heading"><div><h2 id="health-heading">Communication health</h2><p>Provider and queue readiness.</p></div></div><div className="health-list">{health.map((item) => <article key={item.key}><span className={`health-icon ${item.status}`}>{item.status === "connected" || item.status === "healthy" ? <CheckCircle2 /> : <AlertTriangle />}</span><div><strong>{item.name}</strong><p>{item.detail}</p></div><span className={`status-pill ${item.status}`}>{healthLabel[item.status] || item.status}</span></article>)}</div></section>
     </div>
 
-    <section className="communications-panel" aria-labelledby="activity-heading"><div className="panel-heading"><div><h2 id="activity-heading">Notification queue</h2><p>Recent sends, failures, and retries.</p></div></div>{activity.length ? <div className="communication-table-wrap"><table><thead><tr><th>Time</th><th>Customer</th><th>Order</th><th>Type</th><th>Status</th><th>Action</th></tr></thead><tbody>{activity.map((item) => <tr key={item.id}><td>{new Date(item.occurred_at).toLocaleString()}</td><td>{item.customer}</td><td>{item.order_reference || "—"}</td><td>{item.notification_type}</td><td>{item.status}</td><td>{item.retryable ? <button className="secondary-button" type="button">Retry</button> : "—"}</td></tr>)}</tbody></table></div> : <div className="communication-empty compact"><CheckCircle2 /><div><h3>No delivery activity</h3><p>A delivery queue is not configured yet. No messages are being silently marked as sent.</p></div></div>}</section>
+    <section className="communications-panel" aria-labelledby="activity-heading"><div className="panel-heading"><div><h2 id="activity-heading">Notification queue</h2><p>Recent sends, failures, and delivery status.</p></div></div>{activity.length ? <div className="communication-table-wrap"><table><thead><tr><th>Time</th><th>Customer</th><th>Order</th><th>Type</th><th>Status</th>{administrator ? <th>Action</th> : null}</tr></thead><tbody>{activity.map((item) => <tr key={item.id}><td>{new Date(item.occurred_at).toLocaleString()}</td><td>{item.customer}</td><td>{item.order_reference || "—"}</td><td>{item.notification_type}</td><td>{item.status}</td>{administrator ? <td>{item.retryable ? <button className="secondary-button" type="button">Retry</button> : "—"}</td> : null}</tr>)}</tbody></table></div> : <div className="communication-empty compact"><CheckCircle2 /><div><h3>No delivery activity</h3><p>A delivery queue is not configured yet. No messages are being silently marked as sent.</p></div></div>}</section>
 
-    <section className="communications-panel" aria-labelledby="templates-heading"><div className="panel-heading"><div><h2 id="templates-heading">Notification templates</h2><p>Read-only template catalog. Editing can be added without changing this layout.</p></div></div><div className="template-grid">{templates.map((template) => <article key={template.key}><span>{template.category}</span><h3>{template.name}</h3><p>{labels[template.channel]}</p><small>{template.status}</small></article>)}</div></section>
+    {administrator ? <section className="communications-panel" aria-labelledby="templates-heading"><div className="panel-heading"><div><h2 id="templates-heading">Notification templates</h2><p>Read-only template catalog. Editing can be added without changing this layout.</p></div></div><div className="template-grid">{templates.map((template) => <article key={template.key}><span>{template.category}</span><h3>{template.name}</h3><p>{labels[template.channel]}</p><small>{template.status}</small></article>)}</div></section> : null}
   </section>;
 }

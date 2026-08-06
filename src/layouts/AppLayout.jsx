@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { Home, Search, ShoppingBag, UserRound } from "lucide-react";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import guestHouseLogo from "../../inspiration/610636354_18297756187278697_828168607581072468_n.jpg";
@@ -10,7 +10,6 @@ const customerLinks = [
 ];
 
 export default function AppLayout() {
-  const location = useLocation();
   const { session } = useCustomerAuth();
   const primaryLinks = [
     ...customerLinks,
@@ -50,15 +49,6 @@ export default function AppLayout() {
               );
             })}
           </nav>
-          {location.pathname.startsWith("/admin") ? (
-            <nav className="admin-links" aria-label="Owner Portal navigation">
-              <NavLink end to="/admin">Dashboard</NavLink>
-              <NavLink to="/admin/orders">Orders</NavLink>
-              <NavLink to="/admin/products">Products</NavLink>
-              <NavLink to="/admin/scheduling">Scheduling</NavLink>
-              <NavLink to="/admin/communications">Communications</NavLink>
-            </nav>
-          ) : null}
         </div>
       </header>
 
