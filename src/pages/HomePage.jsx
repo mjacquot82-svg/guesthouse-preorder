@@ -14,9 +14,9 @@ import {
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 
 function formatPrice(price) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-CA", {
     style: "currency",
-    currency: "USD",
+    currency: "CAD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(price);

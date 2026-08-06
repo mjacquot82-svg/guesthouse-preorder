@@ -6,7 +6,7 @@ import { fetchCustomerOrder, fetchCustomerOrders } from "../services/customerAcc
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 import { getCustomerErrorMessage } from "../services/customerMessages.js";
 
-const money = (cents) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+const money = (cents) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(cents / 100);
 
 function reorderCart(order, catalog) {
   return order.items.flatMap((item) => {

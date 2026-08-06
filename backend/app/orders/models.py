@@ -157,8 +157,8 @@ class Order(OrderModelValidation, Base):
     business_timezone: Mapped[str] = mapped_column(String(100))
     currency: Mapped[str] = mapped_column(
         String(3),
-        default="USD",
-        server_default="USD",
+        default="CAD",
+        server_default="CAD",
     )
     subtotal_cents: Mapped[int] = mapped_column(Integer)
     tax_cents: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

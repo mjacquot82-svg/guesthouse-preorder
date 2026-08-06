@@ -14,9 +14,9 @@ const emptyProduct = {
 };
 
 function formatPrice(price) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-CA", {
     style: "currency",
-    currency: "USD",
+    currency: "CAD",
   }).format(price);
 }
 

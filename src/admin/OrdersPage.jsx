@@ -8,7 +8,7 @@ import {
 } from "../services/ownerOrdersApi.js";
 import { pickupTiming, summarizeOwnerOrders } from "../services/ownerOrderPresentation.js";
 
-const money = (cents, currency = "USD") => new Intl.NumberFormat("en-CA", {
+const money = (cents, currency = "CAD") => new Intl.NumberFormat("en-CA", {
   currency,
   style: "currency",
 }).format(cents / 100);

@@ -116,6 +116,7 @@ def test_create_order_returns_public_pending_snapshot(
         "items",
     }
     assert body["status"] == "pending"
+    assert body["currency"] == "CAD"
     assert body["customer"] == {
         "name": "Jessie Guest",
         "email": "jessie@example.com",

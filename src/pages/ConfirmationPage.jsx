@@ -5,9 +5,9 @@ import { clearOrderSubmission } from "../services/checkoutOrder.js";
 import { fetchPendingOrder } from "../services/orderApi.js";
 
 function formatPrice(cents) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-CA", {
     style: "currency",
-    currency: "USD",
+    currency: "CAD",
   }).format(cents / 100);
 }
 
