@@ -457,32 +457,32 @@ def test_auth_settings_require_production_secrets() -> None:
         AuthSettings("", "", "", "", "").validate()
 
 
-def test_customer_passwords_require_12_characters_without_weakening_owner_completion() -> None:
+def test_customer_passwords_require_10_characters_without_weakening_owner_completion() -> None:
     CustomerRegistrationRequest(
         display_name="Customer",
         email="customer@example.com",
-        password="twelve-chars",
+        password="ten-chars!",
         phone="+15198816869",
     )
     CustomerPasswordCompletionRequest(
         access_token="recovery-access-token",
-        password="twelve-chars",
+        password="ten-chars!",
     )
 
     with pytest.raises(ValueError):
         CustomerRegistrationRequest(
             display_name="Customer",
             email="customer@example.com",
-            password="eleven-char",
+            password="nine-char",
             phone="+15198816869",
         )
     with pytest.raises(ValueError):
         CustomerPasswordCompletionRequest(
             access_token="recovery-access-token",
-            password="eleven-char",
+            password="nine-char",
         )
     with pytest.raises(ValueError):
-        PasswordCompletionRequest(token_hash="t" * 32, password="twelve-chars")
+        PasswordCompletionRequest(token_hash="t" * 32, password="ten-chars!")
 
 
 def test_supabase_adapter_keeps_admin_secret_server_side(

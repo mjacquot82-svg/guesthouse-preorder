@@ -46,9 +46,21 @@ test("customer forms default persistence and expose guarded pending states", () 
   assert.match(cartPageSource, /Add a name, email, and phone number before placing your order\./);
 });
 
-test("customer registration and recovery require 12-character passwords", () => {
-  assert.match(authPageSource, /minLength=\{creating \? 12 : 8\}/);
-  assert.match(resetPageSource, /minLength=\{hasRecovery \? 12 : undefined\}/);
+test("customer registration and recovery require 10-character passwords", () => {
+  assert.match(authPageSource, /minLength=\{creating \? 10 : 8\}/);
+  assert.match(resetPageSource, /minLength=\{10\}/);
+  assert.match(authPageSource, /Use at least 10 characters\./);
+  assert.match(resetPageSource, /Use at least 10 characters\./);
+});
+
+test("customer password fields have accessible visibility toggles", () => {
+  for (const source of [authPageSource, resetPageSource]) {
+    assert.match(source, /showPassword/);
+    assert.match(source, /Show password/);
+    assert.match(source, /Hide password/);
+    assert.match(source, /type="button"/);
+    assert.match(source, /aria-hidden="true"/);
+  }
 });
 
 test("saved orders transition checkout to payment-only recovery", () => {

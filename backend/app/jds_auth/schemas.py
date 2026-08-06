@@ -19,7 +19,7 @@ class CustomerLoginRequest(LoginRequest):
 
 class CustomerRegistrationRequest(LoginRequest):
     display_name: str = Field(min_length=1, max_length=200)
-    password: str = Field(min_length=12, max_length=1024)
+    password: str = Field(min_length=10, max_length=1024)
     phone: str = Field(min_length=10, max_length=30)
 
     @field_validator("display_name")
@@ -49,7 +49,7 @@ class PasswordCompletionRequest(AuthSchema):
 class CustomerPasswordCompletionRequest(AuthSchema):
     token_hash: str | None = Field(default=None, min_length=20, max_length=2048)
     access_token: str | None = Field(default=None, min_length=20, max_length=4096)
-    password: str = Field(min_length=12, max_length=1024)
+    password: str = Field(min_length=10, max_length=1024)
 
     @model_validator(mode="after")
     def require_one_recovery_credential(self) -> "CustomerPasswordCompletionRequest":
