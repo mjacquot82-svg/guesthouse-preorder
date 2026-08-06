@@ -16,6 +16,7 @@ import CustomerAuthPage from "./pages/CustomerAuthPage.jsx";
 import CustomerVerifyPage from "./pages/CustomerVerifyPage.jsx";
 import CustomerResetPage from "./pages/CustomerResetPage.jsx";
 import OwnerAuthBoundary from "./auth/OwnerAuthBoundary.jsx";
+import CommunicationsPage from "./admin/CommunicationsPage.jsx";
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="orders" element={<OrdersPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="scheduling" element={<SchedulingPage />} />
+            <Route path="communications" element={<CommunicationsPage />} />
             <Route path="*" element={<Navigate replace to="/admin" />} />
           </Route>
         </Route>

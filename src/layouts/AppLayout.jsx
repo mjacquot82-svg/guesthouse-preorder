@@ -56,6 +56,7 @@ export default function AppLayout() {
               <NavLink to="/admin/orders">Orders</NavLink>
               <NavLink to="/admin/products">Products</NavLink>
               <NavLink to="/admin/scheduling">Scheduling</NavLink>
+              <NavLink to="/admin/communications">Communications</NavLink>
             </nav>
           ) : null}
         </div>

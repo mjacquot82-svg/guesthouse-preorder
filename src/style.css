@@ -2218,6 +2218,43 @@ main {
   }
 }
 
+.communication-page { display: grid; gap: 20px; }
+.communication-heading { align-items: flex-end; display: flex; justify-content: space-between; gap: 16px; }
+.communication-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.communication-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .85fr); gap: 18px; }
+.communications-panel { background: var(--surface); border: 1px solid rgba(79,56,40,.12); border-radius: 22px; box-shadow: 0 12px 28px rgba(54,47,38,.07); overflow: hidden; }
+.panel-heading { align-items: flex-start; display: flex; justify-content: space-between; gap: 16px; padding: 20px 22px; border-bottom: 1px solid rgba(79,56,40,.1); }
+.panel-heading h2, .panel-heading p, .communication-empty h3, .communication-empty p, .health-list p { margin: 0; }
+.panel-heading p, .communication-empty p, .health-list p { color: var(--muted); margin-top: 4px; }
+.communication-table-wrap { overflow-x: auto; }
+.communication-table-wrap table { border-collapse: collapse; width: 100%; }
+.communication-table-wrap th, .communication-table-wrap td { border-bottom: 1px solid rgba(79,56,40,.09); padding: 14px 18px; text-align: left; vertical-align: middle; }
+.communication-table-wrap th { color: var(--muted); font-size: .76rem; letter-spacing: .06em; text-transform: uppercase; }
+.communication-table-wrap td small { color: var(--muted); display: block; margin-top: 3px; }
+.status-pill { border-radius: 999px; display: inline-flex; font-size: .75rem; font-weight: 850; padding: 5px 9px; white-space: nowrap; }
+.status-pill.connected, .status-pill.healthy { background: #e7f4e8; color: #28633a; }
+.status-pill.disabled, .status-pill.not_configured { background: #fff0df; color: #8a4e16; }
+.health-list { display: grid; }
+.health-list article { align-items: center; display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 12px; padding: 15px 18px; border-bottom: 1px solid rgba(79,56,40,.08); }
+.health-list article:last-child { border-bottom: 0; }
+.health-icon { align-items: center; border-radius: 50%; display: inline-flex; height: 36px; justify-content: center; width: 36px; }
+.health-icon svg { height: 18px; width: 18px; }
+.health-icon.connected, .health-icon.healthy { background: #e7f4e8; color: #28633a; }
+.health-icon.not_configured { background: #fff0df; color: #9b5a1d; }
+.communication-empty { align-items: center; display: flex; flex-direction: column; gap: 8px; padding: 34px 22px; text-align: center; }
+.communication-empty.compact { flex-direction: row; justify-content: flex-start; text-align: left; }
+.template-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap: 12px; padding: 18px; }
+.template-grid article { background: rgba(244,239,229,.56); border: 1px solid rgba(79,56,40,.1); border-radius: 16px; padding: 16px; }
+.template-grid article > span { color: var(--sage-ink); font-size: .72rem; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.template-grid h3, .template-grid p { margin: 5px 0 0; }
+.template-grid small { color: var(--muted); display: block; margin-top: 10px; }
+.communications-error { align-items: center; background: #fff0eb; border: 1px solid #e8b9aa; border-radius: 18px; display: flex; gap: 14px; padding: 18px; }
+.communications-error p { margin: 4px 0 0; }
+.communications-error button { margin-left: auto; }
+.communications-skeleton { background: linear-gradient(90deg,#f1ede5,#faf8f3,#f1ede5); border-radius: 22px; min-height: 360px; animation: pulse 1.5s infinite; }
+@media (max-width: 900px) { .communication-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .communication-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .communication-heading, .communications-error { align-items: stretch; flex-direction: column; } .communication-summary { grid-template-columns: 1fr 1fr; } .communication-heading button, .communications-error button { margin-left: 0; width: 100%; } .health-list article { grid-template-columns: auto minmax(0,1fr); } .health-list .status-pill { grid-column: 2; justify-self: start; } }
+
 /* Owner scheduling */
 .owner-orders-page {
   width: min(1120px, 100%);
