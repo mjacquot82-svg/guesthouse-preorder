@@ -5,6 +5,7 @@ import {
   createOwnerProduct,
   fetchOwnerCatalog,
   updateOwnerProduct,
+  updateOwnerProductAvailability,
 } from "../services/ownerCatalogApi.js";
 
 export function createProductId(name) {
@@ -94,11 +95,28 @@ export function useCatalogProducts() {
     await updateOwnerProduct(current.backendId, toWriteProduct(next, catalog.categories, catalog.modifierGroups), session.csrf_token);
     await reload();
   }
+  async function setProductAvailability(productId, available) {
+    const current = catalog.products.find((item) => item.id === productId);
+    if (!current) throw new Error("Product not found.");
+    setCatalog((value) => ({
+      ...value,
+      products: value.products.map((item) => item.id === productId ? { ...item, available } : item),
+    }));
+    try {
+      await updateOwnerProductAvailability(current.backendId, available, session.csrf_token);
+    } catch (nextError) {
+      setCatalog((value) => ({
+        ...value,
+        products: value.products.map((item) => item.id === productId ? { ...item, available: current.available } : item),
+      }));
+      throw nextError;
+    }
+  }
   async function removeProduct(productId) {
     const current = catalog.products.find((item) => item.id === productId);
     await archiveOwnerProduct(current.backendId, session.csrf_token);
     await reload();
   }
 
-  return { ...catalog, addProduct, updateProduct, removeProduct, loading, error, reload };
+  return { ...catalog, addProduct, updateProduct, setProductAvailability, removeProduct, loading, error, reload };
 }

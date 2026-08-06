@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   archiveOwnerProduct,
   fetchOwnerCatalog,
+  updateOwnerProductAvailability,
   updateOwnerProduct,
 } from "../../src/services/ownerCatalogApi.js";
 
@@ -46,4 +47,20 @@ test("owner product writes use session CSRF and archive instead of hard delete",
   assert.equal(calls[0][1].headers["X-CSRF-Token"], "csrf");
   assert.equal(calls[1][1].method, "DELETE");
   assert.equal(calls[1][1].credentials, "include");
+});
+
+test("owner availability writes use the narrow CSRF-protected endpoint", async () => {
+  let request;
+  await updateOwnerProductAvailability("42", false, "csrf", {
+    fetchImpl: async (...args) => {
+      request = args;
+      return jsonResponse(200, { id: "42", available: false });
+    },
+  });
+
+  assert.equal(request[0], "/api/v1/owner/catalog/products/42/availability");
+  assert.equal(request[1].method, "PATCH");
+  assert.equal(request[1].credentials, "include");
+  assert.equal(request[1].headers["X-CSRF-Token"], "csrf");
+  assert.deepEqual(JSON.parse(request[1].body), { available: false });
 });

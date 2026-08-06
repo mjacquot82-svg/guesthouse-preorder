@@ -64,3 +64,9 @@ export function archiveOwnerProduct(productId, csrfToken, options = {}) {
     ...options, csrfToken, method: "DELETE",
   });
 }
+
+export function updateOwnerProductAvailability(productId, available, csrfToken, options = {}) {
+  return request(`/products/${encodeURIComponent(productId)}/availability`, {
+    ...options, body: { available }, csrfToken, method: "PATCH",
+  });
+}

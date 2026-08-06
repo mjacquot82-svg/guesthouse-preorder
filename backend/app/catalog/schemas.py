@@ -135,3 +135,7 @@ class OwnerProductWrite(CatalogSchema):
     sort_order: int = Field(default=0, ge=0)
     variants: list[OwnerVariantWrite] = Field(default_factory=list)
     modifier_group_ids: list[int] = Field(default_factory=list)
+
+
+class OwnerProductAvailabilityWrite(CatalogSchema):
+    available: bool

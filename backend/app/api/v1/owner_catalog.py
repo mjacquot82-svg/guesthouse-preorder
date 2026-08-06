@@ -4,7 +4,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api.v1.catalog import get_catalog_session
 from app.api.v1.owner_auth import csrf_principal, current_principal, require_permission
 from app.catalog.repository import CatalogRepository
-from app.catalog.schemas import OwnerCatalogResponse, OwnerProductResponse, OwnerProductWrite
+from app.catalog.schemas import OwnerCatalogResponse, OwnerProductAvailabilityWrite, OwnerProductResponse, OwnerProductWrite
 from app.catalog.service import CatalogService
 from app.jds_auth.service import AuthPrincipal
 from sqlalchemy.orm import Session
@@ -93,5 +93,18 @@ def archive_product(
     try:
         service.archive_product(product_id)
         return Response(status_code=204)
+    except (SQLAlchemyError, LookupError) as error:
+        mutation_error(error)
+
+
+@router.patch("/products/{product_id}/availability", response_model=OwnerProductResponse)
+def update_product_availability(
+    product_id: int,
+    payload: OwnerProductAvailabilityWrite,
+    _: AuthPrincipal = Depends(require_permission("availability.manage")),
+    service: CatalogService = Depends(catalog_service),
+) -> OwnerProductResponse:
+    try:
+        return service.set_product_availability(product_id, payload.available)
     except (SQLAlchemyError, LookupError) as error:
         mutation_error(error)

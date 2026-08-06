@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useOwnerAuth } from "./OwnerAuthContext.jsx";
 import { ownerLoginDestination } from "./ownerAuthRouting.js";
+import { canAccessOwnerPath } from "./ownerProductPermissions.js";
 
 export default function RequireOwner() {
   const location = useLocation();
@@ -14,7 +15,8 @@ export default function RequireOwner() {
     refreshSession().catch(() => {});
   }, [refreshSession, session, status]);
 
-  if (session) return <Outlet />;
+  if (session && canAccessOwnerPath(session, location.pathname)) return <Outlet />;
+  if (session) return <Navigate replace to="/owner/login?denied=1" />;
   if (status === "anonymous") {
     const returnTo = ownerLoginDestination(location);
     return <Navigate replace to={`/owner/login?returnTo=${encodeURIComponent(returnTo)}`} />;

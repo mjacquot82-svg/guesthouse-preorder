@@ -148,6 +148,17 @@ class CatalogService:
         product.is_published = False
         self._repository.commit()
 
+    def set_product_availability(self, product_id: int, available: bool) -> OwnerProductResponse:
+        product = self._repository.get_product(product_id)
+        if product is None or product.archived_at is not None:
+            raise LookupError("Product not found.")
+        if product.availability is None:
+            product.availability = ProductAvailability(default_available=available)
+        else:
+            product.availability.default_available = available
+        self._repository.commit()
+        return self._owner_product_response(product)
+
     def _validate_write(self, payload: OwnerProductWrite) -> None:
         if self._repository.get_category(payload.category_id) is None:
             raise ValueError("Category does not exist.")
