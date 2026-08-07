@@ -48,11 +48,13 @@ export default function OwnerLoginPage() {
             <input autoComplete="current-password" name="password" onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
           </label>
           {error ? <p className="form-error" role="alert">{error}</p> : null}
-          <button className="primary-button" disabled={submitting} type="submit">
-            {submitting ? "Signing in…" : "Sign in"}
-          </button>
+          <div className="login-action-row">
+            <button className="primary-button" disabled={submitting} type="submit">
+              {submitting ? "Signing in…" : "Sign in"}
+            </button>
+            <Link className="secondary-button" to="/staff">Staff Access</Link>
+          </div>
         </form>
-        <p><Link to="/staff">Staff Access</Link></p>
       </div>
     </section>
   );

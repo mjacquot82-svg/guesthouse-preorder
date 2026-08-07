@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, LogOut } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
 import { hasPermission, isOperationsAdministrator } from "../auth/ownerProductPermissions.js";
@@ -14,7 +14,7 @@ const money = (cents, currency) => new Intl.NumberFormat("en-CA", { currency, st
 export default function AdminDashboard() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { logout, refreshSession, session } = useOwnerAuth();
+  const { refreshSession, session } = useOwnerAuth();
   const administrator = isOperationsAdministrator(session);
   const canReadOrders = administrator || hasPermission(session, "orders.read");
   const canReadCatalog = administrator || hasPermission(session, "catalog.read");
@@ -62,18 +62,13 @@ export default function AdminDashboard() {
     return { detail: "Unable to determine Clover status.", heading: "Status unavailable" };
   })();
 
-  async function handleLogout() {
-    await logout();
-    navigate("/owner/login?returnTo=%2Fadmin", { replace: true });
-  }
-
   async function handleSignInAgain() {
     try { await refreshSession(); loadCloverConnection(); }
     catch { navigate("/owner/login?returnTo=%2Fadmin", { replace: true }); }
   }
 
   return <section className="page-section operations-dashboard">
-    <div className="page-heading operations-dashboard-heading"><div><p className="eyebrow">Operations Portal</p><h1>{administrator ? "Admin" : "Shift overview"}</h1><p>{administrator ? "Keep cafe orders, menu items, and availability easy to scan." : "See what needs attention before the next customer arrives."}</p></div><button className="secondary-button" type="button" onClick={handleLogout}><LogOut size={17} /> Sign out</button></div>
+    <div className="page-heading operations-dashboard-heading"><div><p className="eyebrow">Operations Portal</p><h1>{administrator ? "Admin" : "Shift overview"}</h1><p>{administrator ? "Keep cafe orders, menu items, and availability easy to scan." : "See what needs attention before the next customer arrives."}</p></div></div>
 
     <div className="dashboard-grid">
       {canReadOrders ? <>

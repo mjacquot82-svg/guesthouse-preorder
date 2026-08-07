@@ -68,7 +68,7 @@ export default function ProductsPage() {
   }
 
   return <section className="page-section admin-products-page">
-    <div className="page-heading admin-page-heading"><div><p className="eyebrow">Today’s menu</p><h1>Products</h1><p>Find an item, mark it sold out, or make a quick change.</p></div>{canEdit ? <button className="secondary-button admin-reset-button" type="button" onClick={resetForm}>Add product</button> : null}</div>
+    <div className="page-heading admin-page-heading"><div><p className="eyebrow">Today’s menu</p><h1>Products</h1><p>{canEdit ? "Find an item, mark it sold out, or make a quick change." : "Find an item, update availability, or set today’s Lunch Special."}</p></div>{canEdit ? <button className="secondary-button admin-reset-button" type="button" onClick={resetForm}>Add product</button> : null}</div>
     {notice ? <div className="product-notice" role="status" aria-live="polite"><Check size={18} />{notice}</div> : null}
     {error ? <div className="product-notice error" role="alert">{error.message}</div> : null}
 

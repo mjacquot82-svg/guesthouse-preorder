@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { LogOut } from "lucide-react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useOwnerAuth } from "./OwnerAuthContext.jsx";
 import { ownerLoginDestination } from "./ownerAuthRouting.js";
@@ -8,23 +9,37 @@ export default function RequireOwner() {
   const location = useLocation();
   const navigate = useNavigate();
   const attempted = useRef(false);
+  const [signingOut, setSigningOut] = useState(false);
   const { logout, refreshSession, session, status } = useOwnerAuth();
 
   async function signOut() {
-    await logout();
-    navigate(session?.role === "staff" ? "/staff" : "/owner/login", { replace: true });
+    const destination = session?.role === "staff" ? "/staff" : "/owner/login";
+    setSigningOut(true);
+    try {
+      await logout();
+    } finally {
+      navigate(destination, { replace: true });
+    }
   }
 
   useEffect(() => {
-    if (session || status === "loading" || attempted.current) return;
+    if (signingOut || session || status === "loading" || attempted.current) return;
     attempted.current = true;
     refreshSession().catch(() => {});
-  }, [refreshSession, session, status]);
+  }, [refreshSession, session, signingOut, status]);
 
+  if (signingOut) return (
+    <section className="page-section compact-section" aria-live="polite">
+      <div className="operations-panel">
+        <h1>Signing out…</h1>
+        <p>Closing your secure Operations session.</p>
+      </div>
+    </section>
+  );
   if (session && canAccessOwnerPath(session, location.pathname)) return <>
     <nav className="admin-links operations-nav" aria-label="Operations Portal navigation">
       {operationsLinks(session).map((link) => <NavLink end={link.end} key={link.to} to={link.to}>{link.label}</NavLink>)}
-      <button className="operations-nav-signout" type="button" onClick={signOut}>Sign out</button>
+      <button className="secondary-button operations-nav-signout" type="button" onClick={signOut}><LogOut size={17} /> Sign out</button>
     </nav>
     <Outlet />
   </>;

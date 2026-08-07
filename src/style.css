@@ -198,14 +198,39 @@ main {
   font-weight: 750;
 }
 
-.owner-login-form input {
+.owner-login-form input,
+.owner-login-form select {
   width: 100%;
+  min-height: 44px;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
   color: inherit;
   font: inherit;
   padding: 11px 12px;
+}
+
+.owner-login-form select {
+  cursor: pointer;
+  padding-right: 38px;
+}
+
+.owner-login-form input:focus,
+.owner-login-form select:focus {
+  border-color: rgba(95, 109, 84, 0.58);
+  outline: 3px solid rgba(95, 109, 84, 0.16);
+}
+
+.login-action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.login-action-row .primary-button,
+.login-action-row .secondary-button {
+  width: 100%;
+  margin-top: 0;
 }
 
 .form-error {
@@ -6877,4 +6902,9 @@ body {
 .status-disabled { color: #7a3d35; }
 .staff-reset-panel { margin-top: 1.25rem; max-width: 36rem; }
 @media (max-width: 760px) { .staff-access-grid { grid-template-columns: 1fr; } .staff-account { align-items: flex-start; flex-direction: column; } }
-.operations-nav-signout { background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit; margin-left: auto; padding: .55rem .7rem; }
+.staff-access-message { margin-bottom: 1.25rem; }
+.operations-nav-signout { flex: 0 0 auto; gap: .45rem; margin: 0 0 0 auto; padding: 0 1rem; }
+
+@media (max-width: 430px) {
+  .login-action-row { grid-template-columns: 1fr; }
+}
