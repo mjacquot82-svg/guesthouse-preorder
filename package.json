@@ -12,5 +12,8 @@
     "react-dom": "latest",
     "react-router-dom": "7.18.2",
     "vite": "latest"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1"
   }
 }

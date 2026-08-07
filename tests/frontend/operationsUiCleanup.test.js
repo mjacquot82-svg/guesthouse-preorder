@@ -8,9 +8,11 @@ test("Operations logout has one shared lifecycle-controlled navigation path", as
   const boundary = await readFile(new URL("../../src/auth/RequireOwner.jsx", import.meta.url), "utf8");
   const dashboard = await readFile(new URL("../../src/admin/AdminDashboard.jsx", import.meta.url), "utf8");
 
-  assert.match(boundary, /const \[signingOut, setSigningOut\] = useState\(false\)/);
+  assert.match(boundary, /const \[logoutDestination, setLogoutDestination\] = useState\(null\)/);
   assert.match(boundary, /const destination = session\?\.role === "staff" \? "\/staff" : "\/owner\/login"/);
-  assert.match(boundary, /finally \{\s+navigate\(destination, \{ replace: true \}\)/);
+  assert.match(boundary, /logoutDestination && !session && status === "anonymous"/);
+  assert.match(boundary, /<Navigate replace to=\{logoutDestination\}/);
+  assert.doesNotMatch(boundary, /useNavigate|navigate\(destination/);
   assert.match(boundary, /secondary-button operations-nav-signout/);
   assert.doesNotMatch(dashboard, /handleLogout|LogOut|> Sign out<|logout,/);
 });

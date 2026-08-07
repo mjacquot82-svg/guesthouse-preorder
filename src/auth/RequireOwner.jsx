@@ -1,34 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import { LogOut } from "lucide-react";
-import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useOwnerAuth } from "./OwnerAuthContext.jsx";
 import { ownerLoginDestination } from "./ownerAuthRouting.js";
 import { canAccessOwnerPath, operationsLinks } from "./ownerProductPermissions.js";
 
 export default function RequireOwner() {
   const location = useLocation();
-  const navigate = useNavigate();
   const attempted = useRef(false);
-  const [signingOut, setSigningOut] = useState(false);
+  const [logoutDestination, setLogoutDestination] = useState(null);
   const { logout, refreshSession, session, status } = useOwnerAuth();
 
   async function signOut() {
     const destination = session?.role === "staff" ? "/staff" : "/owner/login";
-    setSigningOut(true);
+    setLogoutDestination(destination);
     try {
       await logout();
-    } finally {
-      navigate(destination, { replace: true });
+    } catch {
+      // logout() still clears local authentication state in its finally block.
     }
   }
 
   useEffect(() => {
-    if (signingOut || session || status === "loading" || attempted.current) return;
+    if (logoutDestination || session || status === "loading" || attempted.current) return;
     attempted.current = true;
     refreshSession().catch(() => {});
-  }, [refreshSession, session, signingOut, status]);
+  }, [logoutDestination, refreshSession, session, status]);
 
-  if (signingOut) return (
+  if (logoutDestination && !session && status === "anonymous") {
+    return <Navigate replace to={logoutDestination} />;
+  }
+  if (logoutDestination) return (
     <section className="page-section compact-section" aria-live="polite">
       <div className="operations-panel">
         <h1>Signing out…</h1>
