@@ -117,33 +117,74 @@ def test_owner_order_permissions_are_enforced(owner_orders_api) -> None:
     app.dependency_overrides[csrf_principal] = lambda: denied
 
     assert client.get("/api/v1/owner/orders/active").status_code == 403
-    assert client.patch("/api/v1/owner/orders/1/fulfillment", json={"status": "preparing", "expected_version": 1}).status_code == 403
+    assert client.patch("/api/v1/owner/orders/1/fulfillment", json={"status": "completed", "expected_version": 1}).status_code == 403
 
 
 @pytest.mark.postgresql
-def test_paid_order_moves_through_full_workflow_and_history(owner_orders_api) -> None:
+def test_paid_order_moves_directly_to_completed_and_history(owner_orders_api) -> None:
     client, engine = owner_orders_api
     with Session(engine) as session:
         order = add_order(session, key="workflow")
         session.commit()
         order_id = order.id
 
-    for version, target in enumerate(("preparing", "ready", "completed"), start=1):
-        response = client.patch(
-            f"/api/v1/owner/orders/{order_id}/fulfillment",
-            json={"status": target, "expected_version": version},
-        )
-        assert response.status_code == 200
-        assert response.json()["fulfillment_status"] == target
-        assert response.json()["version"] == version + 1
+    response = client.patch(
+        f"/api/v1/owner/orders/{order_id}/fulfillment",
+        json={"status": "completed", "expected_version": 1},
+    )
+    assert response.status_code == 200
+    assert response.json()["fulfillment_status"] == "completed"
+    assert response.json()["version"] == 2
+    assert response.json()["payment_status"] == "paid"
+    assert response.json()["fulfillment_timestamps"]["completed_at"] is not None
+
+    repeated = client.patch(
+        f"/api/v1/owner/orders/{order_id}/fulfillment",
+        json={"status": "completed", "expected_version": 1},
+    )
+    assert repeated.status_code == 200
+    assert repeated.json()["version"] == 2
+    assert repeated.json()["fulfillment_timestamps"]["completed_at"] == (
+        response.json()["fulfillment_timestamps"]["completed_at"]
+    )
 
     assert client.get("/api/v1/owner/orders/active").json() == []
     assert client.get("/api/v1/owner/orders/history").json()[0]["id"] == order_id
 
 
 @pytest.mark.postgresql
+def test_completed_paid_order_can_return_to_active_safely(owner_orders_api) -> None:
+    client, engine = owner_orders_api
+    with Session(engine) as session:
+        order = add_order(session, key="return-active", fulfillment=FulfillmentStatus.COMPLETED)
+        order.completed_at = datetime.now(timezone.utc)
+        order.version = 4
+        session.commit()
+        order_id = order.id
+
+    response = client.patch(
+        f"/api/v1/owner/orders/{order_id}/fulfillment",
+        json={"status": "new", "expected_version": 4},
+    )
+    assert response.status_code == 200
+    assert response.json()["fulfillment_status"] == "new"
+    assert response.json()["payment_status"] == "paid"
+    assert response.json()["version"] == 5
+    assert response.json()["fulfillment_timestamps"]["completed_at"] is None
+
+    repeated = client.patch(
+        f"/api/v1/owner/orders/{order_id}/fulfillment",
+        json={"status": "new", "expected_version": 4},
+    )
+    assert repeated.status_code == 200
+    assert repeated.json()["version"] == 5
+    assert [value["id"] for value in client.get("/api/v1/owner/orders/active").json()] == [order_id]
+    assert all(value["id"] != order_id for value in client.get("/api/v1/owner/orders/history").json())
+
+
+@pytest.mark.postgresql
 @pytest.mark.parametrize("payment", [OrderStatus.PENDING, OrderStatus.PAYMENT_PENDING, OrderStatus.PAYMENT_FAILED])
-def test_unpaid_orders_cannot_enter_preparation(owner_orders_api, payment) -> None:
+def test_unpaid_orders_cannot_be_completed(owner_orders_api, payment) -> None:
     client, engine = owner_orders_api
     with Session(engine) as session:
         order = add_order(session, key=f"unpaid-{payment.value}", payment=payment)
@@ -152,7 +193,7 @@ def test_unpaid_orders_cannot_enter_preparation(owner_orders_api, payment) -> No
 
     response = client.patch(
         f"/api/v1/owner/orders/{order_id}/fulfillment",
-        json={"status": "preparing", "expected_version": 1},
+        json={"status": "completed", "expected_version": 1},
     )
     assert response.status_code == 409
     assert response.json()["detail"]["code"] == "payment_required"
@@ -168,12 +209,30 @@ def test_invalid_terminal_and_stale_transitions_are_rejected(owner_orders_api) -
         session.commit()
         completed_id, preparing_id = completed.id, preparing.id
 
-    invalid = client.patch(f"/api/v1/owner/orders/{completed_id}/fulfillment", json={"status": "preparing", "expected_version": 1})
-    stale = client.patch(f"/api/v1/owner/orders/{preparing_id}/fulfillment", json={"status": "ready", "expected_version": 1})
+    invalid = client.patch(f"/api/v1/owner/orders/{completed_id}/fulfillment", json={"status": "cancelled", "expected_version": 1})
+    stale = client.patch(f"/api/v1/owner/orders/{preparing_id}/fulfillment", json={"status": "completed", "expected_version": 1})
     assert invalid.status_code == 409
     assert invalid.json()["detail"]["code"] == "invalid_fulfillment_transition"
     assert stale.status_code == 409
     assert stale.json()["detail"]["code"] == "stale_order"
+
+
+@pytest.mark.postgresql
+@pytest.mark.parametrize("legacy_status", [FulfillmentStatus.PREPARING, FulfillmentStatus.READY])
+def test_legacy_active_states_can_be_completed(owner_orders_api, legacy_status) -> None:
+    client, engine = owner_orders_api
+    with Session(engine) as session:
+        order = add_order(session, key=f"legacy-{legacy_status.value}", fulfillment=legacy_status)
+        session.commit()
+        order_id = order.id
+
+    response = client.patch(
+        f"/api/v1/owner/orders/{order_id}/fulfillment",
+        json={"status": "completed", "expected_version": 1},
+    )
+    assert response.status_code == 200
+    assert response.json()["fulfillment_status"] == "completed"
+    assert response.json()["payment_status"] == "paid"
 
 
 @pytest.mark.postgresql
@@ -187,8 +246,10 @@ def test_cancellation_is_terminal_and_timestamped(owner_orders_api) -> None:
     cancelled = client.patch(f"/api/v1/owner/orders/{order_id}/fulfillment", json={"status": "cancelled", "expected_version": 1})
     assert cancelled.status_code == 200
     assert cancelled.json()["fulfillment_timestamps"]["cancelled_at"] is not None
-    reopened = client.patch(f"/api/v1/owner/orders/{order_id}/fulfillment", json={"status": "preparing", "expected_version": 2})
+    reopened = client.patch(f"/api/v1/owner/orders/{order_id}/fulfillment", json={"status": "completed", "expected_version": 2})
     assert reopened.status_code == 409
+    return_to_active = client.patch(f"/api/v1/owner/orders/{order_id}/fulfillment", json={"status": "new", "expected_version": 2})
+    assert return_to_active.status_code == 409
 
 
 @pytest.mark.postgresql
@@ -203,8 +264,7 @@ def test_dashboard_uses_paid_orders_only(owner_orders_api) -> None:
 
     summary = client.get("/api/v1/owner/orders/summary")
     assert summary.status_code == 200
-    assert summary.json()["new"] == 1
-    assert summary.json()["ready"] == 1
+    assert summary.json()["active_paid"] == 2
     assert summary.json()["waiting_for_payment"] == 1
     assert summary.json()["today_paid_count"] == 2
     assert summary.json()["today_paid_revenue_cents"] == 2260

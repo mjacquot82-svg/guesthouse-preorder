@@ -92,9 +92,7 @@ class FulfillmentUpdate(OwnerOrderSchema):
 
 
 class DashboardSummary(OwnerOrderSchema):
-    new: int
-    preparing: int
-    ready: int
+    active_paid: int
     waiting_for_payment: int
     today_paid_count: int
     today_paid_revenue_cents: int | None

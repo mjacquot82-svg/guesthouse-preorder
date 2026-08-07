@@ -7,7 +7,11 @@ import {
   fetchOwnerOrderHistory,
   updateOwnerOrderFulfillment,
 } from "../services/ownerOrdersApi.js";
-import { pickupTiming, summarizeOwnerOrders } from "../services/ownerOrderPresentation.js";
+import {
+  ownerOrderAttentionReasons,
+  pickupTiming,
+  summarizeOwnerOrders,
+} from "../services/ownerOrderPresentation.js";
 
 const money = (cents, currency = "CAD") => new Intl.NumberFormat("en-CA", {
   currency,
@@ -15,9 +19,6 @@ const money = (cents, currency = "CAD") => new Intl.NumberFormat("en-CA", {
 }).format(cents / 100);
 
 const STATUS_LABELS = {
-  new: "New",
-  preparing: "Preparing",
-  ready: "Ready for pickup",
   completed: "Completed",
   cancelled: "Cancelled",
 };
@@ -30,9 +31,9 @@ const PAYMENT_LABELS = {
 };
 
 const NEXT_ACTION = {
-  new: ["Start Preparing", "preparing"],
-  preparing: ["Mark Ready", "ready"],
-  ready: ["Complete Order", "completed"],
+  new: ["Mark Completed", "completed"],
+  preparing: ["Mark Completed", "completed"],
+  ready: ["Mark Completed", "completed"],
 };
 
 function pickupTime(order) {
@@ -95,11 +96,12 @@ function OrderDetail({ order, showFinancials }) {
   );
 }
 
-function OrderCard({ administrator, busy, canFulfill, now, onAction, onCancel, order }) {
+function OrderCard({ administrator, busy, canFulfill, history, now, onAction, onCancel, onReturn, order }) {
   const [expanded, setExpanded] = useState(false);
   const next = NEXT_ACTION[order.fulfillment_status];
-  const actionable = canFulfill && order.payment_status === "paid" && next
-    && (administrator || next[1] !== "completed");
+  const actionable = canFulfill && order.payment_status === "paid" && next;
+  const returnable = history && canFulfill && order.payment_status === "paid" && order.fulfillment_status === "completed";
+  const attentionReasons = ownerOrderAttentionReasons(order, now);
   const overdue = new Date(order.requested_pickup_at) < now;
   return (
     <article className={`owner-order-card status-${order.fulfillment_status} ${overdue ? "is-overdue" : ""}`}>
@@ -115,13 +117,19 @@ function OrderCard({ administrator, busy, canFulfill, now, onAction, onCancel, o
         </div>
       </div>
       <div className="owner-order-badges">
-        <span className={`order-badge fulfillment-${order.fulfillment_status}`}>{STATUS_LABELS[order.fulfillment_status]}</span>
+        {STATUS_LABELS[order.fulfillment_status] ? <span className={`order-badge fulfillment-${order.fulfillment_status}`}>{STATUS_LABELS[order.fulfillment_status]}</span> : null}
         <span className={`order-badge payment-${order.payment_status}`}>{PAYMENT_LABELS[order.payment_status]}</span>
         <span>{order.item_count} item{order.item_count === 1 ? "" : "s"}</span>
         {administrator ? <strong>{money(order.total_cents, order.currency)}</strong> : null}
       </div>
       {order.payment_status !== "paid" ? (
-        <p className="owner-order-warning"><AlertTriangle size={17} /> Do not prepare—payment is not complete.</p>
+        <p className="owner-order-warning"><AlertTriangle size={17} /> Payment is not complete. This order cannot be completed.</p>
+      ) : null}
+      {attentionReasons.length ? (
+        <div className="owner-order-attention">
+          <AlertTriangle size={17} />
+          <div><strong>Needs attention</strong>{attentionReasons.map((reason) => <span key={reason}>{reason}</span>)}</div>
+        </div>
       ) : null}
       {expanded ? <OrderDetail order={order} showFinancials={administrator} /> : null}
       <div className="owner-order-actions">
@@ -131,6 +139,11 @@ function OrderCard({ administrator, busy, canFulfill, now, onAction, onCancel, o
         {actionable ? (
           <button className="primary-button" disabled={busy} type="button" onClick={() => onAction(order, next[1])}>
             {busy ? "Updating…" : next[0]}
+          </button>
+        ) : null}
+        {returnable ? (
+          <button className="primary-button" disabled={busy} type="button" onClick={() => onReturn(order)}>
+            {busy ? "Updating…" : "Return to Active"}
           </button>
         ) : null}
         {administrator && order.payment_status === "paid" && !["completed", "cancelled"].includes(order.fulfillment_status) ? (
@@ -166,6 +179,7 @@ export default function OrdersPage() {
   const [active, setActive] = useState([]);
   const [history, setHistory] = useState([]);
   const [view, setView] = useState("active");
+  const [activeFilter, setActiveFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -204,7 +218,7 @@ export default function OrdersPage() {
   }, [refresh]);
 
   async function showHistory() {
-    setView("history"); setError(""); setHistoryLoading(true);
+    setView("history"); setActiveFilter("all"); setError(""); setHistoryLoading(true);
     try { setHistory(await fetchOwnerOrderHistory()); }
     catch (loadError) { setError(loadError.message); }
     finally { setHistoryLoading(false); }
@@ -215,49 +229,67 @@ export default function OrdersPage() {
     setBusyId(order.id); setError("");
     try {
       await updateOwnerOrderFulfillment(order.id, status, order.version, session.csrf_token);
-      setNotice(status === "cancelled" ? `${order.reference} cancelled.` : `${order.reference} updated.`);
+      setNotice(status === "cancelled" ? `${order.reference} cancelled.` : status === "new" ? `${order.reference} returned to Active Orders.` : `${order.reference} updated.`);
       setCancelOrder(null);
       await refresh();
+      if (status === "new") {
+        setHistory(await fetchOwnerOrderHistory());
+        showActive();
+      }
     } catch (actionError) {
       setError(actionError.message);
       await refresh();
     } finally { busyRef.current = false; setBusyId(null); }
   }
 
-  const counts = summarizeOwnerOrders(active);
+  function returnToActive(order) {
+    if (window.confirm(`Return ${order.reference} to Active Orders?`)) transition(order, "new");
+  }
+
+  const operationalActive = active.filter(
+    (order) => !["pending", "payment_pending"].includes(order.payment_status),
+  );
+  const counts = summarizeOwnerOrders(operationalActive);
   const now = new Date();
-  const attentionCount = counts.failed + active.filter((order) => (
-    order.payment_status === "paid"
-    && new Date(order.requested_pickup_at).getTime() <= now.getTime() + 15 * 60000
-  )).length;
-  const orders = view === "active" ? active : history;
+  const attentionOrders = operationalActive.filter(
+    (order) => ownerOrderAttentionReasons(order, now).length > 0,
+  );
+  const filteredActive = operationalActive.filter((order) => {
+    if (activeFilter === "paid") return order.payment_status === "paid";
+    if (activeFilter === "attention") return attentionOrders.some(({ id }) => id === order.id);
+    return true;
+  });
+  const orders = view === "active" ? filteredActive : history;
   const displayLoading = loading || (view === "history" && historyLoading);
+
+  function showActive(filter = "all") {
+    setView("active");
+    setActiveFilter(filter);
+  }
 
   return (
     <section className="page-section owner-orders-page">
       <div className="owner-orders-heading">
-        <div><p className="eyebrow">Today’s café queue</p><h1>Orders</h1><p>Paid orders are ready to prepare. Unpaid orders stay clearly separated.</p></div>
+        <div><p className="eyebrow">Today’s café queue</p><h1>Orders</h1><p>Paid orders stay active until completed. Payment problems stay clearly flagged.</p></div>
         <button className="secondary-button" disabled={refreshing || busyId !== null} type="button" onClick={() => refresh()}><RefreshCw size={17} /> {refreshing ? "Refreshing…" : "Refresh"}</button>
       </div>
       <div className="owner-order-summary" aria-label="Order summary">
-        <button type="button" onClick={() => setView("active")}><span>New</span><strong>{loading ? "—" : counts.new}</strong></button>
-        <button type="button" onClick={() => setView("active")}><span>Preparing</span><strong>{loading ? "—" : counts.preparing}</strong></button>
-        <button type="button" onClick={() => setView("active")}><span>Ready</span><strong>{loading ? "—" : counts.ready}</strong></button>
-        <button type="button" onClick={() => setView("active")}><span>Waiting for payment</span><strong>{loading ? "—" : counts.waiting}</strong></button>
-        <button type="button" onClick={() => setView("active")}><span>Needs attention</span><strong>{loading ? "—" : attentionCount}</strong></button>
+        <button aria-pressed={view === "active" && activeFilter === "paid"} type="button" onClick={() => showActive("paid")}><span>Active paid</span><strong>{loading ? "—" : counts.activePaid}</strong></button>
+        <button aria-pressed={view === "active" && activeFilter === "attention"} type="button" onClick={() => showActive("attention")}><span>Needs attention</span><strong>{loading ? "—" : attentionOrders.length}</strong></button>
       </div>
       <div className="owner-orders-toolbar">
         <div role="tablist" aria-label="Order views">
-          <button aria-selected={view === "active"} role="tab" type="button" onClick={() => setView("active")}>Active orders</button>
-          {administrator ? <button aria-selected={view === "history"} role="tab" type="button" onClick={showHistory}>Recent history</button> : null}
+          <button aria-selected={view === "active"} role="tab" type="button" onClick={() => showActive()}>Active orders</button>
+          <button aria-selected={view === "history"} role="tab" type="button" onClick={showHistory}>Recent history</button>
         </div>
+        {view === "active" && activeFilter !== "all" ? <button className="owner-orders-clear-filter" type="button" onClick={() => showActive()}>Show all active orders</button> : null}
         <span>{lastUpdated ? `Last updated ${lastUpdated.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", second: "2-digit" })}` : "Not updated yet"}</span>
       </div>
       {notice ? <p className="owner-orders-notice" role="status"><CheckCircle2 size={18} /> {notice}</p> : null}
       {error ? <div className="owner-orders-error" role="alert"><AlertTriangle size={18} /><div><strong>Orders may be out of date.</strong><p>{error}</p></div><button type="button" onClick={() => view === "history" ? showHistory() : refresh()}>Try again</button></div> : null}
       {displayLoading ? <div className="owner-order-skeletons" aria-label="Loading orders"><div /><div /><div /></div> : null}
-      {!displayLoading && !orders.length ? <div className="owner-orders-empty"><ShoppingBag size={28} /><h2>{view === "active" ? "No active orders" : "No recent order history"}</h2><p>{view === "active" ? "New paid orders will appear here automatically." : "Completed and cancelled orders will appear here."}</p></div> : null}
-      {!displayLoading && orders.length ? <div className="owner-order-list">{orders.map((order) => <OrderCard administrator={administrator} busy={busyId === order.id} canFulfill={canFulfill} key={order.id} now={now} onAction={transition} onCancel={setCancelOrder} order={order} />)}</div> : null}
+      {!displayLoading && !orders.length ? <div className="owner-orders-empty"><ShoppingBag size={28} /><h2>{view === "active" && activeFilter !== "all" ? "No orders match this summary" : view === "active" ? "No active orders" : "No recent order history"}</h2><p>{view === "active" && activeFilter !== "all" ? "Show all active orders to return to the full queue." : view === "active" ? "Paid orders will appear here automatically." : "Completed and cancelled orders will appear here."}</p></div> : null}
+      {!displayLoading && orders.length ? <div className="owner-order-list">{orders.map((order) => <OrderCard administrator={administrator} busy={busyId === order.id} canFulfill={canFulfill} history={view === "history"} key={order.id} now={now} onAction={transition} onCancel={setCancelOrder} onReturn={returnToActive} order={order} />)}</div> : null}
       {administrator && cancelOrder ? <CancelDialog busy={busyId === cancelOrder.id} onCancel={() => transition(cancelOrder, "cancelled")} onClose={() => setCancelOrder(null)} order={cancelOrder} /> : null}
     </section>
   );

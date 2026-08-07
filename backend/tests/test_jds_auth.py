@@ -245,6 +245,39 @@ async def test_login_uses_opaque_httponly_session_and_csrf(
     assert (await auth_client.get("/api/v1/owner/auth/session")).status_code == 401
 
 
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_login_repairs_legacy_email_derived_display_name(
+    auth_client: AsyncClient,
+    auth_engine: Engine,
+    fake_provider: FakeIdentityProvider,
+) -> None:
+    with Session(auth_engine) as session, session.begin():
+        user = session.scalar(select(JdsUser).where(JdsUser.primary_email == "owner@example.com"))
+        assert user is not None
+        user.display_name = "owner"
+    fake_provider.identity = ProviderIdentity(
+        issuer=fake_provider.identity.issuer,
+        subject=fake_provider.identity.subject,
+        email=fake_provider.identity.email,
+        email_verified=True,
+        display_name="Marc Jacquot",
+    )
+
+    response = await auth_client.post(
+        "/api/v1/owner/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": "owner@example.com", "password": "correct horse battery staple"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "Marc Jacquot"
+    with Session(auth_engine) as session:
+        user = session.scalar(select(JdsUser).where(JdsUser.primary_email == "owner@example.com"))
+        assert user is not None
+        assert user.display_name == "Marc Jacquot"
+
+
 @pytest.mark.postgresql
 def test_foundation_provisioning_is_idempotent_and_separates_customer_permissions(
     auth_engine: Engine,
@@ -504,6 +537,7 @@ def test_supabase_adapter_keeps_admin_secret_server_side(
                     "id": "subject",
                     "email": "owner@example.com",
                     "email_confirmed_at": "2026-08-02T00:00:00Z",
+                    "user_metadata": {"full_name": "Marc Jacquot"},
                 },
             },
         )
@@ -521,6 +555,7 @@ def test_supabase_adapter_keeps_admin_secret_server_side(
     provider.invite_user("staff@example.com", "http://test/admin/invitation")
 
     assert authentication.identity.email_verified is True
+    assert authentication.identity.display_name == "Marc Jacquot"
     assert requests[0].headers["apikey"] == "publishable"
     assert "authorization" not in requests[0].headers
     assert requests[1].url.path.endswith("/verify")
@@ -1179,6 +1214,7 @@ async def test_customer_password_reset_reconciles_verified_orphaned_supabase_ide
         subject="orphaned-customer-provider-user",
         email="orphaned@example.com",
         email_verified=True,
+        display_name="Marc Jacquot",
     )
     new_password = "a new sufficiently long password"
 
@@ -1198,6 +1234,7 @@ async def test_customer_password_reset_reconciles_verified_orphaned_supabase_ide
         ))
         assert identity is not None
         assert identity.user.primary_email == "orphaned@example.com"
+        assert identity.user.display_name == "Marc Jacquot"
         assert identity.user.status == "active"
         assert identity.user.credential_state == "active"
         membership = session.scalar(select(Membership).where(Membership.user_id == identity.user_id))

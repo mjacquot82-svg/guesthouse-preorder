@@ -8,7 +8,11 @@ import {
   fetchOwnerOrderSummary,
   updateOwnerOrderFulfillment,
 } from "../../src/services/ownerOrdersApi.js";
-import { pickupTiming, summarizeOwnerOrders } from "../../src/services/ownerOrderPresentation.js";
+import {
+  ownerOrderAttentionReasons,
+  pickupTiming,
+  summarizeOwnerOrders,
+} from "../../src/services/ownerOrderPresentation.js";
 
 function response(status, payload) {
   return { ok: status >= 200 && status < 300, status, async json() { return payload; } };
@@ -31,11 +35,11 @@ test("owner order reads use the authenticated session", async () => {
 test("fulfillment updates carry optimistic version and CSRF protection", async () => {
   let call;
   const fetchImpl = async (...args) => { call = args; return response(200, { id: 42 }); };
-  await updateOwnerOrderFulfillment(42, "ready", 7, "csrf-token", { fetchImpl });
+  await updateOwnerOrderFulfillment(42, "completed", 7, "csrf-token", { fetchImpl });
   assert.equal(call[0], "/api/v1/owner/orders/42/fulfillment");
   assert.equal(call[1].method, "PATCH");
   assert.equal(call[1].headers["X-CSRF-Token"], "csrf-token");
-  assert.deepEqual(JSON.parse(call[1].body), { expected_version: 7, status: "ready" });
+  assert.deepEqual(JSON.parse(call[1].body), { expected_version: 7, status: "completed" });
 });
 
 test("pickup timing and operational summaries are owner-friendly", () => {
@@ -48,7 +52,31 @@ test("pickup timing and operational summaries are owner-friendly", () => {
     { payment_status: "paid", fulfillment_status: "ready" },
     { payment_status: "payment_pending", fulfillment_status: "new" },
     { payment_status: "payment_failed", fulfillment_status: "new" },
-  ]), { failed: 1, new: 1, preparing: 0, ready: 1, waiting: 1 });
+  ]), { activePaid: 2, failed: 1 });
+});
+
+test("attention reasons match the existing payment and pickup rules without overlap", () => {
+  const now = new Date("2026-08-05T12:00:00Z");
+  assert.deepEqual(ownerOrderAttentionReasons({
+    payment_status: "payment_failed",
+    requested_pickup_at: "2026-08-05T11:00:00Z",
+  }, now), ["Payment failed"]);
+  assert.deepEqual(ownerOrderAttentionReasons({
+    payment_status: "paid",
+    requested_pickup_at: "2026-08-05T11:59:00Z",
+  }, now), ["Pickup overdue"]);
+  assert.deepEqual(ownerOrderAttentionReasons({
+    payment_status: "paid",
+    requested_pickup_at: "2026-08-05T12:15:00Z",
+  }, now), ["Pickup due within 15 minutes"]);
+  assert.deepEqual(ownerOrderAttentionReasons({
+    payment_status: "paid",
+    requested_pickup_at: "2026-08-05T12:16:00Z",
+  }, now), []);
+  assert.deepEqual(ownerOrderAttentionReasons({
+    payment_status: "payment_pending",
+    requested_pickup_at: "2026-08-05T11:00:00Z",
+  }, now), []);
 });
 
 test("Owner Orders provides complete operational states and refresh safeguards", async () => {
@@ -58,10 +86,17 @@ test("Owner Orders provides complete operational states and refresh safeguards",
   assert.match(page, /Orders may be out of date/);
   assert.match(page, /window\.setInterval/);
   assert.match(page, /window\.addEventListener\("focus"/);
-  assert.match(page, /Do not prepare—payment is not complete/);
-  assert.match(page, /Start Preparing/);
-  assert.match(page, /Mark Ready/);
-  assert.match(page, /Complete Order/);
+  assert.match(page, /Payment is not complete\. This order cannot be completed\./);
+  assert.match(page, /Mark Completed/);
+  assert.match(page, /Return to Active/);
+  assert.match(page, /window\.confirm/);
+  assert.doesNotMatch(page, /Start Preparing|Mark Ready|Complete Order/);
+  assert.doesNotMatch(page, /Waiting for payment<\/span>/);
+  assert.doesNotMatch(page, />New<\/span>/);
+  assert.match(page, /Recent history/);
+  assert.match(page, /Show all active orders/);
+  assert.match(page, /activeFilter === "attention"/);
+  assert.match(page, /aria-pressed/);
   assert.match(page, /showModal\(\)/);
   assert.match(page, /<dialog/);
   assert.match(page, /disabled=\{busy/);
@@ -71,6 +106,8 @@ test("dashboard uses real order metrics with honest loading and error states", a
   const dashboard = await readFile(new URL("../../src/admin/AdminDashboard.jsx", import.meta.url), "utf8");
   assert.match(dashboard, /fetchOwnerOrderSummary/);
   assert.match(dashboard, /Today’s paid pickups/);
+  assert.match(dashboard, /Active paid orders/);
+  assert.doesNotMatch(dashboard, /orderSummary\.(preparing|ready)/);
   assert.match(dashboard, /Loading today’s queue/);
   assert.match(dashboard, /Unavailable/);
   assert.doesNotMatch(dashboard, /Awaiting live queue|Pending payment integration/);

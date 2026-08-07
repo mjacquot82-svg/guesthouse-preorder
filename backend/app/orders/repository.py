@@ -109,7 +109,12 @@ class OrderRepository:
             FulfillmentStatus.READY: Order.ready_at,
             FulfillmentStatus.COMPLETED: Order.completed_at,
             FulfillmentStatus.CANCELLED: Order.cancelled_at,
-        }[target_status]
+        }.get(target_status)
+        timestamp_values = (
+            {Order.completed_at.key: None}
+            if target_status == FulfillmentStatus.NEW
+            else {timestamp_column.key: now}
+        )
         result = self._session.execute(
             update(Order)
             .where(
@@ -123,7 +128,7 @@ class OrderRepository:
                 fulfillment_updated_at=now,
                 version=Order.version + 1,
                 updated_at=now,
-                **{timestamp_column.key: now},
+                **timestamp_values,
             )
         )
         return result.rowcount == 1
@@ -133,15 +138,9 @@ class OrderRepository:
             select(
                 func.count().filter(
                     Order.status == OrderStatus.PAID,
-                    Order.fulfillment_status == FulfillmentStatus.NEW,
-                ),
-                func.count().filter(
-                    Order.status == OrderStatus.PAID,
-                    Order.fulfillment_status == FulfillmentStatus.PREPARING,
-                ),
-                func.count().filter(
-                    Order.status == OrderStatus.PAID,
-                    Order.fulfillment_status == FulfillmentStatus.READY,
+                    Order.fulfillment_status.notin_(
+                        (FulfillmentStatus.COMPLETED, FulfillmentStatus.CANCELLED)
+                    ),
                 ),
                 func.count().filter(
                     Order.status == OrderStatus.PAYMENT_PENDING,
@@ -183,11 +182,9 @@ class OrderRepository:
             )
         ).one()
         return {
-            "new": row[0],
-            "preparing": row[1],
-            "ready": row[2],
-            "waiting_for_payment": row[3],
-            "today_paid_count": row[4],
-            "today_paid_revenue_cents": row[5] if row[6] <= 1 else None,
-            "currency": row[7] if row[6] == 1 else None,
+            "active_paid": row[0],
+            "waiting_for_payment": row[1],
+            "today_paid_count": row[2],
+            "today_paid_revenue_cents": row[3] if row[4] <= 1 else None,
+            "currency": row[5] if row[4] == 1 else None,
         }

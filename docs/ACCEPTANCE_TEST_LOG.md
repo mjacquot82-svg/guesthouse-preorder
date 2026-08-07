@@ -225,7 +225,7 @@ Objective:
 Verify that owners can view operational order lists, summaries, order details, and current order state.
 
 Result:
-Owner order operations completed successfully, including order summaries, filtering, detail presentation, and protected API access.
+Owner order operations completed successfully, including truthful active/attention filtering, visible attention reasons, detail presentation, and protected API access. Incomplete Hosted Checkout records are excluded from the operator queue because they have no staff action; customer payment recovery remains unchanged.
 
 Issues discovered:
 None.
@@ -239,10 +239,10 @@ Order Fulfillment
 ============================================================
 
 Objective:
-Verify that owners can advance orders through valid fulfillment states with persisted history and conflict protection.
+Verify that paid orders remain active until an authorized operator completes them, with persisted history and conflict protection.
 
 Result:
-Fulfillment actions, transition validation, optimistic concurrency, timestamps, and fulfillment history completed successfully.
+The RC workflow is simplified to Paid active -> Completed -> Recent History. Owners and Staff with order-fulfillment capability can complete paid active orders directly and, after confirmation, return an accidentally completed order to Active Orders. Payment data and order snapshots are preserved; optimistic concurrency, retry safety, payment guards, cancelled-order protection, timestamps, and historical Preparing/Ready compatibility remain intact.
 
 Issues discovered:
 None.

@@ -54,6 +54,7 @@ class ProviderIdentity:
     email: str
     email_verified: bool
     assurance_level: str = "aal1"
+    display_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -153,6 +154,7 @@ class SupabaseIdentityProvider:
             subject=subject,
             email=provider_email.strip().lower(),
             email_verified=bool(user.get("email_confirmed_at") or user.get("confirmed_at")),
+            display_name=self._display_name(user),
         )
 
     def request_password_reset(self, email: str, redirect_url: str) -> None:
@@ -190,6 +192,7 @@ class SupabaseIdentityProvider:
                 subject=subject,
                 email=email.strip().lower(),
                 email_verified=bool(user.get("email_confirmed_at") or user.get("confirmed_at")),
+                display_name=self._display_name(user),
             ),
             access_token,
         )
@@ -288,9 +291,25 @@ class SupabaseIdentityProvider:
                 email=email.strip().lower(),
                 email_verified=verified,
                 assurance_level=str(payload.get("aal", "aal1")),
+                display_name=self._display_name(user),
             ),
             access_token=token,
         )
+
+    @staticmethod
+    def _display_name(user: object) -> str | None:
+        if not isinstance(user, dict):
+            return None
+        metadata = user.get("user_metadata")
+        if not isinstance(metadata, dict):
+            return None
+        for key in ("full_name", "name", "display_name"):
+            value = metadata.get(key)
+            if isinstance(value, str):
+                normalized = " ".join(value.strip().split())
+                if normalized:
+                    return normalized
+        return None
 
     @staticmethod
     def _require_success(response: httpx.Response) -> None:

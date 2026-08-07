@@ -2344,7 +2344,7 @@ main {
 
 .owner-order-summary {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
   margin: 20px 0 12px;
 }
@@ -2358,6 +2358,12 @@ main {
   cursor: pointer;
   padding: 14px;
   text-align: left;
+}
+
+.owner-order-summary button:hover,
+.owner-order-summary button[aria-pressed="true"] {
+  border-color: var(--sage);
+  background: var(--sage-wash);
 }
 
 .owner-order-summary span,
@@ -2407,6 +2413,28 @@ main {
   color: var(--ink);
   box-shadow: 0 3px 10px rgba(48, 40, 32, 0.08);
 }
+
+.owner-orders-toolbar .owner-orders-clear-filter {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.owner-order-attention {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-radius: 12px;
+  background: #fff1da;
+  color: #704710;
+  margin-top: 12px;
+  padding: 11px 13px;
+}
+
+.owner-order-attention svg { flex: 0 0 auto; margin-top: 2px; }
+.owner-order-attention strong,
+.owner-order-attention span { display: block; }
+.owner-order-attention span { margin-top: 2px; }
 
 .owner-orders-notice,
 .owner-orders-error,

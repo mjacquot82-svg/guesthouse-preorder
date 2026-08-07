@@ -136,6 +136,12 @@ class AuthenticationService:
                 if role is None or (allowed_roles is not None and role.key not in allowed_roles):
                     raise MembershipInactive("This account is not authorized for this experience.")
                 self.login_stage = "session_issuance"
+                email_local_part = authentication.identity.email.split("@", 1)[0].strip()
+                if (
+                    authentication.identity.display_name
+                    and identity.user.display_name.casefold() == email_local_part.casefold()
+                ):
+                    identity.user.display_name = authentication.identity.display_name
                 identity.user.last_authenticated_at = now
                 identity.user.email_verified_at = identity.user.email_verified_at or now
                 identity.provider_email = authentication.identity.email
@@ -420,7 +426,7 @@ class AuthenticationService:
         role = self._repo.role_by_key(application.id, "customer")
         if role is None or self._repo.user_by_email(authentication.identity.email) is not None:
             raise MembershipInactive("An active JDS identity is required.")
-        display_name = authentication.identity.email.split("@", 1)[0].strip() or "Customer"
+        display_name = authentication.identity.display_name or "Customer"
         user = JdsUser(
             primary_email=authentication.identity.email,
             display_name=display_name,

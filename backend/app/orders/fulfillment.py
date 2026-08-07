@@ -25,15 +25,15 @@ class FulfillmentError(ValueError):
 
 TRANSITIONS = {
     FulfillmentStatus.NEW: frozenset(
-        {FulfillmentStatus.PREPARING, FulfillmentStatus.CANCELLED}
+        {FulfillmentStatus.COMPLETED, FulfillmentStatus.CANCELLED}
     ),
     FulfillmentStatus.PREPARING: frozenset(
-        {FulfillmentStatus.READY, FulfillmentStatus.CANCELLED}
+        {FulfillmentStatus.COMPLETED, FulfillmentStatus.CANCELLED}
     ),
     FulfillmentStatus.READY: frozenset(
         {FulfillmentStatus.COMPLETED, FulfillmentStatus.CANCELLED}
     ),
-    FulfillmentStatus.COMPLETED: frozenset(),
+    FulfillmentStatus.COMPLETED: frozenset({FulfillmentStatus.NEW}),
     FulfillmentStatus.CANCELLED: frozenset(),
 }
 
@@ -71,7 +71,7 @@ class OwnerOrderService:
         if order.status != OrderStatus.PAID:
             raise FulfillmentError(
                 FulfillmentErrorCode.PAYMENT_REQUIRED,
-                "Only paid orders can move through preparation.",
+                "Only paid orders can be updated.",
             )
         if target not in TRANSITIONS[order.fulfillment_status]:
             raise FulfillmentError(

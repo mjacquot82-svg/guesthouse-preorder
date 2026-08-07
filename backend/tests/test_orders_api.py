@@ -6,6 +6,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from threading import Barrier, Lock
+from uuid import uuid4
 
 import pytest
 from alembic import command
@@ -18,10 +19,13 @@ from sqlalchemy.orm import Session
 
 from app.availability.models import ProductAvailabilityOverride
 from app.api.v1.clover import create_hosted_checkout, get_settings
+from app.api.v1.customer_auth import optional_customer
 from app.api.v1.orders import get_current_time
 from app.clover.client import CloverApiError, CloverClient
 from app.clover.config import CloverSettings
 from app.main import create_app
+from app.jds_auth.service import AuthPrincipal
+from app.jds_auth.models import JdsUser
 from app.orders.models import Order
 from tests.test_migrations import make_alembic_config
 from tests.test_order_service import local_datetime, seed_order_dependencies
@@ -136,6 +140,45 @@ def test_create_order_returns_public_pending_snapshot(
 
     with Session(engine) as session:
         assert session.scalar(select(text("count(*)")).select_from(Order)) == 1
+
+
+@pytest.mark.postgresql
+def test_authenticated_order_uses_authoritative_profile_name(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+) -> None:
+    client, engine, ids = orders_api
+    customer_email = f"marc-{uuid4()}@example.com"
+    customer = AuthPrincipal(
+        user_id=uuid4(), membership_id=uuid4(), organization_id=uuid4(),
+        application_id=uuid4(), session_id=uuid4(), email=customer_email,
+        display_name="Marc Jacquot", role="customer", permissions=frozenset(),
+        assurance_level="aal1",
+    )
+    with Session(engine) as session:
+        session.add(JdsUser(
+            id=customer.user_id,
+            primary_email=customer.email,
+            display_name=customer.display_name,
+            status="active",
+        ))
+        session.commit()
+    client.app.dependency_overrides[optional_customer] = lambda: customer
+    payload = order_payload(ids, customer={
+        "name": "mjacquot82",
+        "email": "wrong@example.com",
+        "phone": "+15551234567",
+    })
+
+    response = client.post("/api/v1/orders", json=payload)
+
+    assert response.status_code == 201
+    assert response.json()["customer"]["name"] == "Marc Jacquot"
+    assert response.json()["customer"]["email"] == customer_email
+    with Session(engine) as session:
+        order = session.scalar(select(Order))
+        assert order is not None
+        assert order.guest_name == "Marc Jacquot"
+        assert order.guest_email == customer_email
 
 
 @pytest.mark.postgresql
