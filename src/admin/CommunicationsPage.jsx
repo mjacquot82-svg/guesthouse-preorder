@@ -1,16 +1,38 @@
-import { useCallback, useEffect, useState } from "react";
-import { AlertTriangle, CheckCircle2, Mail, MessageSquareText, RefreshCw } from "lucide-react";
-import { fetchOwnerCommunications } from "../services/ownerCommunicationsApi.js";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Bell, CheckCircle2, Megaphone, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
-import { isOperationsAdministrator } from "../auth/ownerProductPermissions.js";
+import { canAccessOwnerPath } from "../auth/ownerProductPermissions.js";
+import { fetchOwnerCommunications } from "../services/ownerCommunicationsApi.js";
 
-const labels = { email: "Email", sms: "SMS", email_sms: "Email + SMS", disabled: "Disabled" };
-const healthLabel = { connected: "Connected", healthy: "Healthy", not_configured: "Action required" };
+const money = (cents) => new Intl.NumberFormat("en-CA", { currency: "CAD", style: "currency" }).format(cents / 100);
+
+function Composer({ disabled, message, onMessageChange, title, onTitleChange, titleOptional = false }) {
+  return <div className="announcement-composer">
+    {titleOptional ? <label>Title <span>Optional</span><input maxLength={80} onChange={(event) => onTitleChange(event.target.value)} placeholder="Holiday hours" value={title} /></label> : null}
+    <label>Announcement message<textarea maxLength={280} onChange={(event) => onMessageChange(event.target.value)} rows={4} value={message} /></label>
+    <small>{message.length}/280 characters</small>
+    <div className="announcement-preview" aria-label="Customer notification preview">
+      <span>Customer preview</span>
+      {title ? <strong>{title}</strong> : null}
+      <p>{message || "Your announcement preview will appear here."}</p>
+    </div>
+    <button className="primary-button" disabled={disabled || !message.trim()} title={disabled ? "Push notifications are not connected" : undefined} type="button">
+      <Bell size={17} /> Send push announcement
+    </button>
+    {disabled ? <p className="announcement-provider-note"><AlertTriangle size={16} /> Push notifications are not connected yet. This draft has not been sent.</p> : null}
+  </div>;
+}
 
 export default function CommunicationsPage() {
   const { session } = useOwnerAuth();
-  const administrator = isOperationsAdministrator(session);
+  const owner = session?.role === "owner";
+  const canOpenProducts = canAccessOwnerPath(session, "/admin/products");
   const [state, setState] = useState({ status: "loading", data: null, message: "" });
+  const [lunchMessage, setLunchMessage] = useState("");
+  const [generalTitle, setGeneralTitle] = useState("");
+  const [generalMessage, setGeneralMessage] = useState("");
+  const initializedSpecial = useRef(null);
   const load = useCallback(() => {
     const controller = new AbortController();
     setState((current) => ({ ...current, status: "loading", message: "" }));
@@ -22,27 +44,45 @@ export default function CommunicationsPage() {
     return controller;
   }, []);
   useEffect(() => { const controller = load(); return () => controller.abort(); }, [load]);
+  useEffect(() => {
+    const special = state.data?.lunch_special;
+    if (special && initializedSpecial.current !== special.id) {
+      setLunchMessage(`Today’s Lunch Special is ${special.name} for ${money(special.price_cents)}. Order online while it’s available!`);
+      initializedSpecial.current = special.id;
+    }
+  }, [state.data?.lunch_special]);
 
-  if (state.status === "loading" && !state.data) return <section className="page-section communication-page" aria-live="polite"><div className="page-heading"><h1>Communications</h1><p>Checking customer communication status…</p></div><div className="communications-skeleton" /></section>;
-  if (state.status === "error") return <section className="page-section communication-page"><div className="page-heading"><h1>Communications</h1><p>One place to understand customer messages and delivery health.</p></div><div className="communications-error" role="alert"><AlertTriangle /><div><strong>Communication status is unavailable.</strong><p>{state.message}</p></div><button className="secondary-button" type="button" onClick={load}><RefreshCw size={16} /> Try again</button></div></section>;
+  if (state.status === "loading" && !state.data) return <section className="page-section communication-page" aria-live="polite"><div className="page-heading"><h1>Customer announcements</h1><p>Loading today’s announcement workspace…</p></div><div className="communications-skeleton" /></section>;
+  if (state.status === "error") return <section className="page-section communication-page"><div className="page-heading"><h1>Customer announcements</h1><p>Lunch Special and café updates for customers.</p></div><div className="communications-error" role="alert"><AlertTriangle /><div><strong>Announcement status is unavailable.</strong><p>{state.message}</p></div><button className="secondary-button" type="button" onClick={load}><RefreshCw size={16} /> Try again</button></div></section>;
 
-  const { activity, health, orders, summary, templates } = state.data;
+  const { activity, health, lunch_special: special, summary } = state.data;
+  const pushUnavailable = !summary.push_release_enabled;
   return <section className="page-section communication-page">
-    <div className="page-heading communication-heading"><div><p className="eyebrow">Customer operations</p><h1>Communications</h1><p>See who has been contacted, what needs attention, and which delivery channels are ready.</p></div><button className="secondary-button" disabled={state.status === "loading"} type="button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
-    <div className="communication-summary" aria-label="Notification summary">{[
-      ["Pending notifications", summary.pending], ["Sent today", summary.sent_today], ["Failed", summary.failed], ["Scheduled", summary.scheduled],
-    ].map(([label, value]) => <article className="metric-card" key={label}><span>{label}</span><strong>{value}</strong><p>{value ? "Review activity below" : "Nothing needs attention"}</p></article>)}</div>
+    <div className="page-heading communication-heading"><div><p className="eyebrow">Customer announcements</p><h1>Communications</h1><p>Prepare Lunch Special and occasional café announcements for customer push notifications.</p></div><button className="secondary-button" disabled={state.status === "loading"} type="button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
 
-    <div className="communication-layout">
-      <section className="communications-panel communications-orders" aria-labelledby="order-notifications-heading"><div className="panel-heading"><div><h2 id="order-notifications-heading">Order notifications</h2><p>Current customer contact readiness by order.</p></div><MessageSquareText /></div>
-        {orders.length ? <div className="communication-table-wrap"><table><thead><tr><th>Order</th><th>Customer</th><th>Notification</th><th>Delivery</th></tr></thead><tbody>{orders.map((order) => <tr key={order.id}><td><strong>{order.reference}</strong><small>{order.payment_status}</small></td><td><strong>{order.customer_name}</strong><small>{order.customer_email}</small></td><td>{order.event}</td><td><span className="status-pill disabled">{labels[order.channel]}</span></td></tr>)}</tbody></table></div> : <div className="communication-empty"><Mail /><h3>No orders yet</h3><p>Orders capable of customer communication will appear here.</p></div>}
+    <div className="communication-layout announcement-layout">
+      <section className="communications-panel" aria-labelledby="lunch-announcement-heading">
+        <div className="panel-heading"><div><h2 id="lunch-announcement-heading">Lunch Special announcement</h2><p>Products controls which item is selected as today’s Lunch Special.</p></div><Megaphone /></div>
+        <div className="announcement-panel-body">
+          {special ? <>
+            <article className="announcement-special-card">
+              <div><span>Today’s Lunch Special</span><h3>{special.name}</h3>{special.description ? <p>{special.description}</p> : null}</div>
+              <strong>{money(special.price_cents)}</strong>
+            </article>
+            {special.warnings.length ? <div className="announcement-warning" role="alert"><AlertTriangle /><div><strong>Check the product before announcing it.</strong>{special.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div></div> : null}
+            <Composer disabled={pushUnavailable || !special.orderable} message={lunchMessage} onMessageChange={setLunchMessage} />
+          </> : <div className="communication-empty"><Megaphone /><h3>No Lunch Special selected</h3><p>Select a normal catalog product as the Lunch Special in Products before preparing an announcement.</p>{canOpenProducts ? <Link className="secondary-button" to="/admin/products">Open Products</Link> : <p>Ask an Owner to select today’s product in Products.</p>}</div>}
+        </div>
       </section>
 
-      <section className="communications-panel" aria-labelledby="health-heading"><div className="panel-heading"><div><h2 id="health-heading">Communication health</h2><p>Provider and queue readiness.</p></div></div><div className="health-list">{health.map((item) => <article key={item.key}><span className={`health-icon ${item.status}`}>{item.status === "connected" || item.status === "healthy" ? <CheckCircle2 /> : <AlertTriangle />}</span><div><strong>{item.name}</strong><p>{item.detail}</p></div><span className={`status-pill ${item.status}`}>{healthLabel[item.status] || item.status}</span></article>)}</div></section>
+      <section className="communications-panel" aria-labelledby="health-heading">
+        <div className="panel-heading"><div><h2 id="health-heading">Communication health</h2><p>Readiness for customer announcements.</p></div></div>
+        <div className="health-list">{health.map((item) => <article key={item.key}><span className={`health-icon ${item.status}`}><Bell /></span><div><strong>{item.name}</strong><p>{item.detail}</p></div><span className={`status-pill ${item.status}`}>{item.status === "not_connected" ? "Not connected" : item.status}</span></article>)}</div>
+      </section>
     </div>
 
-    <section className="communications-panel" aria-labelledby="activity-heading"><div className="panel-heading"><div><h2 id="activity-heading">Notification queue</h2><p>Recent sends, failures, and delivery status.</p></div></div>{activity.length ? <div className="communication-table-wrap"><table><thead><tr><th>Time</th><th>Customer</th><th>Order</th><th>Type</th><th>Status</th>{administrator ? <th>Action</th> : null}</tr></thead><tbody>{activity.map((item) => <tr key={item.id}><td>{new Date(item.occurred_at).toLocaleString()}</td><td>{item.customer}</td><td>{item.order_reference || "—"}</td><td>{item.notification_type}</td><td>{item.status}</td>{administrator ? <td>{item.retryable ? <button className="secondary-button" type="button">Retry</button> : "—"}</td> : null}</tr>)}</tbody></table></div> : <div className="communication-empty compact"><CheckCircle2 /><div><h3>No delivery activity</h3><p>A delivery queue is not configured yet. No messages are being silently marked as sent.</p></div></div>}</section>
+    {owner ? <section className="communications-panel" aria-labelledby="general-announcement-heading"><div className="panel-heading"><div><h2 id="general-announcement-heading">General announcement</h2><p>Owner-only messages for closures, holidays, events, or café news.</p></div><Megaphone /></div><div className="announcement-panel-body"><Composer disabled={pushUnavailable} message={generalMessage} onMessageChange={setGeneralMessage} onTitleChange={setGeneralTitle} title={generalTitle} titleOptional /></div></section> : null}
 
-    {administrator ? <section className="communications-panel" aria-labelledby="templates-heading"><div className="panel-heading"><div><h2 id="templates-heading">Notification templates</h2><p>Read-only template catalog. Editing can be added without changing this layout.</p></div></div><div className="template-grid">{templates.map((template) => <article key={template.key}><span>{template.category}</span><h3>{template.name}</h3><p>{labels[template.channel]}</p><small>{template.status}</small></article>)}</div></section> : null}
+    <section className="communications-panel" aria-labelledby="activity-heading"><div className="panel-heading"><div><h2 id="activity-heading">Recent announcement activity</h2><p>Actual Lunch Special and general announcements will appear here after delivery is connected.</p></div></div>{activity.length ? <div className="announcement-activity-list">{activity.map((item) => <article key={item.id}><div><span>{item.kind}</span><strong>{item.title}</strong><p>{item.message}</p></div><div><strong>{item.status}</strong><small>{new Date(item.occurred_at).toLocaleString()} · {item.sent_by}</small></div></article>)}</div> : <div className="communication-empty compact"><CheckCircle2 /><div><h3>No announcement activity</h3><p>No customer announcements have been sent. Draft text on this page is not recorded as delivery.</p></div></div>}</section>
   </section>;
 }

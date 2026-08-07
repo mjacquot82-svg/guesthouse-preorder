@@ -36,7 +36,7 @@ test("existing Owner and Manager routing remains unchanged", () => {
 test("operational navigation follows capabilities without exposing dead ends", () => {
   const session = {
     role: "staff",
-    permissions: ["catalog.read", "availability.manage", "orders.read", "orders.fulfill", "lunch_special.manage"],
+    permissions: ["catalog.read", "availability.manage", "orders.read", "orders.fulfill", "communications.announce", "lunch_special.manage"],
   };
   assert.deepEqual(operationsLinks(session).map(({ to }) => to), [
     "/admin",

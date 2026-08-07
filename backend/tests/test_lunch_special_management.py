@@ -44,7 +44,7 @@ def seed_required_products(engine) -> None:
 @pytest.mark.postgresql
 def test_staff_narrow_operation_selects_replaces_clears_and_feeds_communications(owner_orders_api):
     client, engine = owner_orders_api
-    staff = replace(principal("catalog.read", "lunch_special.manage", "orders.read"), role="staff")
+    staff = replace(principal("catalog.read", "lunch_special.manage", "communications.announce"), role="staff")
     client.app.dependency_overrides[current_principal] = lambda: staff
     client.app.dependency_overrides[csrf_principal] = lambda: staff
     seed_required_products(engine)

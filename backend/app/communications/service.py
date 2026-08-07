@@ -1,71 +1,87 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.orders.constants import FulfillmentStatus, OrderStatus
-from app.orders.models import Order
-
-
-ORDER_EVENT_LABELS = {
-    FulfillmentStatus.NEW: "Order received",
-    FulfillmentStatus.PREPARING: "Preparing",
-    FulfillmentStatus.READY: "Ready for pickup",
-    FulfillmentStatus.COMPLETED: "Completed",
-    FulfillmentStatus.CANCELLED: "Cancelled",
-}
-
-TEMPLATES = (
-    ("order_received", "Order received", "Order", "email_sms", "Awaiting delivery provider"),
-    ("order_preparing", "Preparing", "Order", "email_sms", "Awaiting delivery provider"),
-    ("order_ready", "Ready for pickup", "Order", "email_sms", "Awaiting delivery provider"),
-    ("order_completed", "Completed", "Order", "email", "Awaiting delivery provider"),
-    ("order_cancelled", "Cancelled", "Order", "email_sms", "Awaiting delivery provider"),
-    ("password_reset", "Password reset", "Account", "email", "Managed by Supabase Auth"),
-    ("account_verification", "Account verification", "Account", "email", "Managed by Supabase Auth"),
-)
+from app.availability.models import ProductAvailability
+from app.catalog.models import Category, Product
 
 
 class CommunicationCenterService:
+    """Build the operator-facing customer-announcement snapshot.
+
+    Transactional order-email/SMS delivery was never installed. Authentication
+    email remains owned by Supabase Auth and intentionally does not participate in
+    this operational health response.
+    """
+
     def __init__(self, session: Session) -> None:
         self._session = session
 
     def snapshot(self) -> dict[str, object]:
-        orders = list(self._session.scalars(
-            select(Order).order_by(Order.updated_at.desc(), Order.id.desc()).limit(100)
-        ))
+        lunch_special = self._session.scalar(
+            select(Product)
+            .where(
+                Product.is_lunch_special.is_(True),
+                Product.archived_at.is_(None),
+            )
+            .order_by(Product.id)
+            .limit(1)
+        )
         return {
             "generated_at": datetime.now(timezone.utc),
-            "summary": {"pending": 0, "sent_today": 0, "failed": 0, "scheduled": 0},
-            "orders": [self._order(order) for order in orders],
-            "templates": [
-                {"key": key, "name": name, "category": category, "channel": channel, "status": status}
-                for key, name, category, channel, status in TEMPLATES
-            ],
+            "summary": {
+                "actionable_warnings": 0,
+                "push_release_enabled": False,
+            },
+            "lunch_special": (
+                self._lunch_special(lunch_special)
+                if lunch_special is not None
+                else None
+            ),
             "activity": [],
             "health": [
-                {"key": "auth_email", "name": "Authentication email", "status": "connected", "detail": "Password reset and verification are managed by Supabase Auth."},
-                {"key": "order_email", "name": "Order email", "status": "not_configured", "detail": "No transactional order-email provider is configured."},
-                {"key": "sms", "name": "SMS", "status": "not_configured", "detail": "No SMS delivery provider is configured."},
-                {"key": "queue", "name": "Notification queue", "status": "not_configured", "detail": "Delivery queue persistence is not installed yet."},
-                {"key": "twilio", "name": "Twilio", "status": "not_configured", "detail": "No Twilio integration exists in this deployment."},
+                {
+                    "key": "push",
+                    "name": "Push notifications",
+                    "status": "not_connected",
+                    "detail": (
+                        "Customer push delivery is not connected yet. "
+                        "Announcement drafts cannot be sent."
+                    ),
+                    "actionable": False,
+                }
             ],
         }
 
-    @staticmethod
-    def _order(order: Order) -> dict[str, object]:
-        event = ORDER_EVENT_LABELS[order.fulfillment_status]
-        capable = order.status == OrderStatus.PAID
+    def _lunch_special(self, product: Product) -> dict[str, object]:
+        category_published, available = self._session.execute(
+            select(
+                Category.is_published,
+                func.coalesce(ProductAvailability.default_available, True),
+            )
+            .select_from(Product)
+            .join(Category, Category.id == product.category_id)
+            .outerjoin(
+                ProductAvailability,
+                ProductAvailability.product_id == product.id,
+            )
+            .where(Product.id == product.id)
+        ).one()
+        customer_visible = bool(product.is_published and category_published)
+        orderable = bool(customer_visible and available)
+        warnings: list[str] = []
+        if not customer_visible:
+            warnings.append("This Lunch Special is hidden from the customer menu.")
+        if not available:
+            warnings.append("This Lunch Special is unavailable for online ordering.")
         return {
-            "id": order.id,
-            "reference": f"GH-{order.id:06d}",
-            "customer_name": order.guest_name,
-            "customer_email": order.guest_email,
-            "customer_phone": order.guest_phone,
-            "event": event,
-            "payment_status": order.status.value if isinstance(order.status, OrderStatus) else order.status,
-            "fulfillment_status": order.fulfillment_status.value if isinstance(order.fulfillment_status, FulfillmentStatus) else order.fulfillment_status,
-            "channel": "disabled",
-            "capable": capable,
-            "updated_at": order.updated_at,
+            "id": str(product.id),
+            "name": product.name,
+            "description": product.description or "",
+            "price_cents": product.base_price_cents,
+            "image": product.image_reference or "",
+            "customer_visible": customer_visible,
+            "orderable": orderable,
+            "warnings": warnings,
         }

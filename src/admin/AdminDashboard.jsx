@@ -19,7 +19,7 @@ export default function AdminDashboard() {
   const canReadOrders = administrator || hasPermission(session, "orders.read");
   const canReadCatalog = administrator || hasPermission(session, "catalog.read");
   const canReadScheduling = administrator || hasPermission(session, "availability.manage");
-  const canReadCommunications = canReadOrders;
+  const canReadCommunications = administrator || hasPermission(session, "communications.announce");
   const canManageIntegrations = administrator || hasPermission(session, "integrations.manage");
   const [clover, setClover] = useState({ status: "loading" });
   const [orderSummary, setOrderSummary] = useState({ status: "loading" });
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
       </> : null}
       {canReadCatalog ? <Link className="metric-card metric-card-link" to="/admin/products"><span>Sold-out products</span><strong>{soldOut}</strong><p>{soldOut ? "Review unavailable items" : "Everything published is available"}</p></Link> : null}
       {canReadScheduling ? <article className="metric-card"><span>Online ordering</span><strong>{ordering.status === "loading" ? "Checking…" : ordering.status === "error" ? "Unavailable" : ordering.ordering_status === "paused" ? "Paused" : ordering.ordering_available ? "Open" : "Closed"}</strong><p>{ordering.status === "ready" ? ordering.status_reason || "Current ordering status is live." : ordering.status === "loading" ? "Checking what customers can do…" : "Ordering status could not be loaded."}</p></article> : null}
-      {canReadCommunications ? <Link className="metric-card metric-card-link" to="/admin/communications"><span>Communication warnings</span><strong>{communications.status === "loading" ? "—" : communications.status === "error" ? "Unavailable" : communications.summary.failed + communications.health.filter((item) => !["healthy", "connected"].includes(item.status)).length}</strong><p>{communications.status === "ready" ? "Review failed delivery and provider readiness" : communications.status === "loading" ? "Checking delivery health…" : "Communication health could not be loaded."}</p></Link> : null}
+      {canReadCommunications ? <Link className="metric-card metric-card-link" to="/admin/communications"><span>Communication warnings</span><strong>{communications.status === "loading" ? "—" : communications.status === "error" ? "Unavailable" : communications.summary.actionable_warnings}</strong><p>{communications.status === "ready" ? communications.summary.push_release_enabled ? "Review customer-announcement delivery health" : "Push announcements are not release-enabled yet" : communications.status === "loading" ? "Checking announcement readiness…" : "Communication health could not be loaded."}</p></Link> : null}
       {canManageIntegrations ? <article className="metric-card"><span>Clover</span><strong>{cloverDisplay.heading}</strong><p aria-live="polite">{searchParams.get("clover") === "connected" && clover.connected ? `Authorization completed. ${cloverDisplay.detail}` : cloverDisplay.detail}</p>{clover.status === "ready" && !clover.connected ? <a className="secondary-button" href={getCloverConnectUrl()}>Connect Clover</a> : null}{clover.status === "authentication-error" ? <button className="secondary-button" type="button" onClick={handleSignInAgain}>Sign in again</button> : null}{!["loading", "ready", "authentication-error"].includes(clover.status) ? (
         <button className="secondary-button" type="button" onClick={loadCloverConnection}>
           Retry

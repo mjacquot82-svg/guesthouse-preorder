@@ -1,33 +1,103 @@
+from dataclasses import replace
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.orders.constants import FulfillmentStatus
-from tests.test_owner_orders import add_order, owner_orders_api
+from app.api.v1.owner_auth import current_principal
+from app.availability.models import ProductAvailability
+from app.catalog.models import Category, Product
+from app.jds_auth.foundation import ROLE_PERMISSIONS
+from tests.test_owner_orders import owner_orders_api, principal
 
 
-def test_owner_communication_center_reports_orders_templates_and_honest_health(owner_orders_api) -> None:
-    client, engine = owner_orders_api
-    with Session(engine) as session:
-        order = add_order(session, key="communication-ready", fulfillment=FulfillmentStatus.READY)
-        session.commit()
-        order_id = order.id
+def test_staff_announcement_capability_is_narrow() -> None:
+    assert "communications.announce" in ROLE_PERMISSIONS["staff"]
+    assert "communications.announce" in ROLE_PERMISSIONS["owner"]
+    assert "integrations.manage" not in ROLE_PERMISSIONS["staff"]
+
+
+def test_communication_center_reports_honest_announcement_health(owner_orders_api) -> None:
+    client, _ = owner_orders_api
+    client.app.dependency_overrides[current_principal] = lambda: principal(
+        "communications.announce"
+    )
 
     response = client.get("/api/v1/owner/communications")
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["summary"] == {"pending": 0, "sent_today": 0, "failed": 0, "scheduled": 0}
-    assert payload["orders"][0]["id"] == order_id
-    assert payload["orders"][0]["event"] == "Ready for pickup"
-    assert payload["orders"][0]["channel"] == "disabled"
-    assert {template["key"] for template in payload["templates"]} >= {"order_received", "order_ready", "password_reset", "account_verification"}
+    assert payload["summary"] == {
+        "actionable_warnings": 0,
+        "push_release_enabled": False,
+    }
+    assert payload["lunch_special"] is None
     assert payload["activity"] == []
-    health = {item["key"]: item["status"] for item in payload["health"]}
-    assert health == {"auth_email": "connected", "order_email": "not_configured", "sms": "not_configured", "queue": "not_configured", "twilio": "not_configured"}
+    assert payload["health"] == [{
+        "key": "push",
+        "name": "Push notifications",
+        "status": "not_connected",
+        "detail": (
+            "Customer push delivery is not connected yet. "
+            "Announcement drafts cannot be sent."
+        ),
+        "actionable": False,
+    }]
+    assert "orders" not in payload
+    assert "templates" not in payload
 
 
-def test_owner_communication_center_requires_order_read_permission(owner_orders_api) -> None:
+def test_communication_center_reads_authoritative_lunch_special_and_warns_when_unavailable(
+    owner_orders_api,
+) -> None:
+    client, engine = owner_orders_api
+    client.app.dependency_overrides[current_principal] = lambda: principal(
+        "communications.announce"
+    )
+    with Session(engine) as session:
+        product = session.scalar(select(Product).order_by(Product.id))
+        assert product is not None
+        product.name = "Buffalo Chickpea Bowl"
+        product.description = "Roasted vegetables and chickpeas."
+        product.base_price_cents = 1295
+        product.is_lunch_special = True
+        product.is_published = True
+        category = session.get(Category, product.category_id)
+        assert category is not None
+        category.is_published = True
+        availability = session.scalar(
+            select(ProductAvailability).where(ProductAvailability.product_id == product.id)
+        )
+        assert availability is not None
+        availability.default_available = False
+        session.commit()
+        product_id = product.id
+        product_image = product.image_reference or ""
+
+    payload = client.get("/api/v1/owner/communications").json()
+
+    assert payload["lunch_special"] == {
+        "id": str(product_id),
+        "name": "Buffalo Chickpea Bowl",
+        "description": "Roasted vegetables and chickpeas.",
+        "price_cents": 1295,
+        "image": product_image,
+        "customer_visible": True,
+        "orderable": False,
+        "warnings": ["This Lunch Special is unavailable for online ordering."],
+    }
+
+
+def test_communication_center_allows_staff_with_existing_order_read_capability(
+    owner_orders_api,
+) -> None:
     client, _ = owner_orders_api
-    from app.api.v1.owner_auth import current_principal
-    from tests.test_owner_orders import principal
+    staff = replace(principal("communications.announce"), role="staff")
+    client.app.dependency_overrides[current_principal] = lambda: staff
+
+    assert client.get("/api/v1/owner/communications").status_code == 200
+
+
+def test_communication_center_requires_announcement_permission(owner_orders_api) -> None:
+    client, _ = owner_orders_api
     client.app.dependency_overrides[current_principal] = lambda: principal()
     assert client.get("/api/v1/owner/communications").status_code == 403

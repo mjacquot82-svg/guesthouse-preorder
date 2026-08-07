@@ -33,7 +33,7 @@ export function canAccessOwnerPath(session, pathname) {
   if (pathname === "/admin/products") {
     return hasPermission(session, "catalog.read") && canManageProductAvailability(session);
   }
-  if (pathname === "/admin/communications") return hasPermission(session, "orders.read");
+  if (pathname === "/admin/communications") return hasPermission(session, "communications.announce");
   return false;
 }
 
@@ -53,7 +53,7 @@ export function operationsLinks(session) {
   if (isOperationsAdministrator(session)) {
     links.push({ label: "Scheduling", to: "/admin/scheduling" });
   }
-  if (isOperationsAdministrator(session) || hasPermission(session, "orders.read")) {
+  if (isOperationsAdministrator(session) || hasPermission(session, "communications.announce")) {
     links.push({ label: "Communications", to: "/admin/communications" });
   }
   return links;

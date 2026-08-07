@@ -15,16 +15,21 @@ test("orders allow capable Staff to complete orders while gating financial and a
   assert.doesNotMatch(page, /next\[1\] !== "completed"/);
 });
 
-test("dashboard and Communications provide a capability-scoped operational view", async () => {
+test("dashboard and Communications provide a capability-scoped announcement view", async () => {
   const dashboard = await readFile(new URL("../../src/admin/AdminDashboard.jsx", import.meta.url), "utf8");
   const communications = await readFile(new URL("../../src/admin/CommunicationsPage.jsx", import.meta.url), "utf8");
   assert.match(dashboard, /Active paid orders/);
   assert.match(dashboard, /Sold-out products/);
   assert.match(dashboard, /Online ordering/);
   assert.match(dashboard, /Communication warnings/);
+  assert.match(dashboard, /communications\.summary\.actionable_warnings/);
+  assert.doesNotMatch(dashboard, /communications\.summary\.failed/);
   assert.match(dashboard, /administrator \? <Link className="metric-card metric-card-link" to="\/admin\/orders"><span>Today’s paid pickups/);
-  assert.match(communications, /administrator \? <section className="communications-panel" aria-labelledby="templates-heading"/);
-  assert.match(communications, /administrator \? <th>Action<\/th>/);
+  assert.match(communications, /Lunch Special announcement/);
+  assert.match(communications, /owner \? <section className="communications-panel" aria-labelledby="general-announcement-heading"/);
+  assert.match(communications, /Push notifications are not connected yet/);
+  assert.match(communications, /Recent announcement activity/);
+  assert.doesNotMatch(communications, /Order notifications|Notification templates|Postmark|Twilio|Password reset|Account verification/);
 });
 
 test("the shared Operations navigation is rendered from session capabilities", async () => {

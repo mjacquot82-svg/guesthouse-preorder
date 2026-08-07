@@ -2289,7 +2289,6 @@ main {
 
 .communication-page { display: grid; gap: 20px; }
 .communication-heading { align-items: flex-end; display: flex; justify-content: space-between; gap: 16px; }
-.communication-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .communication-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(280px, .85fr); gap: 18px; }
 .communications-panel { background: var(--surface); border: 1px solid rgba(79,56,40,.12); border-radius: 22px; box-shadow: 0 12px 28px rgba(54,47,38,.07); overflow: hidden; }
 .panel-heading { align-items: flex-start; display: flex; justify-content: space-between; gap: 16px; padding: 20px 22px; border-bottom: 1px solid rgba(79,56,40,.1); }
@@ -2302,14 +2301,14 @@ main {
 .communication-table-wrap td small { color: var(--muted); display: block; margin-top: 3px; }
 .status-pill { border-radius: 999px; display: inline-flex; font-size: .75rem; font-weight: 850; padding: 5px 9px; white-space: nowrap; }
 .status-pill.connected, .status-pill.healthy { background: #e7f4e8; color: #28633a; }
-.status-pill.disabled, .status-pill.not_configured { background: #fff0df; color: #8a4e16; }
+.status-pill.disabled, .status-pill.not_configured, .status-pill.not_connected { background: #f0ede7; color: #655d54; }
 .health-list { display: grid; }
 .health-list article { align-items: center; display: grid; grid-template-columns: auto minmax(0,1fr) auto; gap: 12px; padding: 15px 18px; border-bottom: 1px solid rgba(79,56,40,.08); }
 .health-list article:last-child { border-bottom: 0; }
 .health-icon { align-items: center; border-radius: 50%; display: inline-flex; height: 36px; justify-content: center; width: 36px; }
 .health-icon svg { height: 18px; width: 18px; }
 .health-icon.connected, .health-icon.healthy { background: #e7f4e8; color: #28633a; }
-.health-icon.not_configured { background: #fff0df; color: #9b5a1d; }
+.health-icon.not_configured, .health-icon.not_connected { background: #f0ede7; color: #655d54; }
 .communication-empty { align-items: center; display: flex; flex-direction: column; gap: 8px; padding: 34px 22px; text-align: center; }
 .communication-empty.compact { flex-direction: row; justify-content: flex-start; text-align: left; }
 .template-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr)); gap: 12px; padding: 18px; }
@@ -2321,8 +2320,30 @@ main {
 .communications-error p { margin: 4px 0 0; }
 .communications-error button { margin-left: auto; }
 .communications-skeleton { background: linear-gradient(90deg,#f1ede5,#faf8f3,#f1ede5); border-radius: 22px; min-height: 360px; animation: pulse 1.5s infinite; }
-@media (max-width: 900px) { .communication-summary { grid-template-columns: repeat(2,minmax(0,1fr)); } .communication-layout { grid-template-columns: 1fr; } }
-@media (max-width: 600px) { .communication-heading, .communications-error { align-items: stretch; flex-direction: column; } .communication-summary { grid-template-columns: 1fr 1fr; } .communication-heading button, .communications-error button { margin-left: 0; width: 100%; } .health-list article { grid-template-columns: auto minmax(0,1fr); } .health-list .status-pill { grid-column: 2; justify-self: start; } }
+.announcement-panel-body { display: grid; gap: 18px; padding: 20px 22px 24px; }
+.announcement-special-card { align-items: start; background: var(--sage-soft); border: 1px solid rgba(95,109,84,.22); border-radius: 16px; display: flex; gap: 18px; justify-content: space-between; padding: 17px; }
+.announcement-special-card span { color: var(--sage-ink); font-size: .73rem; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.announcement-special-card h3, .announcement-special-card p { margin: 5px 0 0; }
+.announcement-special-card > strong { font-size: 1.15rem; white-space: nowrap; }
+.announcement-composer { display: grid; gap: 12px; }
+.announcement-composer label { display: grid; font-weight: 850; gap: 7px; }
+.announcement-composer label > span { color: var(--muted); font-size: .75rem; font-weight: 700; }
+.announcement-composer input, .announcement-composer textarea { border: 1px solid var(--border); border-radius: 12px; color: var(--ink); font: inherit; padding: 11px 12px; width: 100%; }
+.announcement-composer textarea { min-height: 110px; resize: vertical; }
+.announcement-composer > small { color: var(--muted); justify-self: end; margin-top: -8px; }
+.announcement-preview { background: var(--surface-warm); border: 1px solid var(--border); border-radius: 16px; display: grid; gap: 5px; padding: 15px; }
+.announcement-preview > span { color: var(--muted); font-size: .72rem; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.announcement-preview p { margin: 0; white-space: pre-wrap; }
+.announcement-composer .primary-button { justify-self: start; }
+.announcement-provider-note { align-items: center; color: var(--muted); display: flex; gap: 7px; margin: 0; }
+.announcement-warning { align-items: flex-start; background: #fff4df; border: 1px solid #dfbf82; border-radius: 14px; color: #69460f; display: flex; gap: 11px; padding: 13px 14px; }
+.announcement-warning svg { flex: 0 0 auto; }
+.announcement-warning p { margin: 4px 0 0; }
+.announcement-activity-list { display: grid; }
+.announcement-activity-list article { align-items: start; border-bottom: 1px solid rgba(79,56,40,.09); display: flex; gap: 20px; justify-content: space-between; padding: 16px 20px; }
+.announcement-activity-list article p, .announcement-activity-list article small { color: var(--muted); display: block; margin: 4px 0 0; }
+@media (max-width: 900px) { .communication-layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .communication-heading, .communications-error, .announcement-special-card, .announcement-activity-list article { align-items: stretch; flex-direction: column; } .communication-heading button, .communications-error button, .announcement-composer .primary-button { margin-left: 0; width: 100%; } .health-list article { grid-template-columns: auto minmax(0,1fr); } .health-list .status-pill { grid-column: 2; justify-self: start; } }
 
 /* Owner scheduling */
 .owner-orders-page {

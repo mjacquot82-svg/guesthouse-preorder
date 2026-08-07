@@ -18,43 +18,29 @@ class StrictModel(BaseModel):
 
 
 class Summary(StrictModel):
-    pending: int
-    sent_today: int
-    failed: int
-    scheduled: int
+    actionable_warnings: int
+    push_release_enabled: bool
 
 
-class CommunicationOrder(StrictModel):
-    id: int
-    reference: str
-    customer_name: str
-    customer_email: str
-    customer_phone: str
-    event: str
-    payment_status: str
-    fulfillment_status: str
-    channel: str
-    capable: bool
-    updated_at: datetime
-
-
-class Template(StrictModel):
-    key: str
+class LunchSpecial(StrictModel):
+    id: str
     name: str
-    category: str
-    channel: str
-    status: str
+    description: str
+    price_cents: int
+    image: str
+    customer_visible: bool
+    orderable: bool
+    warnings: list[str]
 
 
 class Activity(StrictModel):
     id: str
-    occurred_at: datetime
-    customer: str
-    order_reference: str | None
-    notification_type: str
-    channel: str
+    kind: str
+    title: str
+    message: str
     status: str
-    retryable: bool
+    occurred_at: datetime
+    sent_by: str
 
 
 class Health(StrictModel):
@@ -62,20 +48,20 @@ class Health(StrictModel):
     name: str
     status: str
     detail: str
+    actionable: bool
 
 
 class CommunicationCenterResponse(StrictModel):
     generated_at: datetime
     summary: Summary
-    orders: list[CommunicationOrder]
-    templates: list[Template]
+    lunch_special: LunchSpecial | None
     activity: list[Activity]
     health: list[Health]
 
 
 @router.get("", response_model=CommunicationCenterResponse)
 def communication_center(
-    _: AuthPrincipal = Depends(require_read_permission("orders.read")),
+    _: AuthPrincipal = Depends(require_read_permission("communications.announce")),
     session: Session = Depends(get_order_session),
 ) -> CommunicationCenterResponse:
     try:
@@ -85,5 +71,8 @@ def communication_center(
     except (SQLAlchemyError, ValueError) as error:
         raise HTTPException(
             status_code=503,
-            detail={"code": "communications_unavailable", "message": "Communication status is temporarily unavailable."},
+            detail={
+                "code": "communications_unavailable",
+                "message": "Communication status is temporarily unavailable.",
+            },
         ) from error

@@ -6,7 +6,12 @@ const response = (status, payload) => ({ ok: status >= 200 && status < 300, stat
 
 test("fetchOwnerCommunications uses the owner session endpoint", async () => {
   let request;
-  const payload = { summary: { pending: 0 }, orders: [], templates: [], activity: [], health: [] };
+  const payload = {
+    summary: { actionable_warnings: 0, push_release_enabled: false },
+    lunch_special: null,
+    activity: [],
+    health: [{ key: "push", status: "not_connected", actionable: false }],
+  };
   const result = await fetchOwnerCommunications({ apiBaseUrl: "https://api.example.test/", fetchImpl: async (...args) => { request = args; return response(200, payload); } });
   assert.equal(result, payload);
   assert.equal(request[0], "https://api.example.test/api/v1/owner/communications");
