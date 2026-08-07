@@ -6868,3 +6868,13 @@ body {
     padding-bottom: 14px;
   }
 }
+.staff-access-grid { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1.4fr) minmax(18rem, .8fr); }
+.staff-account-list { display: grid; gap: .75rem; margin-top: 1rem; }
+.staff-account { align-items: center; border-top: 1px solid var(--border-color, #ddd); display: flex; gap: 1rem; justify-content: space-between; padding-top: .85rem; }
+.staff-account > div:first-child { display: grid; gap: .25rem; }
+.staff-account-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.status-active { color: #28643b; }
+.status-disabled { color: #7a3d35; }
+.staff-reset-panel { margin-top: 1.25rem; max-width: 36rem; }
+@media (max-width: 760px) { .staff-access-grid { grid-template-columns: 1fr; } .staff-account { align-items: flex-start; flex-direction: column; } }
+.operations-nav-signout { background: transparent; border: 0; color: inherit; cursor: pointer; font: inherit; margin-left: auto; padding: .55rem .7rem; }

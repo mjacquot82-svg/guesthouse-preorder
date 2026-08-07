@@ -6,6 +6,8 @@ import {
   fetchOwnerSession,
   loginOwner,
   logoutOwner,
+  fetchStaffAccessOptions,
+  loginStaff,
 } from "../../src/services/ownerAuthApi.js";
 
 function jsonResponse(status, payload) {
@@ -33,6 +35,17 @@ test("owner session uses only the credentialed JDS BFF", async () => {
   assert.equal(calls[0][0], "https://api.example.test/api/v1/owner/auth/session");
   assert.equal(calls[0][1].credentials, "include");
   assert.equal(calls[0][1].method, "GET");
+});
+
+test("Staff Access uses explicit identity plus PIN without browser storage", async () => {
+  const calls = [];
+  const fetchImpl = async (...args) => { calls.push(args); return jsonResponse(200, []); };
+  await fetchStaffAccessOptions({ apiBaseUrl: "https://api.example.test/", fetchImpl });
+  await loginStaff("staff-id", "482193", { apiBaseUrl: "https://api.example.test/", fetchImpl });
+  assert.equal(calls[0][0], "https://api.example.test/api/v1/staff/access/accounts");
+  assert.equal(calls[1][0], "https://api.example.test/api/v1/staff/access/login");
+  assert.equal(calls[1][1].credentials, "include");
+  assert.deepEqual(JSON.parse(calls[1][1].body), { staff_id: "staff-id", pin: "482193" });
 });
 
 test("owner login sends credentials to the BFF without browser token storage", async () => {

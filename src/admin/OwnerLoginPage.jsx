@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
 import { safeAdminReturnTo } from "../auth/ownerAuthRouting.js";
 
@@ -9,18 +9,22 @@ export default function OwnerLoginPage() {
   const { login, session } = useOwnerAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(searchParams.get("denied") ? "This account does not have owner portal access." : "");
   const [submitting, setSubmitting] = useState(false);
   const returnTo = safeAdminReturnTo(searchParams.get("returnTo"));
 
-  if (session) return <Navigate replace to={returnTo} />;
+  if (session && ["owner", "manager"].includes(session.role)) return <Navigate replace to={returnTo} />;
 
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      await login(email, password);
+      const nextSession = await login(email, password);
+      if (!["owner", "manager"].includes(nextSession.role)) {
+        setError("This account does not have owner portal access.");
+        return;
+      }
       navigate(returnTo, { replace: true });
     } catch (loginError) {
       setError(loginError.message || "Unable to sign in.");
@@ -48,6 +52,7 @@ export default function OwnerLoginPage() {
             {submitting ? "Signing in…" : "Sign in"}
           </button>
         </form>
+        <p><Link to="/staff">Staff Access</Link></p>
       </div>
     </section>
   );

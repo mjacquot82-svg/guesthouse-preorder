@@ -62,6 +62,27 @@ export function loginOwner(email, password, options = {}) {
   return ownerAuthRequest("/login", { ...options, body: { email, password }, method: "POST" });
 }
 
+export function fetchStaffAccessOptions(options = {}) {
+  return staffAccessRequest("/accounts", options);
+}
+
+export function loginStaff(staffId, pin, options = {}) {
+  return staffAccessRequest("/login", { ...options, body: { staff_id: staffId, pin }, method: "POST" });
+}
+
+async function staffAccessRequest(path, { apiBaseUrl = import.meta.env?.VITE_API_BASE_URL || "", body, fetchImpl = globalThis.fetch, method = "GET" } = {}) {
+  let response;
+  try {
+    response = await fetchImpl(`${apiBaseUrl.replace(/\/+$/, "")}/api/v1/staff/access${path}`, {
+      body: body === undefined ? undefined : JSON.stringify(body), credentials: "include",
+      headers: { Accept: "application/json", ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, method,
+    });
+  } catch (cause) {
+    throw new OwnerAuthError("Unable to reach Staff Access.", { cause });
+  }
+  return parseResponse(response);
+}
+
 export function logoutOwner(csrfToken, options = {}) {
   return ownerAuthRequest("/logout", { ...options, csrfToken, method: "POST" });
 }

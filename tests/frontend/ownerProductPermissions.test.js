@@ -31,6 +31,8 @@ test("catalog editing requires the complete existing permission set", () => {
 test("existing Owner and Manager routing remains unchanged", () => {
   assert.equal(canAccessOwnerPath({ role: "owner", permissions: [] }, "/admin/orders"), true);
   assert.equal(canAccessOwnerPath({ role: "manager", permissions: [] }, "/admin/scheduling"), true);
+  assert.equal(canAccessOwnerPath({ role: "manager", permissions: [] }, "/admin/staff"), false);
+  assert.equal(canAccessOwnerPath({ role: "owner", permissions: ["members.manage"] }, "/admin/staff"), true);
 });
 
 test("operational navigation follows capabilities without exposing dead ends", () => {

@@ -17,6 +17,8 @@ import CustomerVerifyPage from "./pages/CustomerVerifyPage.jsx";
 import CustomerResetPage from "./pages/CustomerResetPage.jsx";
 import OwnerAuthBoundary from "./auth/OwnerAuthBoundary.jsx";
 import CommunicationsPage from "./admin/CommunicationsPage.jsx";
+import StaffPage from "./admin/StaffPage.jsx";
+import StaffLoginPage from "./admin/StaffLoginPage.jsx";
 
 export default function App() {
   return (
@@ -36,12 +38,14 @@ export default function App() {
         <Route path="confirmation" element={<ConfirmationPage />} />
         <Route element={<OwnerAuthBoundary />}>
           <Route path="owner/login" element={<OwnerLoginPage />} />
+          <Route path="staff" element={<StaffLoginPage />} />
           <Route path="admin" element={<RequireOwner />}>
             <Route index element={<AdminDashboard />} />
             <Route path="orders" element={<OrdersPage />} />
             <Route path="products" element={<ProductsPage />} />
             <Route path="scheduling" element={<SchedulingPage />} />
             <Route path="communications" element={<CommunicationsPage />} />
+            <Route path="staff" element={<StaffPage />} />
             <Route path="*" element={<Navigate replace to="/admin" />} />
           </Route>
         </Route>

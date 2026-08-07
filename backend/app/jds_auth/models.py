@@ -59,6 +59,15 @@ class ExternalIdentity(Timestamped, Base):
     user: Mapped[JdsUser] = relationship()
 
 
+class StaffPinCredential(Timestamped, Base):
+    __tablename__ = "staff_pin_credentials"
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jds_users.id", ondelete="CASCADE"), primary_key=True
+    )
+    verifier: Mapped[str] = mapped_column(String(255))
+    changed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class Role(Timestamped, Base):
     __tablename__ = "auth_roles"
     __table_args__ = (UniqueConstraint("application_id", "key", name="uq_auth_roles_application_key"),)

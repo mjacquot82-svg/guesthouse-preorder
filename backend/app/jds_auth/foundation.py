@@ -24,7 +24,7 @@ ROLE_PERMISSIONS = {
     "owner": frozenset(PERMISSIONS) - {"customer.profile", "customer.orders"},
     "manager": frozenset(PERMISSIONS) - {"members.manage", "customer.profile", "customer.orders"},
     "staff": frozenset({
-        "catalog.read", "orders.read", "orders.fulfill",
+        "catalog.read", "availability.manage", "orders.read", "orders.fulfill",
         "communications.announce", "lunch_special.manage",
     }),
     "customer": frozenset({"customer.profile", "customer.orders"}),

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
-import { fetchOwnerSession, loginOwner, logoutOwner } from "../services/ownerAuthApi.js";
+import { fetchOwnerSession, loginOwner, loginStaff, logoutOwner } from "../services/ownerAuthApi.js";
 
 const OwnerAuthContext = createContext(null);
 
@@ -35,6 +35,13 @@ export function OwnerAuthProvider({ children }) {
     return nextSession;
   }, []);
 
+  const staffLogin = useCallback(async (staffId, pin) => {
+    const nextSession = await loginStaff(staffId, pin);
+    setSession(nextSession);
+    setStatus("authenticated");
+    return nextSession;
+  }, []);
+
   const logout = useCallback(async () => {
     const csrfToken = session?.csrf_token;
     try {
@@ -46,7 +53,7 @@ export function OwnerAuthProvider({ children }) {
   }, [session]);
 
   return (
-    <OwnerAuthContext.Provider value={{ login, logout, refreshSession, session, status }}>
+    <OwnerAuthContext.Provider value={{ login, staffLogin, logout, refreshSession, session, status }}>
       {children}
     </OwnerAuthContext.Provider>
   );

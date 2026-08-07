@@ -1,13 +1,19 @@
 import { useEffect, useRef } from "react";
-import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useOwnerAuth } from "./OwnerAuthContext.jsx";
 import { ownerLoginDestination } from "./ownerAuthRouting.js";
 import { canAccessOwnerPath, operationsLinks } from "./ownerProductPermissions.js";
 
 export default function RequireOwner() {
   const location = useLocation();
+  const navigate = useNavigate();
   const attempted = useRef(false);
-  const { refreshSession, session, status } = useOwnerAuth();
+  const { logout, refreshSession, session, status } = useOwnerAuth();
+
+  async function signOut() {
+    await logout();
+    navigate(session?.role === "staff" ? "/staff" : "/owner/login", { replace: true });
+  }
 
   useEffect(() => {
     if (session || status === "loading" || attempted.current) return;
@@ -18,6 +24,7 @@ export default function RequireOwner() {
   if (session && canAccessOwnerPath(session, location.pathname)) return <>
     <nav className="admin-links operations-nav" aria-label="Operations Portal navigation">
       {operationsLinks(session).map((link) => <NavLink end={link.end} key={link.to} to={link.to}>{link.label}</NavLink>)}
+      <button className="operations-nav-signout" type="button" onClick={signOut}>Sign out</button>
     </nav>
     <Outlet />
   </>;

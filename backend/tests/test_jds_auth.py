@@ -28,6 +28,7 @@ from app.jds_auth.models import (
     Permission,
     Role,
     RolePermission,
+    StaffPinCredential,
 )
 from app.jds_auth.provider import IdentityProviderError, InvalidCredentialsError, ProviderAuthentication, ProviderIdentity, SupabaseIdentityProvider
 from app.jds_auth.schemas import CustomerPasswordCompletionRequest, CustomerRegistrationRequest, PasswordCompletionRequest
@@ -105,7 +106,7 @@ def auth_engine(postgresql_url: str) -> Iterator[Engine]:
     command.upgrade(make_alembic_config(postgresql_url), "head")
     engine = create_engine(postgresql_url)
     auth_tables = (
-        "security_audit_events, auth_rate_limit_buckets, owner_sessions, owner_invitations, "
+        "security_audit_events, auth_rate_limit_buckets, owner_sessions, owner_invitations, staff_pin_credentials, "
         "organization_memberships, auth_role_permissions, external_identities, "
         "auth_roles, auth_permissions, jds_users, organizations, jds_applications"
     )

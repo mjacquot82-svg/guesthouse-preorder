@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from uuid import UUID
+from datetime import datetime
 
 from app.customers.schemas import normalize_phone_to_e164
 
@@ -87,3 +88,39 @@ class SessionResponse(AuthSchema):
 
 class MessageResponse(AuthSchema):
     message: str
+
+
+class StaffAccessOption(AuthSchema):
+    id: UUID
+    display_name: str
+
+
+class StaffPinLoginRequest(AuthSchema):
+    staff_id: UUID
+    pin: str = Field(min_length=6, max_length=10, pattern=r"^\d+$")
+
+
+class StaffCreateRequest(AuthSchema):
+    display_name: str = Field(min_length=1, max_length=200)
+    pin: str = Field(min_length=6, max_length=10, pattern=r"^\d+$")
+
+    @field_validator("display_name")
+    @classmethod
+    def normalize_staff_name(cls, value: str) -> str:
+        return " ".join(value.strip().split())
+
+
+class StaffPinResetRequest(AuthSchema):
+    pin: str = Field(min_length=6, max_length=10, pattern=r"^\d+$")
+
+
+class StaffStatusRequest(AuthSchema):
+    active: bool
+
+
+class StaffAccountResponse(AuthSchema):
+    id: UUID
+    display_name: str
+    active: bool
+    created_at: datetime
+    pin_changed_at: datetime
