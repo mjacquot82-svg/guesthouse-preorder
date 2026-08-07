@@ -9,6 +9,10 @@ export function canManageProductAvailability(session) {
   return session?.permissions?.includes("availability.manage") === true;
 }
 
+export function canManageLunchSpecial(session) {
+  return session?.permissions?.includes("lunch_special.manage") === true;
+}
+
 export function hasPermission(session, permission) {
   return session?.permissions?.includes(permission) === true;
 }

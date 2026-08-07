@@ -26,6 +26,7 @@ function catalogFixture() {
             description: "Slow-steeped and poured over ice.",
             image: "coffee",
             featured: true,
+            lunch_special: true,
             base_price_cents: 475,
             sort_order: 1,
             variants: [
@@ -124,6 +125,7 @@ function catalogFixture() {
             description: "Warm and steady.",
             image: "coffee",
             featured: true,
+            lunch_special: false,
             base_price_cents: 375,
             sort_order: 0,
             variants: [],
@@ -192,6 +194,7 @@ test("adaptCatalog preserves the legacy category and product interfaces", () => 
       image: coldBrew.image,
       available: coldBrew.available,
       featured: coldBrew.featured,
+      lunchSpecial: coldBrew.lunchSpecial,
       modifierGroupIds: coldBrew.modifierGroupIds,
     },
     {
@@ -206,6 +209,7 @@ test("adaptCatalog preserves the legacy category and product interfaces", () => 
       image: "coffee",
       available: true,
       featured: true,
+      lunchSpecial: true,
       modifierGroupIds: ["size", "milk", "flavour-shots"],
     }
   );

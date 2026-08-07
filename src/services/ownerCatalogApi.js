@@ -1,4 +1,9 @@
 const OWNER_CATALOG_PATH = "/api/v1/owner/catalog";
+const OWNER_CATALOG_CACHE_MS = 30_000;
+
+let cachedOwnerCatalog = null;
+let cachedOwnerCatalogExpiresAt = 0;
+let pendingOwnerCatalog = null;
 
 export class OwnerCatalogError extends Error {
   constructor(message, { status } = {}) {
@@ -49,6 +54,27 @@ export function fetchOwnerCatalog(options = {}) {
   return request("", options);
 }
 
+export function clearOwnerCatalogCache() {
+  cachedOwnerCatalog = null;
+  cachedOwnerCatalogExpiresAt = 0;
+}
+
+export function fetchOwnerCatalogCached({ force = false, ...options } = {}) {
+  const now = Date.now();
+  if (!force && cachedOwnerCatalog && now < cachedOwnerCatalogExpiresAt) {
+    return Promise.resolve(cachedOwnerCatalog);
+  }
+  if (!force && pendingOwnerCatalog) return pendingOwnerCatalog;
+  pendingOwnerCatalog = fetchOwnerCatalog(options)
+    .then((catalog) => {
+      cachedOwnerCatalog = catalog;
+      cachedOwnerCatalogExpiresAt = Date.now() + OWNER_CATALOG_CACHE_MS;
+      return catalog;
+    })
+    .finally(() => { pendingOwnerCatalog = null; });
+  return pendingOwnerCatalog;
+}
+
 export function createOwnerProduct(product, csrfToken, options = {}) {
   return request("/products", { ...options, body: product, csrfToken, method: "POST" });
 }
@@ -68,5 +94,11 @@ export function archiveOwnerProduct(productId, csrfToken, options = {}) {
 export function updateOwnerProductAvailability(productId, available, csrfToken, options = {}) {
   return request(`/products/${encodeURIComponent(productId)}/availability`, {
     ...options, body: { available }, csrfToken, method: "PATCH",
+  });
+}
+
+export function updateLunchSpecial(productId, csrfToken, options = {}) {
+  return request("/lunch-special", {
+    ...options, body: { product_id: productId }, csrfToken, method: "PUT",
   });
 }

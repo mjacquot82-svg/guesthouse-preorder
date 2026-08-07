@@ -34,3 +34,12 @@ test("the shared Operations navigation is rendered from session capabilities", a
   assert.match(boundary, /Operations Portal navigation/);
   assert.doesNotMatch(layout, /\/admin\/communications/);
 });
+
+test("Products exposes narrow Staff Lunch Special controls separately from Quick Edit", async () => {
+  const page = await readFile(new URL("../../src/admin/ProductsPage.jsx", import.meta.url), "utf8");
+  assert.match(page, /canManageLunchSpecial\(session\)/);
+  assert.match(page, /Set as Lunch Special/);
+  assert.match(page, /Clear Lunch Special/);
+  assert.match(page, /canManageSpecial \? <button/);
+  assert.match(page, /canEdit \? <section className="product-editor-panel"/);
+});

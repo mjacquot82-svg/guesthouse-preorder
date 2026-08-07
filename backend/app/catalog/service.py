@@ -119,6 +119,8 @@ class CatalogService:
         self._validate_write(payload)
         if self._repository.get_product_by_slug(payload.slug):
             raise ValueError("A product with this slug already exists.")
+        if payload.lunch_special:
+            self._repository.clear_lunch_special()
         product = Product()
         self._apply_product(product, payload)
         self._repository.add(product)
@@ -135,6 +137,8 @@ class CatalogService:
         if conflicting is not None and conflicting.id != product_id:
             raise ValueError("A product with this slug already exists.")
         self._validate_write(payload)
+        if payload.lunch_special:
+            self._repository.clear_lunch_special(except_product_id=product_id)
         self._apply_product(product, payload)
         self._replace_children(product, payload)
         self._repository.commit()
@@ -159,6 +163,25 @@ class CatalogService:
         self._repository.commit()
         return self._owner_product_response(product)
 
+    def set_lunch_special(self, product_id: int | None) -> OwnerProductResponse | None:
+        self._repository.lock_lunch_special_selection()
+        if product_id is None:
+            self._repository.clear_lunch_special()
+            self._repository.commit()
+            return None
+        product = self._repository.get_product_for_update(product_id)
+        if product is None or product.archived_at is not None:
+            raise LookupError("Product not found.")
+        category = self._repository.get_category(product.category_id)
+        if not product.is_published or category is None or not category.is_published:
+            raise ValueError(
+                "Only products visible on the customer menu can be selected as Lunch Special."
+            )
+        self._repository.clear_lunch_special(except_product_id=product.id)
+        product.is_lunch_special = True
+        self._repository.commit()
+        return self._owner_product_response(product)
+
     def _validate_write(self, payload: OwnerProductWrite) -> None:
         if self._repository.get_category(payload.category_id) is None:
             raise ValueError("Category does not exist.")
@@ -177,6 +200,7 @@ class CatalogService:
         product.category_id = payload.category_id
         product.image_reference = payload.image
         product.is_featured = payload.featured
+        product.is_lunch_special = payload.lunch_special
         product.is_published = payload.published
         product.sort_order = payload.sort_order
 
@@ -209,7 +233,8 @@ class CatalogService:
             description=product.description or "", base_price_cents=product.base_price_cents,
             category_id=str(product.category_id), image=product.image_reference or "",
             available=product.availability.default_available if product.availability else True,
-            featured=product.is_featured, published=product.is_published,
+            featured=product.is_featured, lunch_special=product.is_lunch_special,
+            published=product.is_published,
             archived=product.archived_at is not None, sort_order=product.sort_order,
             variants=[OwnerVariantResponse(
                 id=str(item.id), key=item.key, name=item.name,
@@ -268,6 +293,7 @@ class CatalogService:
             description=product.description or "",
             image=product.image_reference or "",
             featured=product.is_featured,
+            lunch_special=product.is_lunch_special,
             base_price_cents=product.base_price_cents,
             sort_order=product.sort_order,
             variants=variants,

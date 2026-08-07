@@ -963,6 +963,7 @@ async def test_owner_catalog_mutations_persist_to_public_catalog(
         "image": latte["image"],
         "available": False,
         "featured": True,
+        "lunch_special": True,
         "published": True,
         "sort_order": latte["sort_order"],
         "variants": [
@@ -1014,6 +1015,7 @@ async def test_owner_catalog_mutations_persist_to_public_catalog(
     )
     assert public_latte["name"] == "Production Latte"
     assert public_latte["featured"] is True
+    assert public_latte["lunch_special"] is True
 
     archived = await auth_client.delete(
         f"/api/v1/owner/catalog/products/{latte['id']}",

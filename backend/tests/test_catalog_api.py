@@ -4,7 +4,7 @@ from datetime import datetime
 import pytest
 from alembic import command
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import create_engine, select, text
+from sqlalchemy import create_engine, event, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -17,7 +17,9 @@ from app.catalog.models import (
     ProductVariant,
 )
 from app.catalog.schemas import CatalogResponse
+from app.catalog.repository import CatalogRepository
 from app.catalog.seed import seed_catalog
+from app.catalog.service import CatalogService
 from app.main import create_app
 from tests.test_migrations import make_alembic_config
 
@@ -113,6 +115,7 @@ async def test_catalog_returns_complete_seeded_guest_house_contract(
         "description": "Velvety milk and a double shot.",
         "image": "coffee",
         "featured": True,
+        "lunch_special": False,
         "base_price_cents": 525,
         "sort_order": 2,
         "variants": [
@@ -217,6 +220,7 @@ async def test_catalog_returns_complete_seeded_guest_house_contract(
         "description",
         "image",
         "featured",
+        "lunch_special",
         "base_price_cents",
         "sort_order",
         "variants",
@@ -242,6 +246,28 @@ async def test_catalog_returns_complete_seeded_guest_house_contract(
         "price_adjustment_cents",
         "sort_order",
     }
+
+
+@pytest.mark.postgresql
+def test_owner_catalog_hydrates_products_with_bounded_queries(
+    catalog_api_engine: Engine,
+) -> None:
+    with Session(catalog_api_engine) as session:
+        seed_catalog(session)
+        statements: list[str] = []
+
+        def record_query(*args) -> None:
+            statements.append(args[2])
+
+        event.listen(catalog_api_engine, "before_cursor_execute", record_query)
+        try:
+            catalog = CatalogService(CatalogRepository(session)).build_owner_catalog()
+        finally:
+            event.remove(catalog_api_engine, "before_cursor_execute", record_query)
+
+    selects = [statement for statement in statements if statement.lstrip().upper().startswith("SELECT")]
+    assert catalog.products
+    assert len(selects) == 6
 
 
 @pytest.mark.anyio

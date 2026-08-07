@@ -30,6 +30,7 @@ CATALOG_TABLE_NAMES = frozenset(
         "product_modifier_groups",
     }
 )
+CATALOG_HEAD_ONLY_COLUMN_NAMES = frozenset({"is_lunch_special"})
 AVAILABILITY_TABLE_NAMES = frozenset(
     {
         "business_settings",
@@ -269,7 +270,15 @@ def _validate_catalog_baseline(engine: Engine) -> None:
     problems = [
         problem
         for table_name in sorted(CATALOG_TABLE_NAMES)
-        for problem in _validate_table(engine, table_name)
+        for problem in _validate_table(
+            engine,
+            table_name,
+            excluded_column_names=(
+                CATALOG_HEAD_ONLY_COLUMN_NAMES
+                if table_name == "products"
+                else frozenset()
+            ),
+        )
     ]
     if problems:
         formatted = "\n- ".join(problems)

@@ -21,6 +21,7 @@ function adaptedCatalog() {
         name: "Drip Coffee",
         available: true,
         featured: true,
+        lunchSpecial: false,
         sortOrder: 0,
       },
       {
@@ -29,6 +30,7 @@ function adaptedCatalog() {
         name: "Cold Brew",
         available: true,
         featured: true,
+        lunchSpecial: true,
         sortOrder: 1,
       },
       {
@@ -37,6 +39,7 @@ function adaptedCatalog() {
         name: "Latte",
         available: true,
         featured: true,
+        lunchSpecial: false,
         sortOrder: 2,
       },
       {
@@ -45,6 +48,7 @@ function adaptedCatalog() {
         name: "Butter Croissant",
         available: true,
         featured: true,
+        lunchSpecial: false,
         sortOrder: 7,
       },
       {
@@ -53,6 +57,7 @@ function adaptedCatalog() {
         name: "Blueberry Muffin",
         available: true,
         featured: false,
+        lunchSpecial: false,
         sortOrder: 8,
       },
       {
@@ -61,6 +66,7 @@ function adaptedCatalog() {
         name: "Hidden Tea",
         available: false,
         featured: true,
+        lunchSpecial: false,
         sortOrder: 9,
       },
     ],
@@ -78,6 +84,7 @@ test("Home preserves featured product order and crafted-drink count", () => {
     ["drip-coffee", "cold-brew", "latte", "croissant"]
   );
   assert.equal(view.coffeeCount, 3);
+  assert.equal(view.lunchSpecial.id, "cold-brew");
 });
 
 test("Home resolves category summaries from adapted API categories", () => {
@@ -95,12 +102,14 @@ test("Home produces safe loading and error projections without stale data", () =
     status: "loading",
     categories: [],
     popularItems: [],
+    lunchSpecial: null,
     coffeeCount: 0,
   });
   assert.deepEqual(error, {
     status: "error",
     categories: [],
     popularItems: [],
+    lunchSpecial: null,
     coffeeCount: 0,
   });
 });
@@ -115,7 +124,15 @@ test("Home handles a successful empty catalog", () => {
       status: "empty",
       categories: [],
       popularItems: [],
+      lunchSpecial: null,
       coffeeCount: 0,
     }
   );
+});
+
+test("Home falls back cleanly when no lunch special is configured", () => {
+  const catalog = adaptedCatalog();
+  catalog.products.forEach((product) => { product.lunchSpecial = false; });
+
+  assert.equal(createHomeCatalogView("ready", catalog).lunchSpecial, null);
 });

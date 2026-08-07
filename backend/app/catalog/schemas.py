@@ -44,6 +44,7 @@ class ProductResponse(CatalogSchema):
     description: str
     image: str
     featured: bool
+    lunch_special: bool
     base_price_cents: int
     sort_order: int
     variants: list[ProductVariantResponse]
@@ -101,6 +102,7 @@ class OwnerProductResponse(CatalogSchema):
     image: str
     available: bool
     featured: bool
+    lunch_special: bool
     published: bool
     archived: bool
     sort_order: int
@@ -131,6 +133,7 @@ class OwnerProductWrite(CatalogSchema):
     image: str = ""
     available: bool = True
     featured: bool = False
+    lunch_special: bool = False
     published: bool = True
     sort_order: int = Field(default=0, ge=0)
     variants: list[OwnerVariantWrite] = Field(default_factory=list)
@@ -139,3 +142,7 @@ class OwnerProductWrite(CatalogSchema):
 
 class OwnerProductAvailabilityWrite(CatalogSchema):
     available: bool
+
+
+class LunchSpecialSelectionWrite(CatalogSchema):
+    product_id: int | None = Field(default=None, ge=1)

@@ -5,6 +5,7 @@ import {
   canAccessOwnerPath,
   canEditProducts,
   canManageProductAvailability,
+  canManageLunchSpecial,
   operationsLinks,
 } from "../../src/auth/ownerProductPermissions.js";
 
@@ -18,6 +19,7 @@ test("availability managers can use the existing products route without receivin
   assert.equal(canAccessOwnerPath(availabilitySession, "/admin/products"), true);
   assert.equal(canAccessOwnerPath(availabilitySession, "/admin/orders"), false);
   assert.equal(canManageProductAvailability(availabilitySession), true);
+  assert.equal(canManageLunchSpecial(availabilitySession), false);
   assert.equal(canEditProducts(availabilitySession), false);
 });
 
@@ -34,7 +36,7 @@ test("existing Owner and Manager routing remains unchanged", () => {
 test("operational navigation follows capabilities without exposing dead ends", () => {
   const session = {
     role: "staff",
-    permissions: ["catalog.read", "availability.manage", "orders.read", "orders.fulfill"],
+    permissions: ["catalog.read", "availability.manage", "orders.read", "orders.fulfill", "lunch_special.manage"],
   };
   assert.deepEqual(operationsLinks(session).map(({ to }) => to), [
     "/admin",
@@ -46,4 +48,6 @@ test("operational navigation follows capabilities without exposing dead ends", (
   assert.equal(canAccessOwnerPath(session, "/admin/orders"), true);
   assert.equal(canAccessOwnerPath(session, "/admin/communications"), true);
   assert.equal(canAccessOwnerPath(session, "/admin/scheduling"), false);
+  assert.equal(canManageLunchSpecial(session), true);
+  assert.equal(canEditProducts(session), false);
 });

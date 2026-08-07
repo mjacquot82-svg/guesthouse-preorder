@@ -164,6 +164,7 @@ function adaptProduct(product, category, path) {
     image: requireString(product.image, `${path}.image`),
     available: true,
     featured: Boolean(product.featured),
+    lunchSpecial: Boolean(product.lunch_special),
     sortOrder: requireInteger(product.sort_order, `${path}.sort_order`),
     variants: sizeGroup?.options || [],
     modifierGroupIds: allGroups.map((group) => group.id),

@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
-from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import delete, func, select, text, update
+from sqlalchemy.orm import Session, selectinload
 
 from app.catalog.models import (
     Category,
@@ -23,6 +23,12 @@ class CatalogRepository:
     def add(self, entity: object) -> None:
         self._session.add(entity)
 
+    def lock_lunch_special_selection(self) -> None:
+        self._session.execute(
+            text("SELECT pg_advisory_xact_lock(:lock_key)"),
+            {"lock_key": 4_715_326_901},
+        )
+
     def get_category_by_slug(self, slug: str) -> Category | None:
         return self._session.scalar(select(Category).where(Category.slug == slug))
 
@@ -32,12 +38,23 @@ class CatalogRepository:
     def get_product(self, product_id: int) -> Product | None:
         return self._session.get(Product, product_id)
 
+    def get_product_for_update(self, product_id: int) -> Product | None:
+        return self._session.scalar(
+            select(Product).where(Product.id == product_id).with_for_update()
+        )
+
     def get_category(self, category_id: int) -> Category | None:
         return self._session.get(Category, category_id)
 
     def list_products(self) -> Sequence[Product]:
         return self._session.scalars(
-            select(Product).where(Product.archived_at.is_(None)).order_by(
+            select(Product)
+            .options(
+                selectinload(Product.availability),
+                selectinload(Product.variants),
+                selectinload(Product.modifier_group_assignments),
+            )
+            .where(Product.archived_at.is_(None)).order_by(
                 Product.category_id, Product.sort_order, Product.name, Product.id
             )
         ).all()
@@ -68,6 +85,12 @@ class CatalogRepository:
 
     def commit(self) -> None:
         self._session.commit()
+
+    def clear_lunch_special(self, *, except_product_id: int | None = None) -> None:
+        statement = update(Product).where(Product.is_lunch_special.is_(True))
+        if except_product_id is not None:
+            statement = statement.where(Product.id != except_product_id)
+        self._session.execute(statement.values(is_lunch_special=False))
 
     def get_modifier_group_by_key(self, key: str) -> ModifierGroup | None:
         return self._session.scalar(

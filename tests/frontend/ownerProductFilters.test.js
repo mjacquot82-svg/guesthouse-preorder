@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { visibleProducts } from "../../src/services/ownerProductFilters.js";
@@ -18,4 +19,16 @@ test("product tools distinguish unavailable from hidden and preserve category sc
   assert.deepEqual(visibleProducts(products, { status: "unavailable" }).map(({ id }) => id), ["americano"]);
   assert.deepEqual(visibleProducts(products, { status: "hidden" }).map(({ id }) => id), ["muffin"]);
   assert.deepEqual(visibleProducts(products, { category: "drinks", status: "available" }).map(({ id }) => id), ["tea"]);
+});
+
+test("Quick Edit exposes clear controls for existing catalog states", async () => {
+  const page = await readFile(new URL("../../src/admin/ProductsPage.jsx", import.meta.url), "utf8");
+  assert.match(page, /Available for online ordering/);
+  assert.match(page, /Visible on customer menu/);
+  assert.match(page, /Turn off to hide this product without archiving it/);
+  assert.match(page, /<strong>Featured<\/strong>/);
+  assert.match(page, /<strong>Lunch special<\/strong>/);
+  assert.match(page, /<summary>Product options<\/summary>/);
+  assert.match(page, /Hidden from menu/);
+  assert.doesNotMatch(page, /Available on today’s menu|Unavailable today|Featured placement and options/);
 });

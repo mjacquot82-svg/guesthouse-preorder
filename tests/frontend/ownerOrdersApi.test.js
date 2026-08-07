@@ -96,6 +96,7 @@ test("Owner Orders provides complete operational states and refresh safeguards",
   assert.match(page, /Recent history/);
   assert.match(page, /Show all active orders/);
   assert.match(page, /activeFilter === "attention"/);
+  assert.match(page, /history \? \[\] : ownerOrderAttentionReasons/);
   assert.match(page, /aria-pressed/);
   assert.match(page, /showModal\(\)/);
   assert.match(page, /<dialog/);
@@ -117,5 +118,6 @@ test("dashboard uses real order metrics with honest loading and error states", a
   assert.match(dashboard, /Connection to the server failed\./);
   assert.match(dashboard, /Unable to determine Clover status\./);
   assert.match(dashboard, /clover\.status === "ready" && !clover\.connected/);
+  assert.doesNotMatch(dashboard, /Merchant:|clover\.merchant_id/);
   assert.match(dashboard, /\s+Retry\s+<\/button>/);
 });

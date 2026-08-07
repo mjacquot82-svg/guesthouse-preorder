@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
 import {
   archiveOwnerProduct,
+  clearOwnerCatalogCache,
   createOwnerProduct,
-  fetchOwnerCatalog,
+  fetchOwnerCatalogCached,
   updateOwnerProduct,
   updateOwnerProductAvailability,
+  updateLunchSpecial,
 } from "../services/ownerCatalogApi.js";
 
 export function createProductId(name) {
@@ -15,7 +17,7 @@ export function createProductId(name) {
 
 function adaptOwnerCatalog(payload) {
   const categories = (payload.categories || []).map((item) => ({
-    id: item.slug, backendId: item.id, name: item.name, note: item.note,
+    id: item.slug, backendId: item.id, name: item.name, note: item.note, published: item.published,
   }));
   const modifierGroups = (payload.modifier_groups || []).filter((item) => item.active).map((item) => ({
     id: item.key, backendId: item.id, name: item.name,
@@ -34,6 +36,7 @@ function adaptOwnerCatalog(payload) {
     image: item.image,
     available: item.available,
     featured: item.featured,
+    lunchSpecial: item.lunch_special,
     published: item.published,
     sortOrder: item.sort_order,
     variants: item.variants || [],
@@ -54,6 +57,7 @@ function toWriteProduct(product, categories, modifierGroups) {
     image: product.image || "",
     available: Boolean(product.available),
     featured: Boolean(product.featured),
+    lunch_special: Boolean(product.lunchSpecial),
     published: product.published !== false,
     sort_order: product.sortOrder || 0,
     variants: (product.variants || []).map((item) => ({
@@ -70,14 +74,14 @@ export function useCatalogProducts({ enabled = true } = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async ({ force = false } = {}) => {
     if (!enabled) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      setCatalog(adaptOwnerCatalog(await fetchOwnerCatalog()));
+      setCatalog(adaptOwnerCatalog(await fetchOwnerCatalogCached({ force })));
       setError(null);
     } catch (nextError) {
       setError(nextError);
@@ -91,13 +95,15 @@ export function useCatalogProducts({ enabled = true } = {}) {
 
   async function addProduct(product) {
     await createOwnerProduct(toWriteProduct(product, catalog.categories, catalog.modifierGroups), session.csrf_token);
-    await reload();
+    clearOwnerCatalogCache();
+    await reload({ force: true });
   }
   async function updateProduct(productId, updates) {
     const current = catalog.products.find((item) => item.id === productId);
     const next = { ...current, ...updates };
     await updateOwnerProduct(current.backendId, toWriteProduct(next, catalog.categories, catalog.modifierGroups), session.csrf_token);
-    await reload();
+    clearOwnerCatalogCache();
+    await reload({ force: true });
   }
   async function setProductAvailability(productId, available) {
     const current = catalog.products.find((item) => item.id === productId);
@@ -108,6 +114,7 @@ export function useCatalogProducts({ enabled = true } = {}) {
     }));
     try {
       await updateOwnerProductAvailability(current.backendId, available, session.csrf_token);
+      clearOwnerCatalogCache();
     } catch (nextError) {
       setCatalog((value) => ({
         ...value,
@@ -116,11 +123,21 @@ export function useCatalogProducts({ enabled = true } = {}) {
       throw nextError;
     }
   }
+  async function setLunchSpecial(productId) {
+    const current = productId
+      ? catalog.products.find((item) => item.id === productId)
+      : null;
+    if (productId && !current) throw new Error("Product not found.");
+    await updateLunchSpecial(current ? Number(current.backendId) : null, session.csrf_token);
+    clearOwnerCatalogCache();
+    await reload({ force: true });
+  }
   async function removeProduct(productId) {
     const current = catalog.products.find((item) => item.id === productId);
     await archiveOwnerProduct(current.backendId, session.csrf_token);
-    await reload();
+    clearOwnerCatalogCache();
+    await reload({ force: true });
   }
 
-  return { ...catalog, addProduct, updateProduct, setProductAvailability, removeProduct, loading, error, reload };
+  return { ...catalog, addProduct, updateProduct, setProductAvailability, setLunchSpecial, removeProduct, loading, error, reload };
 }

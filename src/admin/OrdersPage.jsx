@@ -101,7 +101,7 @@ function OrderCard({ administrator, busy, canFulfill, history, now, onAction, on
   const next = NEXT_ACTION[order.fulfillment_status];
   const actionable = canFulfill && order.payment_status === "paid" && next;
   const returnable = history && canFulfill && order.payment_status === "paid" && order.fulfillment_status === "completed";
-  const attentionReasons = ownerOrderAttentionReasons(order, now);
+  const attentionReasons = history ? [] : ownerOrderAttentionReasons(order, now);
   const overdue = new Date(order.requested_pickup_at) < now;
   return (
     <article className={`owner-order-card status-${order.fulfillment_status} ${overdue ? "is-overdue" : ""}`}>

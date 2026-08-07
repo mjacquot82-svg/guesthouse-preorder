@@ -3,8 +3,11 @@ import test from "node:test";
 
 import {
   archiveOwnerProduct,
+  clearOwnerCatalogCache,
   fetchOwnerCatalog,
+  fetchOwnerCatalogCached,
   updateOwnerProductAvailability,
+  updateLunchSpecial,
   updateOwnerProduct,
 } from "../../src/services/ownerCatalogApi.js";
 
@@ -29,6 +32,38 @@ test("owner catalog reads through the credentialed production API", async () => 
   assert.deepEqual(result, payload);
   assert.equal(request[0], "https://api.example.test/api/v1/owner/catalog");
   assert.equal(request[1].credentials, "include");
+});
+
+test("Lunch Special writes use a narrow CSRF-protected payload", async () => {
+  const calls = [];
+  const fetchImpl = async (...args) => { calls.push(args); return jsonResponse(200, null); };
+  await updateLunchSpecial(42, "csrf", { fetchImpl });
+  await updateLunchSpecial(null, "csrf", { fetchImpl });
+  assert.equal(calls[0][0], "/api/v1/owner/catalog/lunch-special");
+  assert.equal(calls[0][1].method, "PUT");
+  assert.equal(calls[0][1].headers["X-CSRF-Token"], "csrf");
+  assert.deepEqual(JSON.parse(calls[0][1].body), { product_id: 42 });
+  assert.deepEqual(JSON.parse(calls[1][1].body), { product_id: null });
+});
+
+test("owner catalog reuses an in-flight and recent read without hiding forced refreshes", async () => {
+  clearOwnerCatalogCache();
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls += 1;
+    return jsonResponse(200, { categories: [], modifier_groups: [], products: [] });
+  };
+
+  await Promise.all([
+    fetchOwnerCatalogCached({ fetchImpl }),
+    fetchOwnerCatalogCached({ fetchImpl }),
+  ]);
+  await fetchOwnerCatalogCached({ fetchImpl });
+  assert.equal(calls, 1);
+
+  await fetchOwnerCatalogCached({ fetchImpl, force: true });
+  assert.equal(calls, 2);
+  clearOwnerCatalogCache();
 });
 
 test("owner product writes use session CSRF and archive instead of hard delete", async () => {

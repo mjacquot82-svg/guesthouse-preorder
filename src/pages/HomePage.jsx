@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { ChevronRight, Plus, ShoppingBag } from "lucide-react";
+import { Plus, ShoppingBag } from "lucide-react";
 import {
   createHomeCatalogView,
   getHomeCategoryById,
@@ -39,6 +39,7 @@ export default function HomePage() {
   const {
     categories,
     popularItems,
+    lunchSpecial,
     coffeeCount,
   } = createHomeCatalogView(status, catalog);
   const availableProducts = (catalog?.products || []).filter(
@@ -61,7 +62,7 @@ export default function HomePage() {
     })
     .filter((category) => category.count)
     .slice(0, 6);
-  const quickAddItems = [
+  const quickOrderItems = [
     ...popularItems,
     ...availableProducts.filter((product) => !product.featured),
   ].slice(0, 6);
@@ -75,6 +76,8 @@ export default function HomePage() {
     () => cart.reduce((total, item) => total + item.price * item.quantity, 0),
     [cart]
   );
+
+  const recommendation = lunchSpecial || popularItems[0] || availableProducts[0] || null;
 
   function addQuickItem(product) {
     const selections = getDefaultSelections(product);
@@ -97,11 +100,9 @@ export default function HomePage() {
       })),
     };
     const nextCart = cart.some((item) => item.id === cartLineId)
-      ? cart.map((item) =>
-          item.id === cartLineId
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
+      ? cart.map((item) => item.id === cartLineId
+        ? { ...item, quantity: item.quantity + 1 }
+        : item)
       : [...cart, { ...cartItem, quantity: 1 }];
 
     setCart(nextCart);
@@ -136,16 +137,41 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {status === "ready" ? (
-        <section
-          className="content-block app-content-block home-category-block"
-          aria-labelledby="quick-order-heading"
-        >
-          <div className="section-heading">
-            <h2 id="quick-order-heading">Browse the café</h2>
-            <Link to="/menu">View full menu</Link>
-          </div>
+      <section
+        className="content-block app-content-block lunch-special-block"
+        aria-labelledby="lunch-special-heading"
+      >
+        <div
+          className={`lunch-special-image ${recommendation?.image ? `item-thumb-${recommendation.image}` : ""}`}
+          aria-hidden="true"
+        />
+        <div className="lunch-special-copy">
+          <p className="eyebrow">{lunchSpecial ? "Made for today" : "From the café"}</p>
+          <h2 id="lunch-special-heading">{lunchSpecial ? "Today’s Lunch Special" : "Today’s Picks"}</h2>
+          <h3>{recommendation?.name || "Something delicious is always waiting"}</h3>
+          <p>{recommendation?.description || "Browse today’s café menu for fresh, seasonal recommendations."}</p>
+          {recommendation ? (
+            <strong>{formatPrice(getConfiguredPrice(recommendation, getDefaultSelections(recommendation)))}</strong>
+          ) : null}
+          <Link
+            className="primary-button"
+            to={recommendation ? `/menu?product=${encodeURIComponent(recommendation.id)}` : "/menu"}
+          >
+            {lunchSpecial ? "Order Today’s Special" : "Browse today’s menu"}
+          </Link>
+        </div>
+      </section>
 
+      <section
+        className="content-block app-content-block home-category-block"
+        aria-labelledby="quick-order-heading"
+      >
+        <div className="section-heading">
+          <h2 id="quick-order-heading">Browse the café</h2>
+          <Link to="/menu">View full menu</Link>
+        </div>
+
+        {status === "ready" ? (
           <div className="category-pill-grid">
             {quickCategories.map((category) => (
               <Link className="category-pill-card" to="/menu" key={category.id}>
@@ -159,113 +185,53 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
-        </section>
-      ) : null}
+        ) : null}
+
+        {status === "idle" || status === "loading" ? (
+          <div className="category-browser-state" role="status" aria-live="polite">
+            <strong>Preparing the café menu</strong>
+            <p>Coffee, tea, meals, and cold drinks will be ready in a moment.</p>
+          </div>
+        ) : null}
+
+        {status === "error" ? (
+          <div className="category-browser-state" role="alert">
+            <strong>Browse the full café menu</strong>
+            <p>Categories could not be loaded right now.</p>
+            <div><Link to="/menu">Open menu</Link><button type="button" onClick={reload}>Try again</button></div>
+          </div>
+        ) : null}
+
+        {status === "empty" ? (
+          <div className="category-browser-state">
+            <strong>Today’s menu is being prepared</strong>
+            <p>Please check back soon for coffee, tea, meals, and more.</p>
+          </div>
+        ) : null}
+      </section>
 
       {status === "ready" ? (
-        <section
-          className="content-block app-content-block quick-add-block"
-          aria-labelledby="quick-add-heading"
-        >
-          <div className="section-heading">
-            <h2 id="quick-add-heading">Order a favorite</h2>
-            <Link to="/menu">Customize</Link>
-          </div>
-
-          <div className="quick-product-rail">
-            {quickAddItems.map((item) => (
-              <article className="quick-product-card" key={item.id}>
-                <div
-                  className={`quick-product-image item-thumb-${item.image}`}
-                  aria-hidden="true"
-                />
-                <div className="quick-product-copy">
-                  <span>
-                    {getHomeCategoryById(categories, item.category)?.name ||
-                      "Café"}
-                  </span>
-                  <h3>{item.name}</h3>
-                  <strong>
-                    {formatPrice(
-                      getConfiguredPrice(item, getDefaultSelections(item))
-                    )}
-                  </strong>
-                </div>
-                <button
-                  type="button"
-                  aria-label={`Add ${item.name} with default options`}
-                  onClick={() => addQuickItem(item)}
-                >
-                  <Plus size={18} strokeWidth={2.8} />
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="content-block app-content-block cafe-favorites-block" aria-labelledby="popular-heading">
+      <section className="content-block app-content-block quick-add-block" aria-labelledby="quick-order-heading-home">
         <div className="section-heading">
-          <h2 id="popular-heading">Café favorites</h2>
+          <h2 id="quick-order-heading-home">Quick Order</h2>
+          <Link to="/menu">Customize</Link>
         </div>
-
-        <div className="item-list compact-item-list">
-          {status === "idle" || status === "loading" ? (
-            <div className="empty-menu-note" role="status" aria-live="polite">
-              <h3>Preparing today’s favorites</h3>
-              <p>Gathering the latest café menu.</p>
-            </div>
-          ) : null}
-
-          {status === "error" ? (
-            <div className="empty-menu-note" role="alert">
-              <h3>We couldn’t load today’s favorites</h3>
-              <p>Please check your connection and try again.</p>
-              <button type="button" onClick={reload}>
-                Try again
+        <div className="quick-product-rail">
+          {quickOrderItems.map((item) => (
+            <article className="quick-product-card" key={item.id}>
+              <div className={`quick-product-image item-thumb-${item.image}`} aria-hidden="true" />
+              <div className="quick-product-copy">
+                <h3>{item.name}</h3>
+                <strong>{formatPrice(getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
+              </div>
+              <button type="button" aria-label={`Quick add ${item.name}`} onClick={() => addQuickItem(item)}>
+                <Plus size={18} strokeWidth={2.8} />
               </button>
-            </div>
-          ) : null}
-
-          {status === "empty" ? (
-            <div className="empty-menu-note">
-              <h3>No café favorites are available right now</h3>
-              <p>The menu is being updated. Please check back soon.</p>
-            </div>
-          ) : null}
-
-          {status === "ready"
-            ? popularItems.slice(0, 3).map((item) => (
-                <Link
-                  className="item-row favorite-item-link"
-                  key={item.id}
-                  to={`/menu?product=${encodeURIComponent(item.id)}`}
-                  aria-label={`Customize ${item.name}`}
-                >
-                  <div
-                    className={`item-thumb item-thumb-${item.image}`}
-                    aria-hidden="true"
-                  />
-                  <div>
-                    <h3>{item.name}</h3>
-                    <p>
-                      {getHomeCategoryById(categories, item.category)?.name ||
-                        "Available now"}
-                    </p>
-                  </div>
-                  <span className="favorite-item-action">
-                    <strong>{formatPrice(item.price)}</strong>
-                    <ChevronRight
-                      size={17}
-                      strokeWidth={2.2}
-                      aria-hidden="true"
-                    />
-                  </span>
-                </Link>
-              ))
-            : null}
+            </article>
+          ))}
         </div>
       </section>
+      ) : null}
 
       <section className="content-block app-content-block loyalty-card" aria-labelledby="loyalty-heading">
         <div>

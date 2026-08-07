@@ -61,6 +61,7 @@ def make_product(category: Category, **overrides: object) -> Product:
         "image_reference": None,
         "is_published": True,
         "is_featured": False,
+        "is_lunch_special": False,
         "sort_order": 0,
     }
     values.update(overrides)
