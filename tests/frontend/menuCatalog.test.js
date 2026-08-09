@@ -7,6 +7,8 @@ import {
   getConfiguredPrice,
   getDefaultSelections,
   getModifierGroupsForProduct,
+  getProductChoicePresentation,
+  getProductSpecificImageUrl,
   getSelectedOptions,
   groupProductsByCategory,
 } from "../../src/services/menuCatalog.js";
@@ -138,6 +140,41 @@ test("Menu defaults to the first variant and single modifier options", () => {
     getModifierGroupsForProduct(product).map((group) => group.id),
     ["size", "milk", "flavour-shots"]
   );
+});
+
+test("Menu derives direct, simple, and complex card presentations from choices", () => {
+  assert.equal(getProductChoicePresentation({ modifierGroups: [] }), "direct");
+  assert.equal(
+    getProductChoicePresentation({
+      modifierGroups: [{ id: "size", type: "single", options: [{ id: "12" }, { id: "16" }, { id: "20" }] }],
+    }),
+    "simple"
+  );
+  assert.equal(getProductChoicePresentation(adaptedDrink()), "complex");
+  assert.equal(
+    getProductChoicePresentation({
+      modifierGroups: [{ id: "long", type: "single", options: [1, 2, 3, 4, 5].map((id) => ({ id })) }],
+    }),
+    "complex"
+  );
+  assert.equal(
+    getProductChoicePresentation({
+      modifierGroups: [{ id: "extras", type: "multiple", options: [{ id: "one" }] }],
+    }),
+    "complex"
+  );
+});
+
+test("individual products only expose genuine image URLs", () => {
+  for (const genericImage of ["coffee", "pastry", "water", "drinks", "stock-cup"]) {
+    assert.equal(getProductSpecificImageUrl({ image: genericImage }), "");
+  }
+  assert.equal(getProductSpecificImageUrl({ image: "" }), "");
+  assert.equal(
+    getProductSpecificImageUrl({ image: "https://cdn.example.com/products/drip-coffee.jpg" }),
+    "https://cdn.example.com/products/drip-coffee.jpg"
+  );
+  assert.equal(getProductSpecificImageUrl({ image: "/product-images/croissant.jpg" }), "/product-images/croissant.jpg");
 });
 
 test("Menu preserves variant and modifier pricing behavior", () => {

@@ -6,6 +6,8 @@ import {
   getConfiguredPrice,
   getDefaultSelections,
   getModifierGroupsForProduct,
+  getProductChoicePresentation,
+  getProductSpecificImageUrl,
   getSelectedOptions,
   groupProductsByCategory,
 } from "../services/menuCatalog.js";
@@ -28,11 +30,6 @@ function getStoredCart() {
 
 function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
-}
-
-function hasProductSpecificImage(product) {
-  const image = product?.image?.trim();
-  return Boolean(image && !["coffee", "pastry", "water"].includes(image));
 }
 
 function ProductModifiers({ product, selections, onChange }) {
@@ -84,6 +81,21 @@ function ProductModifiers({ product, selections, onChange }) {
           </div>
         </fieldset>
       ))}
+    </div>
+  );
+}
+
+function ProductAddAction({ isAdded, quantity, onAdd }) {
+  return (
+    <div className="product-add-action">
+      {quantity ? <span className="product-cart-quantity">{quantity} in cart</span> : null}
+      <button
+        className={`product-add-button${isAdded ? " is-added" : ""}`}
+        type="button"
+        onClick={onAdd}
+      >
+        {quantity ? "Add another" : "Add to order"}
+      </button>
     </div>
   );
 }
@@ -359,19 +371,20 @@ export default function MenuPage() {
                   const category = getCategoryById(categories, item.category);
                   const cartLineId = getCartLineId(item, getSelectedOptions(item, selections));
                   const isAdded = addedLineId === cartLineId;
+                  const choicePresentation = getProductChoicePresentation(item);
 
                   const isSpotlighted = spotlightProductId === item.id;
                   const isExpanded = expandedProductId === item.id;
-                  const hasImage = hasProductSpecificImage(item);
+                  const productImageUrl = getProductSpecificImageUrl(item);
 
                   return (
                     <li
-                      className={`drink-card app-product-card${isSpotlighted ? " is-spotlighted" : ""}${isExpanded ? " is-expanded" : ""}${hasImage ? " has-product-image" : ""}`}
+                      className={`drink-card app-product-card${isSpotlighted ? " is-spotlighted" : ""}${isExpanded ? " is-expanded" : ""}${productImageUrl ? " has-product-image" : ""}`}
                       id={`product-${item.id}`}
                       key={item.id}
                       tabIndex={-1}
                     >
-                      {hasImage ? <div className="product-thumb" style={{ backgroundImage: `url(${item.image})` }} aria-hidden="true" /> : null}
+                      {productImageUrl ? <div className="product-thumb" style={{ backgroundImage: `url(${productImageUrl})` }} aria-hidden="true" /> : null}
                       <div className="product-card-main">
                         <div className="drink-card-title">
                           <div>
@@ -382,36 +395,28 @@ export default function MenuPage() {
                         </div>
                         <p>{item.description}</p>
 
-                        {item.modifierGroups.length ? (
+                        {choicePresentation === "complex" ? (
                           <button className="product-customize-toggle" type="button" aria-expanded={isExpanded} aria-controls={`options-${item.id}`} onClick={() => setExpandedProductId(isExpanded ? "" : item.id)}>
-                            {isExpanded ? "Hide options" : "Customize"}
+                            {isExpanded ? "Collapse options" : "Customize"}
                           </button>
-                        ) : (
-                          <button className="product-customize-toggle" type="button" onClick={() => addItem(item)}>
-                            {isAdded ? "✓ Added to order" : quantity ? `Add again · ${quantity}` : "Add to order"}
-                          </button>
-                        )}
-                        <div className="product-customization" id={`options-${item.id}`}>
-                          <ProductModifiers
-                            product={item}
-                            selections={selections}
-                            onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
-                          />
+                        ) : null}
 
-                          <button
-                            className={`product-add-button${isAdded ? " is-added" : ""}`}
-                            type="button"
-                            onClick={() => addItem(item)}
+                        {choicePresentation === "direct" ? (
+                          <ProductAddAction isAdded={isAdded} quantity={quantity} onAdd={() => addItem(item)} />
+                        ) : (
+                          <div
+                            className={`product-customization${choicePresentation === "simple" ? " is-simple" : ""}`}
+                            id={`options-${item.id}`}
                           >
-                            <span>
-                              {isAdded
-                                ? "✓ Added to order"
-                                : quantity
-                                  ? `Add again · ${quantity}`
-                                  : "Add to order"}
-                            </span>
-                          </button>
-                        </div>
+                            <ProductModifiers
+                              product={item}
+                              selections={selections}
+                              onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
+                            />
+
+                            <ProductAddAction isAdded={isAdded} quantity={quantity} onAdd={() => addItem(item)} />
+                          </div>
+                        )}
                       </div>
                     </li>
                   );

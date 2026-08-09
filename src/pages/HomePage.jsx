@@ -9,6 +9,7 @@ import {
   getCartLineId,
   getConfiguredPrice,
   getDefaultSelections,
+  getProductSpecificImageUrl,
   getSelectedOptions,
 } from "../services/menuCatalog.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
@@ -32,11 +33,6 @@ function getStoredCart() {
 
 function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
-}
-
-function hasProductSpecificImage(product) {
-  const image = product?.image?.trim();
-  return Boolean(image && !["coffee", "pastry", "water"].includes(image));
 }
 
 export default function HomePage() {
@@ -83,7 +79,7 @@ export default function HomePage() {
   );
 
   const recommendation = lunchSpecial || popularItems[0] || availableProducts[0] || null;
-  const recommendationHasImage = hasProductSpecificImage(recommendation);
+  const recommendationImageUrl = getProductSpecificImageUrl(recommendation);
 
   function addQuickItem(product) {
     const selections = getDefaultSelections(product);
@@ -144,13 +140,13 @@ export default function HomePage() {
       </div>
 
       <section
-        className={`content-block app-content-block lunch-special-block${recommendationHasImage ? " has-product-image" : " is-image-free"}`}
+        className={`content-block app-content-block lunch-special-block${recommendationImageUrl ? " has-product-image" : " is-image-free"}`}
         aria-labelledby="lunch-special-heading"
       >
-        {recommendationHasImage ? (
+        {recommendationImageUrl ? (
           <div
             className="lunch-special-image"
-            style={{ backgroundImage: `url(${recommendation.image})` }}
+            style={{ backgroundImage: `url(${recommendationImageUrl})` }}
             aria-hidden="true"
           />
         ) : null}
@@ -226,18 +222,24 @@ export default function HomePage() {
           <Link to="/menu">Customize</Link>
         </div>
         <div className="quick-product-rail">
-          {quickOrderItems.map((item) => (
-            <article className="quick-product-card" key={item.id}>
-              <div className={`quick-product-image item-thumb-${item.image}`} aria-hidden="true" />
-              <div className="quick-product-copy">
-                <h3>{item.name}</h3>
-                <strong>{formatPrice(getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
-              </div>
-              <button type="button" aria-label={`Quick add ${item.name}`} onClick={() => addQuickItem(item)}>
-                <Plus size={18} strokeWidth={2.8} />
-              </button>
-            </article>
-          ))}
+          {quickOrderItems.map((item) => {
+            const productImageUrl = getProductSpecificImageUrl(item);
+
+            return (
+              <article className={`quick-product-card${productImageUrl ? " has-product-image" : " is-image-free"}`} key={item.id}>
+                {productImageUrl ? (
+                  <div className="quick-product-image" style={{ backgroundImage: `url(${productImageUrl})` }} aria-hidden="true" />
+                ) : null}
+                <div className="quick-product-copy">
+                  <h3>{item.name}</h3>
+                  <strong>{formatPrice(getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
+                </div>
+                <button type="button" aria-label={`Quick add ${item.name}`} onClick={() => addQuickItem(item)}>
+                  <Plus size={18} strokeWidth={2.8} />
+                </button>
+              </article>
+            );
+          })}
         </div>
       </section>
       ) : null}

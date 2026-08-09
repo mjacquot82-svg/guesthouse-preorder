@@ -2,6 +2,29 @@ export function getModifierGroupsForProduct(product) {
   return product.modifierGroups || [];
 }
 
+export function getProductSpecificImageUrl(product) {
+  const image = product?.image?.trim();
+
+  if (!image) {
+    return "";
+  }
+
+  return /^(https?:\/\/|data:image\/|blob:|\.?\.?\/)/i.test(image) ? image : "";
+}
+
+export function getProductChoicePresentation(product) {
+  const groups = getModifierGroupsForProduct(product);
+
+  if (!groups.length) {
+    return "direct";
+  }
+
+  const [group] = groups;
+  return groups.length === 1 && group.type === "single" && group.options.length <= 4
+    ? "simple"
+    : "complex";
+}
+
 export function getCategoryById(categories, categoryId) {
   return categories.find((category) => category.id === categoryId);
 }

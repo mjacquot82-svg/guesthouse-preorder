@@ -49,13 +49,16 @@ test("quick order restores one-tap horizontal product cards", () => {
   assert.match(home, /Quick add/);
   assert.match(home, /addQuickItem/);
   assert.match(home, /storeCart/);
+  assert.match(home, /getProductSpecificImageUrl\(item\)/);
+  assert.match(home, /productImageUrl \? \(/);
+  assert.doesNotMatch(home, /item-thumb-\$\{item\.image\}/);
 });
 
 test("image-less lunch specials never inherit generic product photography", async () => {
   const styles = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
 
-  assert.match(home, /hasProductSpecificImage/);
-  assert.match(home, /recommendationHasImage \? \(/);
+  assert.match(home, /getProductSpecificImageUrl\(recommendation\)/);
+  assert.match(home, /recommendationImageUrl \? \(/);
   assert.doesNotMatch(home, /item-thumb-\$\{recommendation\.image\}/);
   assert.doesNotMatch(home, /Browse today’s café menu for fresh, seasonal recommendations/);
   assert.match(styles, /\.lunch-special-block\.is-image-free/);

@@ -18,6 +18,7 @@ test("mobile loyalty and product cards use compact presentations", () => {
   assert.match(styles, /\.home-page \.loyalty-card \.stamp-row \{[\s\S]*?width:\s*92px/);
   assert.match(styles, /\.app-product-card\.is-expanded \.product-customization/);
   assert.match(styles, /\.product-customization \{[\s\S]*?display:\s*none/);
+  assert.match(styles, /\.product-customization\.is-simple \{[\s\S]*?display:\s*grid/);
   assert.match(menu, /aria-expanded=\{isExpanded\}/);
   assert.match(menu, /"Customize"/);
 });
@@ -27,12 +28,26 @@ test("customization, pricing selections, and add action remain mounted", () => {
   assert.match(menu, /updateSelection\(item\.id, groupId, value\)/);
   assert.match(menu, /getConfiguredPrice\(item, selections\)/);
   assert.match(menu, /className=\{`product-add-button/);
-  assert.match(menu, /onClick=\{\(\) => addItem\(item\)\}/);
+  assert.match(menu, /onAdd=\{\(\) => addItem\(item\)\}/);
+});
+
+test("direct and simple products avoid Customize while complex products stay collapsible", () => {
+  assert.match(menu, /choicePresentation === "complex"/);
+  assert.match(menu, /choicePresentation === "direct"/);
+  assert.match(menu, /choicePresentation === "simple" \? " is-simple"/);
+  assert.match(menu, /getConfiguredPrice\(item, selections\)/);
+  assert.match(menu, /<ProductAddAction isAdded=\{isAdded\} quantity=\{quantity\}/);
+});
+
+test("exact cart quantity and repeat-add action are unambiguous", () => {
+  assert.match(menu, /\{quantity\} in cart/);
+  assert.match(menu, /quantity \? "Add another" : "Add to order"/);
+  assert.doesNotMatch(menu, /Add again/);
 });
 
 test("generic image keys do not render as individual product photos", () => {
-  assert.match(menu, /hasProductSpecificImage/);
-  assert.match(menu, /hasImage \? <div className="product-thumb"/);
+  assert.match(menu, /getProductSpecificImageUrl/);
+  assert.match(menu, /productImageUrl \? <div className="product-thumb"/);
   assert.doesNotMatch(menu, /item-thumb-\$\{item\.image\}/);
 });
 
