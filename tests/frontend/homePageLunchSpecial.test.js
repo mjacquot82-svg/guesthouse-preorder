@@ -9,7 +9,7 @@ test("homepage keeps lunch promotion distinct from restored quick ordering", () 
   assert.match(home, /quick-product-rail/);
   assert.match(home, /Today’s Lunch Special/);
   assert.match(home, /Order Today’s Special/);
-  assert.match(home, /recommendation\?\.description/);
+  assert.match(home, /recommendation\.description/);
   assert.match(home, /getConfiguredPrice\(recommendation/);
 });
 
@@ -49,4 +49,22 @@ test("quick order restores one-tap horizontal product cards", () => {
   assert.match(home, /Quick add/);
   assert.match(home, /addQuickItem/);
   assert.match(home, /storeCart/);
+});
+
+test("image-less lunch specials never inherit generic product photography", async () => {
+  const styles = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
+
+  assert.match(home, /hasProductSpecificImage/);
+  assert.match(home, /recommendationHasImage \? \(/);
+  assert.doesNotMatch(home, /item-thumb-\$\{recommendation\.image\}/);
+  assert.doesNotMatch(home, /Browse today’s café menu for fresh, seasonal recommendations/);
+  assert.match(styles, /\.lunch-special-block\.is-image-free/);
+});
+
+test("mobile lunch special is compact and text-safe", async () => {
+  const styles = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
+
+  assert.match(styles, /\.home-page \.lunch-special-copy \{[\s\S]*?min-width:\s*0/);
+  assert.match(styles, /\.home-page \.lunch-special-copy h3 \{[\s\S]*?overflow-wrap:\s*anywhere/);
+  assert.match(styles, /\.home-page \.lunch-special-copy \{[\s\S]*?padding:\s*16px/);
 });

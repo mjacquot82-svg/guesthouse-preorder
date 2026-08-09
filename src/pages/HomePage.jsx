@@ -34,6 +34,11 @@ function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
+function hasProductSpecificImage(product) {
+  const image = product?.image?.trim();
+  return Boolean(image && !["coffee", "pastry", "water"].includes(image));
+}
+
 export default function HomePage() {
   const { status, catalog, reload } = useCustomerCatalog();
   const {
@@ -78,6 +83,7 @@ export default function HomePage() {
   );
 
   const recommendation = lunchSpecial || popularItems[0] || availableProducts[0] || null;
+  const recommendationHasImage = hasProductSpecificImage(recommendation);
 
   function addQuickItem(product) {
     const selections = getDefaultSelections(product);
@@ -138,18 +144,21 @@ export default function HomePage() {
       </div>
 
       <section
-        className="content-block app-content-block lunch-special-block"
+        className={`content-block app-content-block lunch-special-block${recommendationHasImage ? " has-product-image" : " is-image-free"}`}
         aria-labelledby="lunch-special-heading"
       >
-        <div
-          className={`lunch-special-image ${recommendation?.image ? `item-thumb-${recommendation.image}` : ""}`}
-          aria-hidden="true"
-        />
+        {recommendationHasImage ? (
+          <div
+            className="lunch-special-image"
+            style={{ backgroundImage: `url(${recommendation.image})` }}
+            aria-hidden="true"
+          />
+        ) : null}
         <div className="lunch-special-copy">
-          <p className="eyebrow">{lunchSpecial ? "Made for today" : "From the café"}</p>
-          <h2 id="lunch-special-heading">{lunchSpecial ? "Today’s Lunch Special" : "Today’s Picks"}</h2>
+          <p className="eyebrow">{lunchSpecial ? "Today’s lunch special" : "From the café"}</p>
+          <h2 id="lunch-special-heading" className="visually-hidden">{lunchSpecial ? "Today’s Lunch Special" : "Today’s Picks"}</h2>
           <h3>{recommendation?.name || "Something delicious is always waiting"}</h3>
-          <p>{recommendation?.description || "Browse today’s café menu for fresh, seasonal recommendations."}</p>
+          {recommendation?.description ? <p>{recommendation.description}</p> : null}
           {recommendation ? (
             <strong>{formatPrice(getConfiguredPrice(recommendation, getDefaultSelections(recommendation)))}</strong>
           ) : null}

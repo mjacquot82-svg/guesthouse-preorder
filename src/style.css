@@ -6893,6 +6893,308 @@ body {
     padding-bottom: 14px;
   }
 }
+
+/* Customer mobile RC density and fixed-navigation safety */
+.product-customize-toggle {
+  min-height: 44px;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  clip-path: inset(50%) !important;
+}
+
+.app-product-card:not(.has-product-image) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.product-customization {
+  display: grid;
+  gap: 10px;
+}
+
+.account-section-nav {
+  margin: 0;
+}
+
+.order-detail-card {
+  scroll-margin-bottom: 110px;
+}
+
+@media (max-width: 760px) {
+  html,
+  body,
+  #root,
+  .app-shell {
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .app-shell {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  main {
+    min-width: 0;
+  }
+
+  .home-page,
+  .page-section {
+    min-width: 0;
+    padding-bottom: 28px;
+  }
+
+  .bottom-nav {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .home-page .lunch-special-block {
+    min-width: 0;
+    border-left: 5px solid var(--premium-sage);
+    overflow: hidden;
+  }
+
+  .home-page .lunch-special-block.is-image-free {
+    background:
+      linear-gradient(135deg, rgba(237, 242, 230, 0.72), rgba(255, 254, 250, 0.98) 65%),
+      var(--premium-paper);
+  }
+
+  .home-page .lunch-special-image {
+    min-height: 112px;
+  }
+
+  .home-page .lunch-special-copy {
+    min-width: 0;
+    gap: 6px;
+    padding: 16px;
+  }
+
+  .home-page .lunch-special-copy h3 {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    font-size: clamp(1.25rem, 5.8vw, 1.6rem);
+    line-height: 1.08;
+  }
+
+  .home-page .lunch-special-copy p:not(.eyebrow) {
+    display: -webkit-box;
+    overflow: hidden;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .home-page .lunch-special-copy > strong {
+    font-size: 1.05rem;
+  }
+
+  .home-page .lunch-special-copy .primary-button {
+    min-width: 0;
+    min-height: 44px;
+    margin-top: 2px;
+    padding-inline: 15px;
+  }
+
+  .home-page .quick-add-block {
+    overflow: hidden;
+  }
+
+  .home-page .quick-product-rail {
+    grid-auto-columns: minmax(176px, 78%);
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-behavior: smooth;
+    scroll-padding-inline: 16px;
+    scroll-snap-type: x mandatory;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .home-page .quick-product-card {
+    min-height: 190px;
+    scroll-snap-align: start;
+  }
+
+  .home-page .loyalty-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .home-page .loyalty-card h2 {
+    margin: 0;
+    font-size: 0.98rem;
+  }
+
+  .home-page .loyalty-card p:not(.eyebrow) {
+    margin-top: 3px;
+    font-size: 0.75rem;
+    line-height: 1.3;
+  }
+
+  .home-page .loyalty-card .stamp-row {
+    width: 92px;
+    grid-template-columns: repeat(4, 18px);
+    gap: 4px;
+  }
+
+  .home-page .loyalty-card .stamp-row span {
+    width: 18px;
+    height: 18px;
+  }
+
+  .home-page .loyalty-card .stamp-row span.filled {
+    box-shadow: inset 0 0 0 3px #fff;
+  }
+
+  .ordering-top-card,
+  .compact-app-heading {
+    min-height: 94px;
+    padding: 13px 15px;
+  }
+
+  .ordering-top-card h1 {
+    font-size: clamp(1.35rem, 6vw, 1.75rem);
+  }
+
+  .app-menu-card {
+    padding: 12px;
+  }
+
+  .menu-card-heading {
+    margin-bottom: 8px;
+  }
+
+  .drink-card-grid {
+    gap: 9px;
+  }
+
+  .app-product-card,
+  .app-product-card.has-product-image {
+    display: block;
+    min-height: 0;
+    border-radius: 18px;
+    padding: 13px;
+  }
+
+  .app-product-card .product-thumb {
+    display: none;
+  }
+
+  .product-card-main {
+    min-width: 0;
+    gap: 7px;
+    padding: 0;
+  }
+
+  .drink-card-title {
+    min-width: 0;
+  }
+
+  .drink-card-title > div {
+    min-width: 0;
+  }
+
+  .drink-card h3,
+  .drink-card p {
+    overflow-wrap: anywhere;
+  }
+
+  .drink-card p {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    -webkit-line-clamp: 2;
+  }
+
+  .product-customize-toggle,
+  .product-add-button {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 14px;
+  }
+
+  .product-customization {
+    display: none;
+    padding-top: 2px;
+  }
+
+  .app-product-card.is-expanded .product-customization {
+    display: grid;
+  }
+
+  .modifier-stack {
+    gap: 10px;
+  }
+
+  .modifier-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .modifier-options label {
+    min-height: 44px;
+  }
+
+  .pickup-timing-panel {
+    gap: 10px;
+    padding: 14px;
+  }
+
+  .pickup-timing-heading {
+    gap: 5px;
+  }
+
+  .account-section-nav {
+    position: sticky;
+    top: 66px;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    border: 1px solid var(--guest-line);
+    border-radius: 18px;
+    background: rgba(255, 254, 250, 0.96);
+    box-shadow: 0 8px 18px rgba(48, 39, 29, 0.06);
+    padding: 7px;
+  }
+
+  .account-section-nav .secondary-button {
+    min-width: 0;
+    min-height: 42px;
+    padding-inline: 7px;
+  }
+
+  .app-simple-page .product-form {
+    gap: 12px;
+    padding: 15px;
+  }
+
+  .app-simple-page .product-form label {
+    gap: 5px;
+  }
+
+  .app-simple-page .account-card {
+    gap: 9px;
+  }
+}
+
+@media (min-width: 761px) {
+  .product-customize-toggle {
+    display: none;
+  }
+
+  .product-customization {
+    display: grid;
+  }
+}
 .staff-access-grid { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1.4fr) minmax(18rem, .8fr); }
 .staff-account-list { display: grid; gap: .75rem; margin-top: 1rem; }
 .staff-account { align-items: center; border-top: 1px solid var(--border-color, #ddd); display: flex; gap: 1rem; justify-content: space-between; padding-top: .85rem; }

@@ -30,6 +30,11 @@ function storeCart(cart) {
   window.localStorage.setItem("cafe-cart", JSON.stringify(cart));
 }
 
+function hasProductSpecificImage(product) {
+  const image = product?.image?.trim();
+  return Boolean(image && !["coffee", "pastry", "water"].includes(image));
+}
+
 function ProductModifiers({ product, selections, onChange }) {
   const modifierGroups = getModifierGroupsForProduct(product);
 
@@ -103,6 +108,7 @@ export default function MenuPage() {
   const [addedLineId, setAddedLineId] = useState("");
   const [bagIsUpdating, setBagIsUpdating] = useState(false);
   const [spotlightProductId, setSpotlightProductId] = useState("");
+  const [expandedProductId, setExpandedProductId] = useState("");
   const [selectionsByProduct, setSelectionsByProduct] = useState({});
   const addedResetTimer = useRef(null);
   const bagPulseTimer = useRef(null);
@@ -122,6 +128,7 @@ export default function MenuPage() {
     }
 
     setActiveSection(targetProduct.category);
+    setExpandedProductId(targetProduct.id);
   }, [targetProduct]);
 
   useEffect(() => {
@@ -354,15 +361,17 @@ export default function MenuPage() {
                   const isAdded = addedLineId === cartLineId;
 
                   const isSpotlighted = spotlightProductId === item.id;
+                  const isExpanded = expandedProductId === item.id;
+                  const hasImage = hasProductSpecificImage(item);
 
                   return (
                     <li
-                      className={`drink-card app-product-card${isSpotlighted ? " is-spotlighted" : ""}`}
+                      className={`drink-card app-product-card${isSpotlighted ? " is-spotlighted" : ""}${isExpanded ? " is-expanded" : ""}${hasImage ? " has-product-image" : ""}`}
                       id={`product-${item.id}`}
                       key={item.id}
                       tabIndex={-1}
                     >
-                      <div className={`product-thumb item-thumb-${item.image}`} aria-hidden="true" />
+                      {hasImage ? <div className="product-thumb" style={{ backgroundImage: `url(${item.image})` }} aria-hidden="true" /> : null}
                       <div className="product-card-main">
                         <div className="drink-card-title">
                           <div>
@@ -373,25 +382,36 @@ export default function MenuPage() {
                         </div>
                         <p>{item.description}</p>
 
-                        <ProductModifiers
-                          product={item}
-                          selections={selections}
-                          onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
-                        />
+                        {item.modifierGroups.length ? (
+                          <button className="product-customize-toggle" type="button" aria-expanded={isExpanded} aria-controls={`options-${item.id}`} onClick={() => setExpandedProductId(isExpanded ? "" : item.id)}>
+                            {isExpanded ? "Hide options" : "Customize"}
+                          </button>
+                        ) : (
+                          <button className="product-customize-toggle" type="button" onClick={() => addItem(item)}>
+                            {isAdded ? "✓ Added to order" : quantity ? `Add again · ${quantity}` : "Add to order"}
+                          </button>
+                        )}
+                        <div className="product-customization" id={`options-${item.id}`}>
+                          <ProductModifiers
+                            product={item}
+                            selections={selections}
+                            onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
+                          />
 
-                        <button
-                          className={isAdded ? "is-added" : ""}
-                          type="button"
-                          onClick={() => addItem(item)}
-                        >
-                          <span>
-                            {isAdded
-                              ? "✓ Added to order"
-                              : quantity
-                                ? `Add again · ${quantity}`
-                                : "Add to order"}
-                          </span>
-                        </button>
+                          <button
+                            className={`product-add-button${isAdded ? " is-added" : ""}`}
+                            type="button"
+                            onClick={() => addItem(item)}
+                          >
+                            <span>
+                              {isAdded
+                                ? "✓ Added to order"
+                                : quantity
+                                  ? `Add again · ${quantity}`
+                                  : "Add to order"}
+                            </span>
+                          </button>
+                        </div>
                       </div>
                     </li>
                   );
