@@ -2387,11 +2387,17 @@ main {
 .loyalty-program-form input, .loyalty-program-form textarea, .loyalty-program-form select, .loyalty-adjustment input { border: 1px solid #b7aa9b; border-radius: 9px; font: inherit; padding: 11px; }
 .loyalty-products { display: grid; gap: 16px; }
 .loyalty-product-list { border: 1px solid #ded5c8; border-radius: 12px; display: grid; max-height: 520px; overflow: auto; }
-.loyalty-product-list article { align-items: center; border-bottom: 1px solid #e9e1d7; display: grid; gap: 12px; grid-template-columns: minmax(180px, 1fr) auto auto; padding: 12px; }
+.loyalty-product-list article { align-items: center; border-bottom: 1px solid #e9e1d7; display: grid; gap: 16px; grid-template-columns: minmax(160px, 1fr) minmax(360px, auto); padding: 12px; }
 .loyalty-product-list article:last-child { border-bottom: 0; }
-.loyalty-product-list article > div { display: grid; }
-.loyalty-product-list article span { color: #695d54; font-size: .84rem; }
-.loyalty-product-list article label { align-items: center; display: flex; font-size: .88rem; }
+.loyalty-product-identity { display: grid; gap: 2px; min-width: 0; }
+.loyalty-product-identity strong { overflow-wrap: anywhere; }
+.loyalty-product-identity span { color: #695d54; font-size: .84rem; }
+.loyalty-eligibility-controls { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(168px, 1fr)); }
+.loyalty-program-form .loyalty-eligibility-control { align-items: center; background: #fffdf8; border: 1px solid #cfc4b7; border-radius: 10px; cursor: pointer; display: flex; font-size: .9rem; font-weight: 800; gap: 10px; min-height: 44px; padding: 8px 11px; }
+.loyalty-program-form .loyalty-eligibility-control:has(input:checked) { background: #eaf5e8; border-color: #39703d; box-shadow: inset 0 0 0 1px #39703d; color: #245829; }
+.loyalty-eligibility-control input { accent-color: #39703d; cursor: pointer; flex: 0 0 auto; height: 22px; margin: 0; width: 22px; }
+.loyalty-eligibility-control:has(input:focus-visible) { outline: 3px solid #9ac7a0; outline-offset: 2px; }
+.loyalty-eligibility-control span { line-height: 1.2; }
 .loyalty-customer-search { align-items: end; display: grid; gap: 10px; grid-template-columns: 1fr auto; }
 .loyalty-customer-results { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .loyalty-customer-results button { background: #fffdf8; border: 1px solid #b7aa9b; border-radius: 9px; display: grid; padding: 9px 12px; text-align: left; }
@@ -2400,8 +2406,12 @@ main {
 @media (max-width: 680px) {
   .real-loyalty > div:last-child { justify-items: start; width: 100%; }
   .loyalty-product-list article { align-items: start; grid-template-columns: 1fr; }
+  .loyalty-eligibility-controls { width: 100%; }
   .loyalty-customer-search { grid-template-columns: 1fr; }
   .loyalty-customer-search button { width: 100%; }
+}
+@media (max-width: 480px) {
+  .loyalty-eligibility-controls { grid-template-columns: 1fr; }
 }
 
 /* Owner scheduling */
