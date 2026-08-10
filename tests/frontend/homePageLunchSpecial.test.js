@@ -40,6 +40,7 @@ test("category browser retains a stable place through catalog states", () => {
   assert.match(home, /Browse the full café menu/);
   assert.match(home, /Today’s menu is being prepared/);
   assert.match(home, /category-pill-grid/);
+  assert.match(home, /to=\{`\/menu\?category=\$\{encodeURIComponent\(category\.slug\)\}`\}/);
 });
 
 test("Home distinguishes unresolved, unavailable, and genuinely empty catalog states", () => {

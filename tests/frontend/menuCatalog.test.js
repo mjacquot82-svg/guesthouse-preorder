@@ -11,6 +11,7 @@ import {
   getProductSpecificImageUrl,
   getSelectedOptions,
   groupProductsByCategory,
+  resolveMenuCategory,
 } from "../../src/services/menuCatalog.js";
 
 function adaptedDrink() {
@@ -126,6 +127,23 @@ test("Menu groups adapted products in API category order", () => {
     ]
   );
   assert.equal(getCategoryById(categories, "espresso").name, "Espresso");
+});
+
+test("Menu resolves URL-backed categories with safe defaults and product precedence", () => {
+  const sections = [
+    { id: "coffee" },
+    { id: "smoothies" },
+    { id: "tea" },
+  ];
+
+  assert.equal(resolveMenuCategory(sections, "smoothies"), "smoothies");
+  assert.equal(resolveMenuCategory(sections, "smoothies"), "smoothies");
+  assert.equal(resolveMenuCategory(sections, "stale-category"), "coffee");
+  assert.equal(resolveMenuCategory(sections, ""), "coffee");
+  assert.equal(
+    resolveMenuCategory(sections, "smoothies", { id: "earl-grey", category: "tea" }),
+    "tea"
+  );
 });
 
 test("Menu defaults to the first variant and single modifier options", () => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  createQuickOrderItems,
   createHomeCatalogView,
   getHomeCategoryById,
 } from "../../src/services/homeCatalog.js";
@@ -135,4 +136,35 @@ test("Home falls back cleanly when no lunch special is configured", () => {
   catalog.products.forEach((product) => { product.lunchSpecial = false; });
 
   assert.equal(createHomeCatalogView("ready", catalog).lunchSpecial, null);
+});
+
+test("Quick Order prioritizes four featured products and still fills six unique slots", () => {
+  const products = Array.from({ length: 8 }, (_, index) => ({
+    id: `product-${index + 1}`,
+    available: true,
+    featured: index < 6,
+  }));
+
+  const quickOrder = createQuickOrderItems(products);
+
+  assert.equal(quickOrder.length, 6);
+  assert.deepEqual(quickOrder.slice(0, 4).map((product) => product.id), [
+    "product-1", "product-2", "product-3", "product-4",
+  ]);
+  assert.equal(new Set(quickOrder.map((product) => product.id)).size, 6);
+});
+
+test("Quick Order excludes unavailable products while filling from other available products", () => {
+  const products = Array.from({ length: 8 }, (_, index) => ({
+    id: `product-${index + 1}`,
+    available: index !== 1,
+    featured: index < 5,
+  }));
+
+  const quickOrder = createQuickOrderItems(products);
+
+  assert.equal(quickOrder.length, 6);
+  assert.ok(quickOrder.every((product) => product.available));
+  assert.ok(!quickOrder.some((product) => product.id === "product-2"));
+  assert.equal(new Set(quickOrder.map((product) => product.id)).size, 6);
 });

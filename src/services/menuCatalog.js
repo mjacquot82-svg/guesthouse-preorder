@@ -29,6 +29,14 @@ export function getCategoryById(categories, categoryId) {
   return categories.find((category) => category.id === categoryId);
 }
 
+export function resolveMenuCategory(sections, categorySlug, targetProduct) {
+  const requestedCategory = targetProduct?.category || categorySlug;
+
+  return sections.some((section) => section.id === requestedCategory)
+    ? requestedCategory
+    : sections[0]?.id || "";
+}
+
 export function getDefaultSelections(product) {
   return getModifierGroupsForProduct(product).reduce((selections, group) => {
     const defaultOption = group.options[0]?.id;

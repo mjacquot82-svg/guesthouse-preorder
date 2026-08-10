@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, ShoppingBag } from "lucide-react";
 import {
+  createQuickOrderItems,
   createHomeCatalogView,
   getHomeCategoryById,
 } from "../services/homeCatalog.js";
@@ -69,10 +70,7 @@ export default function HomePage() {
     })
     .filter((category) => category.count)
     .slice(0, 6);
-  const quickOrderItems = [
-    ...popularItems,
-    ...availableProducts.filter((product) => !product.featured),
-  ].slice(0, 6);
+  const quickOrderItems = createQuickOrderItems(catalog?.products || []);
   const [cart, setCart] = useState(getStoredCart);
   const [lastAdded, setLastAdded] = useState("");
   const cartCount = useMemo(
@@ -209,7 +207,7 @@ export default function HomePage() {
         {status === "ready" ? (
           <div className="category-pill-grid">
             {quickCategories.map((category) => (
-              <Link className="category-pill-card" to="/menu" key={category.id}>
+              <Link className="category-pill-card" to={`/menu?category=${encodeURIComponent(category.slug)}`} key={category.id}>
                 <span className="category-pill-copy">
                   <strong>{category.name}</strong>
                   <small>{category.preview}</small>

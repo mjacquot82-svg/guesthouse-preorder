@@ -9,6 +9,19 @@ export function getHomeCategoryById(categories, categoryId) {
   return categories.find((category) => category.id === categoryId);
 }
 
+export function createQuickOrderItems(products, { featuredLimit = 4, limit = 6 } = {}) {
+  const availableProducts = products.filter((product) => product.available);
+  const prioritized = availableProducts
+    .filter((product) => product.featured)
+    .slice(0, featuredLimit);
+  const prioritizedIds = new Set(prioritized.map((product) => product.id));
+
+  return [
+    ...prioritized,
+    ...availableProducts.filter((product) => !prioritizedIds.has(product.id)),
+  ].slice(0, limit);
+}
+
 export function createHomeCatalogView(status, catalog) {
   const categories = catalog?.categories || [];
   const products = catalog?.products || [];

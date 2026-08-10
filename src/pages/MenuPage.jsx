@@ -10,6 +10,7 @@ import {
   getProductSpecificImageUrl,
   getSelectedOptions,
   groupProductsByCategory,
+  resolveMenuCategory,
 } from "../services/menuCatalog.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 
@@ -109,12 +110,12 @@ export default function MenuPage() {
     () => groupProductsByCategory(categories, products),
     [categories, products]
   );
-  const firstSection = sections[0]?.id || "";
+  const categorySlug = searchParams.get("category") || "";
   const targetProductId = searchParams.get("product") || "";
   const targetProduct = products.find(
     (product) => product.id === targetProductId && product.available
   );
-  const [activeSection, setActiveSection] = useState(firstSection);
+  const activeSectionId = resolveMenuCategory(sections, categorySlug, targetProduct);
   const [cart, setCart] = useState(getStoredCart);
   const [lastAdded, setLastAdded] = useState("");
   const [addedLineId, setAddedLineId] = useState("");
@@ -139,12 +140,11 @@ export default function MenuPage() {
       return;
     }
 
-    setActiveSection(targetProduct.category);
     setExpandedProductId(targetProduct.id);
   }, [targetProduct]);
 
   useEffect(() => {
-    if (!targetProduct || activeSection !== targetProduct.category) {
+    if (!targetProduct || activeSectionId !== targetProduct.category) {
       return;
     }
 
@@ -165,11 +165,17 @@ export default function MenuPage() {
         setSpotlightProductId("");
       }, 1800);
     });
-  }, [activeSection, targetProduct]);
+  }, [activeSectionId, targetProduct]);
 
-  const activeSectionId = sections.some((section) => section.id === activeSection)
-    ? activeSection
-    : firstSection;
+  useEffect(() => {
+    if (status !== "ready" || targetProduct || !categorySlug) {
+      return;
+    }
+    if (categorySlug !== activeSectionId) {
+      setSearchParams(activeSectionId ? { category: activeSectionId } : {}, { replace: true });
+    }
+  }, [activeSectionId, categorySlug, setSearchParams, status, targetProduct]);
+
   const activeMenuSection = sections.find((section) => section.id === activeSectionId);
   const availableItems = products.filter((product) => product.available);
   const featuredItems = availableItems.filter((product) => product.featured);
@@ -341,10 +347,10 @@ export default function MenuPage() {
             type="button"
             key={section.id}
             onClick={() => {
-              setActiveSection(section.id);
-              if (targetProductId) {
-                setSearchParams({});
-              }
+              clearTimeout(spotlightTimer.current);
+              setSpotlightProductId("");
+              setExpandedProductId("");
+              setSearchParams({ category: section.id });
             }}
           >
             {section.name}
