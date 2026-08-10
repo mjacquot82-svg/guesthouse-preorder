@@ -1,5 +1,6 @@
 from dataclasses import replace
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ def test_staff_announcement_capability_is_narrow() -> None:
     assert "integrations.manage" not in ROLE_PERMISSIONS["staff"]
 
 
+@pytest.mark.postgresql
 def test_communication_center_reports_honest_announcement_health(owner_orders_api) -> None:
     client, _ = owner_orders_api
     client.app.dependency_overrides[current_principal] = lambda: principal(
@@ -48,6 +50,7 @@ def test_communication_center_reports_honest_announcement_health(owner_orders_ap
     assert "templates" not in payload
 
 
+@pytest.mark.postgresql
 def test_communication_center_reads_authoritative_lunch_special_and_warns_when_unavailable(
     owner_orders_api,
 ) -> None:
@@ -89,6 +92,7 @@ def test_communication_center_reads_authoritative_lunch_special_and_warns_when_u
     }
 
 
+@pytest.mark.postgresql
 def test_communication_center_allows_staff_with_existing_order_read_capability(
     owner_orders_api,
 ) -> None:
@@ -99,6 +103,7 @@ def test_communication_center_allows_staff_with_existing_order_read_capability(
     assert client.get("/api/v1/owner/communications").status_code == 200
 
 
+@pytest.mark.postgresql
 def test_communication_center_requires_announcement_permission(owner_orders_api) -> None:
     client, _ = owner_orders_api
     client.app.dependency_overrides[current_principal] = lambda: principal()

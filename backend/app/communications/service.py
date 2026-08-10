@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from uuid import UUID
 
@@ -79,7 +79,7 @@ class CommunicationCenterService:
         ) or 0
         return {"id":str(item.id),"kind":item.kind,"title":item.title,"message":item.frozen_message,"status":item.status,
                 "occurred_at":item.created_at,"sent_by":item.actor_name_snapshot,"queued":queued,
-                "attempted":item.attempted_count,"accepted":item.accepted_count,"failed":item.failed_count,"expired":item.expired_count,"clicked":item.clicked_count}
+                "attempted":item.attempted_count,"accepted":item.accepted_count,"failed":item.failed_count,"expired":item.expired_count,"suppressed":item.suppressed_count,"clicked":item.clicked_count}
 
     def create_lunch_special(self, *, organization_id: UUID, actor_user_id: UUID, actor_name: str, idempotency_key: str, override: bool) -> PushAnnouncement:
         if not self._settings.active: raise ValueError("push_not_released")
@@ -105,9 +105,11 @@ class CommunicationCenterService:
             if prior.kind != "general" or (prior.title, prior.frozen_message, prior.target_route) != (title, body, route):
                 raise ValueError("idempotency_conflict")
             return prior
-        announcement=PushAnnouncement(organization_id=organization_id,kind="general",title=title,frozen_message=body,target_route=route,actor_user_id=actor_user_id,actor_name_snapshot=actor_name,status="queued",idempotency_key=idempotency_key)
-        # The first release has one explicit customer opt-in: Lunch Special
-        # notifications. General announcements target only that opted-in cohort,
+        now = datetime.now(timezone.utc)
+        announcement=PushAnnouncement(organization_id=organization_id,kind="general",title=title,frozen_message=body,target_route=route,actor_user_id=actor_user_id,actor_name_snapshot=actor_name,status="queued",idempotency_key=idempotency_key,expires_at=now + timedelta(seconds=self._settings.general_ttl_seconds))
+        # The first release has one explicit customer opt-in: café notifications.
+        # The persisted kind remains lunch_special to avoid an unnecessary migration.
+        # General announcements target only that opted-in cohort,
         # never every stored browser capability indiscriminately.
         return self._queue(announcement, require_lunch_preference=True)
 

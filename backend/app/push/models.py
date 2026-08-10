@@ -51,7 +51,7 @@ class PushAnnouncement(Base):
         Index("uq_push_lunch_day_standard", "organization_id", "cafe_day", unique=True, postgresql_where=text("kind = 'lunch_special' AND is_override IS FALSE")),
         CheckConstraint("kind IN ('lunch_special', 'general')", name="ck_push_announcements_kind_valid"),
         CheckConstraint("status IN ('queued', 'attempting', 'completed')", name="ck_push_announcements_status_valid"),
-        CheckConstraint("attempted_count >= 0 AND accepted_count >= 0 AND failed_count >= 0 AND expired_count >= 0 AND clicked_count >= 0", name="ck_push_announcements_counts_nonnegative"),
+        CheckConstraint("attempted_count >= 0 AND accepted_count >= 0 AND failed_count >= 0 AND expired_count >= 0 AND suppressed_count >= 0 AND clicked_count >= 0", name="ck_push_announcements_counts_nonnegative"),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     organization_id: Mapped[UUID] = mapped_column(ForeignKey("organizations.id", ondelete="CASCADE"), index=True)
@@ -71,10 +71,12 @@ class PushAnnouncement(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     attempted_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     accepted_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     failed_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     expired_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    suppressed_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     clicked_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
 
@@ -82,7 +84,7 @@ class PushDeliveryAttempt(Base):
     __tablename__ = "push_delivery_attempts"
     __table_args__ = (
         UniqueConstraint("announcement_id", "subscription_id", name="uq_push_delivery_announcement_subscription"),
-        CheckConstraint("status IN ('queued', 'claimed', 'retry', 'accepted', 'failed', 'expired')", name="ck_push_delivery_attempts_status_valid"),
+        CheckConstraint("status IN ('queued', 'claimed', 'retry', 'accepted', 'failed', 'expired', 'suppressed')", name="ck_push_delivery_attempts_status_valid"),
         CheckConstraint("attempt_count >= 0", name="ck_push_delivery_attempts_attempt_count_nonnegative"),
     )
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)

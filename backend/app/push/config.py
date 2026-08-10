@@ -15,6 +15,7 @@ class PushSettings:
     batch_size: int = 50
     request_timeout_seconds: float = 10.0
     default_ttl_seconds: int = 14_400
+    general_ttl_seconds: int = 14_400
     max_attempts: int = 4
     retention_days: int = 90
 
@@ -30,6 +31,7 @@ class PushSettings:
             batch_size=max(1, min(500, int(os.getenv("PUSH_BATCH_SIZE", "50")))),
             request_timeout_seconds=max(1, min(30, float(os.getenv("PUSH_REQUEST_TIMEOUT_SECONDS", "10")))),
             default_ttl_seconds=max(60, min(86_400, int(os.getenv("PUSH_DEFAULT_TTL_SECONDS", "14400")))),
+            general_ttl_seconds=max(300, min(86_400, int(os.getenv("PUSH_GENERAL_TTL_SECONDS", "14400")))),
             max_attempts=max(1, min(10, int(os.getenv("PUSH_MAX_ATTEMPTS", "4")))),
             retention_days=max(7, int(os.getenv("PUSH_RETENTION_DAYS", "90"))),
         )

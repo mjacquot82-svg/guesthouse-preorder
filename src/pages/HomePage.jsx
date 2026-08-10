@@ -131,7 +131,10 @@ export default function HomePage() {
           <Link className="primary-button" to="/menu">
             Browse menu
           </Link>
-          <span>{coffeeCount} crafted drinks</span>
+          {status === "ready" ? <span>{coffeeCount} crafted drinks</span> : null}
+          {status === "empty" ? <span>No crafted drinks available today</span> : null}
+          {status === "idle" || status === "loading" ? <span>Loading today’s drinks…</span> : null}
+          {status === "error" ? <span>Menu count unavailable</span> : null}
         </div>
       </div>
 
@@ -145,7 +148,7 @@ export default function HomePage() {
         </Link>
       </div>
 
-      <section
+      {status === "ready" || status === "empty" ? <section
         className={`content-block app-content-block lunch-special-block${recommendationImageUrl ? " has-product-image" : " is-image-free"}`}
         aria-labelledby="lunch-special-heading"
       >
@@ -171,7 +174,28 @@ export default function HomePage() {
             {lunchSpecial ? "Order Today’s Special" : "Browse today’s menu"}
           </Link>
         </div>
-      </section>
+      </section> : null}
+
+      {status === "idle" || status === "loading" ? (
+        <section className="content-block app-content-block lunch-special-block is-image-free" aria-labelledby="lunch-special-loading-heading">
+          <div className="lunch-special-copy" role="status" aria-live="polite">
+            <p className="eyebrow">Today’s lunch special</p>
+            <h2 id="lunch-special-loading-heading">Loading today’s special…</h2>
+            <p>We’re checking the current café menu.</p>
+          </div>
+        </section>
+      ) : null}
+
+      {status === "error" ? (
+        <section className="content-block app-content-block lunch-special-block is-image-free" aria-labelledby="lunch-special-error-heading">
+          <div className="lunch-special-copy" role="alert">
+            <p className="eyebrow">Today’s lunch special</p>
+            <h2 id="lunch-special-error-heading">Today’s special is temporarily unavailable</h2>
+            <p>We couldn’t load the current café menu. Please try again.</p>
+            <button className="primary-button" type="button" onClick={reload}>Try again</button>
+          </div>
+        </section>
+      ) : null}
 
       <section
         className="content-block app-content-block home-category-block"
@@ -225,7 +249,7 @@ export default function HomePage() {
       <section className="content-block app-content-block quick-add-block" aria-labelledby="quick-order-heading-home">
         <div className="section-heading">
           <h2 id="quick-order-heading-home">Quick Order</h2>
-          <Link to="/menu">Customize</Link>
+          <Link to="/menu">View menu</Link>
         </div>
         <div className="quick-product-rail">
           {quickOrderItems.map((item) => {

@@ -7,11 +7,19 @@ const account = await readFile(new URL("../../src/pages/AccountPage.jsx", import
 const orders = await readFile(new URL("../../src/pages/OrdersPageMobile.jsx", import.meta.url), "utf8");
 const styles = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
 
-test("mobile quick order is a touch carousel with a next-card cue", () => {
+test("mobile quick order supports horizontal swipes without blocking vertical page scroll", () => {
   assert.match(styles, /\.home-page \.quick-product-rail \{[\s\S]*?grid-auto-columns:\s*minmax\(176px, 78%\)/);
-  assert.match(styles, /scroll-snap-type:\s*x mandatory/);
-  assert.match(styles, /touch-action:\s*pan-x/);
+  assert.match(styles, /overflow-x:\s*auto/);
+  assert.match(styles, /scroll-snap-type:\s*x proximity/);
+  assert.match(styles, /touch-action:\s*pan-x pan-y/);
+  assert.doesNotMatch(styles, /touch-action:\s*pan-x\s*;/);
   assert.match(styles, /\.home-page \.quick-product-card \{[\s\S]*?scroll-snap-align:\s*start/);
+});
+
+test("Home Quick Order links truthfully to the menu", async () => {
+  const home = await readFile(new URL("../../src/pages/HomePage.jsx", import.meta.url), "utf8");
+  assert.match(home, /<Link to="\/menu">View menu<\/Link>/);
+  assert.doesNotMatch(home, /<Link to="\/menu">Customize<\/Link>/);
 });
 
 test("mobile loyalty and product cards use compact presentations", () => {

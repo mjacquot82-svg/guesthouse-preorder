@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import delete, func, select, update
 
 from app.push.config import PushSettings
-from app.push.models import PushAnnouncement, PushDeliveryAttempt, WebPushSubscription
+from app.push.models import CustomerNotificationPreference, PushAnnouncement, PushDeliveryAttempt, WebPushSubscription
 from app.push.provider import PushProvider, PyWebPushProvider
 from app.push.security import SubscriptionProtector
 
@@ -80,9 +80,18 @@ class PushDispatcher:
             if announcement is None or subscription is None:
                 return
             if subscription.revoked_at or subscription.expired_at:
-                self._finish_without_send(db, job, "expired", "subscription_inactive")
+                self._finish_without_send(db, job, "suppressed", "subscription_inactive")
                 return
-            if self._lunch_special_is_stale(announcement):
+            preference_enabled = db.scalar(
+                select(CustomerNotificationPreference.enabled).where(
+                    CustomerNotificationPreference.customer_user_id == subscription.customer_user_id,
+                    CustomerNotificationPreference.notification_kind == "lunch_special",
+                )
+            )
+            if preference_enabled is not True:
+                self._finish_without_send(db, job, "suppressed", "account_opted_out")
+                return
+            if self._announcement_is_stale(announcement):
                 self._finish_without_send(db, job, "expired", "announcement_expired")
                 return
             try:
@@ -172,9 +181,20 @@ class PushDispatcher:
         local_now = datetime.now(timezone.utc).astimezone(CAFE_TIMEZONE)
         return announcement.cafe_day != local_now.date() or local_now.hour >= 23
 
+    @classmethod
+    def _announcement_is_stale(cls, announcement: PushAnnouncement) -> bool:
+        if cls._lunch_special_is_stale(announcement):
+            return True
+        if announcement.kind != "general":
+            return False
+        # General rows without an expiry predate/invalidate the bounded-lifetime
+        # contract and must fail closed instead of being resurrected later.
+        return announcement.expires_at is None or announcement.expires_at <= datetime.now(timezone.utc)
+
     def _ttl(self, announcement: PushAnnouncement) -> int:
         if announcement.kind != "lunch_special":
-            return self.settings.default_ttl_seconds
+            remaining = int((announcement.expires_at - datetime.now(timezone.utc)).total_seconds()) if announcement.expires_at else self.settings.general_ttl_seconds
+            return max(60, min(self.settings.default_ttl_seconds, remaining))
         local_now = datetime.now(timezone.utc).astimezone(CAFE_TIMEZONE)
         cutoff = local_now.replace(hour=23, minute=0, second=0, microsecond=0)
         return max(
@@ -202,6 +222,7 @@ class PushDispatcher:
         announcement.accepted_count = counts.get("accepted", 0)
         announcement.failed_count = counts.get("failed", 0)
         announcement.expired_count = counts.get("expired", 0)
+        announcement.suppressed_count = counts.get("suppressed", 0)
         pending = sum(counts.get(key, 0) for key in ("queued", "retry", "claimed"))
         announcement.status = "completed" if not pending else "attempting"
         announcement.completed_at = datetime.now(timezone.utc) if not pending else None

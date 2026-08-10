@@ -6,7 +6,9 @@ import { CustomerAuthProvider } from "./auth/CustomerAuthContext.jsx";
 import "./style.css";
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("/service-worker.js", { scope: "/", updateViaCache: "none" }).catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("/service-worker.js", { scope: "/", updateViaCache: "none" }).catch((error) => {
+    console.warn("Push notification service worker registration failed.", error?.name || "RegistrationError");
+  }));
 }
 
 createRoot(document.getElementById("root")).render(

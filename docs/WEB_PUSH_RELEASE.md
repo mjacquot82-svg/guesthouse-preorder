@@ -26,3 +26,15 @@ Release procedure:
 6. For release, leave enrollment enabled and set `PUSH_RELEASE_ENABLED=true`. Confirm Communications says release-enabled, queue a controlled announcement, and verify only honest `accepted`/`failed` results.
 
 No separate Render worker is required at expected café scale. The API response is returned only after the announcement and delivery rows commit; Web Push network calls run afterward as a bounded trigger. If that trigger is interrupted, the existing API's once-per-minute drain reclaims and drains durable work after startup. Communications also polls while work remains, without coupling delivery to ordering or payment traffic.
+
+## Key custody and recovery
+
+Treat the production VAPID key pair and `WEB_PUSH_SUBSCRIPTION_ENCRYPTION_KEY` as long-lived release credentials. Back them up in an access-controlled secret manager independently of Render before enrollment opens. Casual rotation is prohibited: the database intentionally does not implement a keyring for this café-scale release.
+
+- Losing or changing the Fernet subscription-encryption key makes existing encrypted browser capabilities unreadable. Restore the exact backed-up key. If it cannot be recovered, revoke the affected database subscriptions, deploy a new key, and ask customers to enable Café notifications again.
+- Changing the VAPID key pair changes the browser application-server identity. Restore the backed-up pair where possible. If rotation is unavoidable, disable release sending, deploy the new pair, revoke existing subscription rows, and ask customers to re-enable Café notifications so the browser creates a matching subscription.
+- Never print private keys, subscription endpoints, `p256dh`, or auth secrets in logs or diagnostics. Only the VAPID public key may be returned to the authenticated enrollment UI.
+
+Account opt-out and device revoke are checked again immediately before each provider call. Already-unsent work is recorded as suppressed. A narrow unavoidable race remains if provider transmission has begun before the opt-out/revoke transaction commits; provider-accepted attempts remain immutable audit history.
+
+General announcements expire four hours after queueing by default (`PUSH_GENERAL_TTL_SECONDS=14400`, bounded to 5 minutes–24 hours). Expired work is retained in activity history and recorded as expired when dispatch resumes; disabling and later re-enabling release sending cannot resurrect it. Lunch Special announcements retain the café-day/11 p.m. cutoff. `clicked_count` is reserved but stays zero because click telemetry is intentionally not collected in the first release.

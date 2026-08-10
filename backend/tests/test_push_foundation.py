@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from cryptography.fernet import Fernet
 from app.communications.service import lunch_special_message
 from app.push.config import PushSettings
@@ -53,3 +55,11 @@ def test_provider_applies_bounded_transport_settings_without_leaking_errors():
 def test_previous_cafe_day_lunch_special_is_stale():
     announcement=PushAnnouncement(kind="lunch_special",cafe_day=None)
     assert PushDispatcher._lunch_special_is_stale(announcement) is True
+
+def test_general_announcement_has_bounded_staleness():
+    expired=PushAnnouncement(kind="general",expires_at=datetime.now(timezone.utc)-timedelta(seconds=1))
+    current=PushAnnouncement(kind="general",expires_at=datetime.now(timezone.utc)+timedelta(hours=1))
+    legacy=PushAnnouncement(kind="general",expires_at=None)
+    assert PushDispatcher._announcement_is_stale(expired) is True
+    assert PushDispatcher._announcement_is_stale(current) is False
+    assert PushDispatcher._announcement_is_stale(legacy) is True

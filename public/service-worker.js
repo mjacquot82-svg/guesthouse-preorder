@@ -1,5 +1,7 @@
 /* Ladel's push-only service worker. No fetch handler or offline cache by design. */
 const ALLOWED_ROUTES = new Set(["/", "/menu", "/account", "/orders"]);
+const MAX_TITLE_LENGTH = 80;
+const MAX_BODY_LENGTH = 280;
 function safeDestination(value) {
   try {
     const url = new URL(value || "/", self.location.origin);
@@ -11,8 +13,11 @@ self.addEventListener("push", (event) => {
   let payload;
   try { payload = event.data?.json(); } catch { return; }
   if (!payload || payload.version !== 1 || typeof payload.title !== "string" || typeof payload.body !== "string") return;
-  event.waitUntil(self.registration.showNotification(payload.title, {
-    body: payload.body, icon: "/icon-192.png", badge: "/icon-192.png",
+  const title = payload.title.trim();
+  const body = payload.body.trim();
+  if (!title || title.length > MAX_TITLE_LENGTH || !body || body.length > MAX_BODY_LENGTH) return;
+  event.waitUntil(self.registration.showNotification(title, {
+    body, icon: "/icon-192.png", badge: "/icon-192.png",
     tag: payload.announcementId ? `announcement-${payload.announcementId}` : undefined,
     data: { destination: safeDestination(payload.destination), announcementId: payload.announcementId },
   }));

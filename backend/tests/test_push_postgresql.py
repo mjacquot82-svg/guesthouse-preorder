@@ -1,11 +1,12 @@
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
 from cryptography.fernet import Fernet
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.v1.customer_push import EndpointInput, revoke_current
 from app.api.v1.owner_auth import csrf_principal, current_principal
@@ -13,7 +14,9 @@ from app.catalog.models import Category, Product
 from app.communications.service import CommunicationCenterService
 from app.jds_auth.models import JdsUser, Organization
 from app.push.config import PushSettings
+from app.push.dispatcher import PushDispatcher
 from app.push.models import CustomerNotificationPreference, PushAnnouncement, PushDeliveryAttempt, WebPushSubscription
+from app.push.provider import classify_status
 from app.push.security import SubscriptionProtector, endpoint_fingerprint
 from tests.test_owner_orders import owner_orders_api, principal
 
@@ -91,3 +94,60 @@ def test_current_device_revoke_is_owned_and_idempotent(owner_orders_api):
         revoke_current(EndpointInput(endpoint=endpoint),SimpleNamespace(user_id=owner.id),session)
         assert subscription.revoked_at is not None
         revoke_current(EndpointInput(endpoint=endpoint),SimpleNamespace(user_id=owner.id),session)
+
+
+class RecordingProvider:
+    def __init__(self):
+        self.sent = []
+
+    def send(self, subscription_info, payload, ttl, urgency, topic):
+        self.sent.append((subscription_info, payload, ttl, urgency, topic))
+        return classify_status(201)
+
+
+def queued_general(session, settings, *, suffix):
+    crypt=SubscriptionProtector(settings.encryption_key)
+    organization=Organization(slug=f"dispatch-{suffix}-{uuid4()}",name="Dispatch Test")
+    user=add_user(session,f"dispatch-{suffix}-{uuid4()}@example.com")
+    session.add(organization);session.flush()
+    preference=CustomerNotificationPreference(customer_user_id=user.id,notification_kind="lunch_special",enabled=True)
+    endpoint=f"https://push.example/{suffix}-{uuid4()}"
+    subscription=WebPushSubscription(customer_user_id=user.id,endpoint_ciphertext=crypt.encrypt(endpoint),endpoint_fingerprint=endpoint_fingerprint(endpoint),p256dh_ciphertext=crypt.encrypt("p256dh"),auth_ciphertext=crypt.encrypt("auth"))
+    announcement=PushAnnouncement(organization_id=organization.id,kind="general",title="Café update",frozen_message="Open today.",target_route="/",actor_name_snapshot="Owner",status="queued",idempotency_key=f"general-{uuid4()}",expires_at=datetime.now(timezone.utc)+timedelta(hours=4))
+    session.add_all([preference,subscription,announcement]);session.flush()
+    delivery=PushDeliveryAttempt(announcement_id=announcement.id,subscription_id=subscription.id)
+    session.add(delivery);session.commit()
+    return user.id, subscription.id, announcement.id, delivery.id
+
+
+@pytest.mark.postgresql
+def test_account_opt_out_suppresses_already_queued_delivery(owner_orders_api):
+    _,engine=owner_orders_api;settings=active_settings();provider=RecordingProvider()
+    with Session(engine) as session:
+        user_id,_,announcement_id,delivery_id=queued_general(session,settings,suffix="optout")
+        preference=session.scalar(select(CustomerNotificationPreference).where(CustomerNotificationPreference.customer_user_id==user_id))
+        preference.enabled=False;preference.disabled_at=datetime.now(timezone.utc);session.commit()
+    PushDispatcher(sessionmaker(bind=engine),settings,provider).run_batch()
+    with Session(engine) as session:
+        delivery=session.get(PushDeliveryAttempt,delivery_id);announcement=session.get(PushAnnouncement,announcement_id)
+        assert delivery.status=="suppressed";assert delivery.error_code=="account_opted_out"
+        assert announcement.status=="completed";assert announcement.suppressed_count==1
+    assert provider.sent==[]
+
+
+@pytest.mark.postgresql
+def test_device_revoke_and_expired_general_suppress_unsent_work(owner_orders_api):
+    _,engine=owner_orders_api;settings=active_settings();provider=RecordingProvider()
+    with Session(engine) as session:
+        _,subscription_id,_,revoked_delivery_id=queued_general(session,settings,suffix="revoke")
+        session.get(WebPushSubscription,subscription_id).revoked_at=datetime.now(timezone.utc)
+        _,_,expired_announcement_id,expired_delivery_id=queued_general(session,settings,suffix="expired")
+        session.get(PushAnnouncement,expired_announcement_id).expires_at=datetime.now(timezone.utc)-timedelta(seconds=1)
+        session.commit()
+    PushDispatcher(sessionmaker(bind=engine),settings,provider).run_batch()
+    with Session(engine) as session:
+        revoked=session.get(PushDeliveryAttempt,revoked_delivery_id)
+        expired=session.get(PushDeliveryAttempt,expired_delivery_id)
+        assert (revoked.status,revoked.error_code)==("suppressed","subscription_inactive")
+        assert (expired.status,expired.error_code)==("expired","announcement_expired")
+    assert provider.sent==[]

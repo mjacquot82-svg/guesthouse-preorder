@@ -13,7 +13,15 @@ function workerHarness(){
 test("push worker has no fetch interception and rejects malformed payloads",async()=>{
   const harness=workerHarness();assert.equal(harness.listeners.fetch,undefined);
   harness.listeners.push({data:{json:()=>({version:99,title:"Bad",body:"Bad"})},waitUntil:()=>assert.fail("Malformed push must not schedule a notification")});
+  harness.listeners.push({data:{json:()=>({version:1,title:"T".repeat(81),body:"Bad"})},waitUntil:()=>assert.fail("Oversized push must not schedule a notification")});
+  harness.listeners.push({data:{json:()=>({version:1,title:"Okay",body:"B".repeat(281)})},waitUntil:()=>assert.fail("Oversized push must not schedule a notification")});
   assert.equal(harness.shown.length,0);
+});
+
+test("customer consent clearly covers Lunch Special and occasional café updates",()=>{
+  const settings=readFileSync(new URL("../../src/components/NotificationSettings.jsx",import.meta.url),"utf8");
+  assert.match(settings,/Café notifications/);
+  assert.match(settings,/Get today’s Lunch Special and occasional updates from The Guest House\./);
 });
 
 test("push worker replaces external destinations and opens only same-origin routes",async()=>{

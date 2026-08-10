@@ -49,6 +49,7 @@ class Activity(StrictModel):
     accepted: int = 0
     failed: int = 0
     expired: int = 0
+    suppressed: int = 0
     clicked: int = 0
 
 class LunchSend(StrictModel):
