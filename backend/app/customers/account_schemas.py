@@ -34,3 +34,7 @@ class CustomerOrderSummary(CustomerSchema):
     total_cents: int
     created_at: str
     item_count: int
+
+
+class CustomerQuickOrderResponse(CustomerSchema):
+    product_ids: list[str]

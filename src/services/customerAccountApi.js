@@ -28,3 +28,4 @@ export const fetchCustomerProfile = (options = {}) => request("/profile", option
 export const updateCustomerProfile = (profile, csrfToken, options = {}) => request("/profile", { ...options, body: profile, csrfToken, method: "PUT" });
 export const fetchCustomerOrders = (options = {}) => request("/orders", options);
 export const fetchCustomerOrder = (orderId, options = {}) => request(`/orders/${encodeURIComponent(orderId)}`, options);
+export const fetchCustomerQuickOrder = (options = {}) => request("/quick-order", options);

@@ -22,6 +22,15 @@ test("Home Quick Order links truthfully to the menu", async () => {
   assert.doesNotMatch(home, /<Link to="\/menu">Customize<\/Link>/);
 });
 
+test("Home keeps catalog Quick Order fallback while personalization loads or fails", async () => {
+  const home = await readFile(new URL("../../src/pages/HomePage.jsx", import.meta.url), "utf8");
+  assert.match(home, /createQuickOrderItems\(catalog\?\.products \|\| \[\], \{/);
+  assert.match(home, /fetchCustomerQuickOrder\(\)/);
+  assert.match(home, /\.catch\(\(\) => \{[\s\S]*?setQuickOrderPersonalization\(\{ productIds: \[\], userId: null \}\)/);
+  assert.match(home, /quickOrderPersonalization\.userId === session\?\.user_id/);
+  assert.match(home, /Based on what you order most/);
+});
+
 test("mobile loyalty and product cards use compact presentations", () => {
   assert.match(styles, /\.home-page \.loyalty-card \.stamp-row \{[\s\S]*?width:\s*92px/);
   assert.match(styles, /\.app-product-card\.is-expanded \.product-customization/);

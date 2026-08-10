@@ -1,10 +1,13 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.availability.models import ProductAvailability
+from app.catalog.models import Category, Product
 from app.customers.models import CustomerProfile
 from app.jds_auth.models import JdsUser
+from app.orders.constants import FulfillmentStatus, OrderStatus
 from app.orders.models import Order, OrderItem
 
 
@@ -50,3 +53,34 @@ class CustomerRepository:
                 selectinload(Order.items).selectinload(OrderItem.modifiers)
             ).where(Order.customer_user_id == user_id, Order.id == order_id)
         )
+
+    def quick_order_product_ids(self, user_id: UUID, *, limit: int = 6) -> list[int]:
+        """Rank currently public products from this customer's paid purchases."""
+        purchased_quantity = func.sum(OrderItem.quantity)
+        latest_purchase_at = func.max(Order.created_at)
+        return list(self.session.scalars(
+            select(OrderItem.source_product_id)
+            .join(Order, Order.id == OrderItem.order_id)
+            .join(Product, Product.id == OrderItem.source_product_id)
+            .join(Category, Category.id == Product.category_id)
+            .outerjoin(
+                ProductAvailability,
+                ProductAvailability.product_id == Product.id,
+            )
+            .where(
+                Order.customer_user_id == user_id,
+                Order.status == OrderStatus.PAID,
+                Order.fulfillment_status != FulfillmentStatus.CANCELLED,
+                Category.is_published.is_(True),
+                Product.is_published.is_(True),
+                Product.archived_at.is_(None),
+                func.coalesce(ProductAvailability.default_available, True).is_(True),
+            )
+            .group_by(OrderItem.source_product_id)
+            .order_by(
+                purchased_quantity.desc(),
+                latest_purchase_at.desc(),
+                OrderItem.source_product_id.asc(),
+            )
+            .limit(limit)
+        ).all())

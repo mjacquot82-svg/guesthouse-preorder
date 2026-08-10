@@ -9,14 +9,30 @@ export function getHomeCategoryById(categories, categoryId) {
   return categories.find((category) => category.id === categoryId);
 }
 
-export function createQuickOrderItems(products, { featuredLimit = 4, limit = 6 } = {}) {
+export function createQuickOrderItems(products, { featuredLimit = 4, limit = 6, personalizedProductIds = [] } = {}) {
   const availableProducts = products.filter((product) => product.available);
+  const productsByBackendId = new Map(
+    availableProducts.map((product) => [product.backendId, product])
+  );
+  const seenPersonalizedIds = new Set();
+  const personalized = personalizedProductIds
+    .map((productId) => productsByBackendId.get(String(productId)))
+    .filter((product) => {
+      if (!product || seenPersonalizedIds.has(product.id)) return false;
+      seenPersonalizedIds.add(product.id);
+      return true;
+    });
+  const personalizedIds = new Set(personalized.map((product) => product.id));
   const prioritized = availableProducts
-    .filter((product) => product.featured)
+    .filter((product) => product.featured && !personalizedIds.has(product.id))
     .slice(0, featuredLimit);
-  const prioritizedIds = new Set(prioritized.map((product) => product.id));
+  const prioritizedIds = new Set([
+    ...personalizedIds,
+    ...prioritized.map((product) => product.id),
+  ]);
 
   return [
+    ...personalized,
     ...prioritized,
     ...availableProducts.filter((product) => !prioritizedIds.has(product.id)),
   ].slice(0, limit);

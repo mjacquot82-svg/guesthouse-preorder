@@ -16,6 +16,7 @@ import {
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerLoyalty } from "../services/loyaltyApi.js";
+import { fetchCustomerQuickOrder } from "../services/customerAccountApi.js";
 import LoyaltyCard from "../components/LoyaltyCard.jsx";
 
 function formatPrice(price) {
@@ -41,6 +42,30 @@ function storeCart(cart) {
 
 export default function HomePage() {
   const { session } = useCustomerAuth();
+  const [quickOrderPersonalization, setQuickOrderPersonalization] = useState({
+    productIds: [],
+    userId: null,
+  });
+  const personalizedProductIds =
+    quickOrderPersonalization.userId === session?.user_id
+      ? quickOrderPersonalization.productIds
+      : [];
+  useEffect(() => {
+    let active = true;
+    setQuickOrderPersonalization({ productIds: [], userId: null });
+    if (!session) return () => { active = false; };
+    const userId = session.user_id;
+    fetchCustomerQuickOrder()
+      .then((value) => {
+        if (active && Array.isArray(value.product_ids)) {
+          setQuickOrderPersonalization({ productIds: value.product_ids, userId });
+        }
+      })
+      .catch(() => {
+        if (active) setQuickOrderPersonalization({ productIds: [], userId: null });
+      });
+    return () => { active = false; };
+  }, [session]);
   const [loyalty,setLoyalty]=useState({program:null,loading:false,error:""});
   useEffect(()=>{let active=true;if(!session){setLoyalty({program:null,loading:false,error:""});return()=>{active=false}}setLoyalty({program:null,loading:true,error:""});fetchCustomerLoyalty().then(value=>{if(active)setLoyalty({program:value.programs?.[0]||null,loading:false,error:""})}).catch(()=>{if(active)setLoyalty({program:null,loading:false,error:"unavailable"})});return()=>{active=false}},[session]);
   const { status, catalog, reload } = useCustomerCatalog();
@@ -70,7 +95,12 @@ export default function HomePage() {
     })
     .filter((category) => category.count)
     .slice(0, 6);
-  const quickOrderItems = createQuickOrderItems(catalog?.products || []);
+  const quickOrderItems = createQuickOrderItems(catalog?.products || [], {
+    personalizedProductIds,
+  });
+  const hasPersonalizedQuickOrder = personalizedProductIds.some((productId) =>
+    quickOrderItems.some((product) => product.backendId === String(productId))
+  );
   const [cart, setCart] = useState(getStoredCart);
   const [lastAdded, setLastAdded] = useState("");
   const cartCount = useMemo(
@@ -246,7 +276,10 @@ export default function HomePage() {
       {status === "ready" ? (
       <section className="content-block app-content-block quick-add-block" aria-labelledby="quick-order-heading-home">
         <div className="section-heading">
-          <h2 id="quick-order-heading-home">Quick Order</h2>
+          <div>
+            <h2 id="quick-order-heading-home">Quick Order</h2>
+            {hasPersonalizedQuickOrder ? <p>Based on what you order most</p> : null}
+          </div>
           <Link to="/menu">View menu</Link>
         </div>
         <div className="quick-product-rail">

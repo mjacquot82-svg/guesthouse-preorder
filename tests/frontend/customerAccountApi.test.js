@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { fetchCustomerProfile, updateCustomerProfile } from "../../src/services/customerAccountApi.js";
+import { fetchCustomerProfile, fetchCustomerQuickOrder, updateCustomerProfile } from "../../src/services/customerAccountApi.js";
 
 test("customer profile hydration bypasses stale browser caches", async () => {
   let request;
@@ -45,4 +45,19 @@ test("customer profile updates send only writable profile fields", async () => {
   assert.equal(request[1].headers["X-CSRF-Token"], "csrf-token");
   assert.deepEqual(JSON.parse(request[1].body), writableProfile);
   assert.equal("email" in JSON.parse(request[1].body), false);
+});
+
+test("Quick Order personalization is a no-store customer read", async () => {
+  let request;
+  const result = await fetchCustomerQuickOrder({
+    fetchImpl: async (...args) => {
+      request = args;
+      return { json: async () => ({ product_ids: ["4", "2"] }), ok: true, status: 200 };
+    },
+  });
+
+  assert.deepEqual(result, { product_ids: ["4", "2"] });
+  assert.equal(request[0], "/api/v1/customer/quick-order");
+  assert.equal(request[1].cache, "no-store");
+  assert.equal(request[1].credentials, "include");
 });

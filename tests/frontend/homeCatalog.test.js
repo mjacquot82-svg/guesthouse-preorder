@@ -168,3 +168,36 @@ test("Quick Order excludes unavailable products while filling from other availab
   assert.ok(!quickOrder.some((product) => product.id === "product-2"));
   assert.equal(new Set(quickOrder.map((product) => product.id)).size, 6);
 });
+
+test("Quick Order puts ranked history first and fills without duplicates", () => {
+  const products = Array.from({ length: 8 }, (_, index) => ({
+    id: `product-${index + 1}`,
+    backendId: String(index + 1),
+    available: true,
+    featured: index < 4,
+  }));
+  const quickOrder = createQuickOrderItems(products, {
+    personalizedProductIds: ["6", "2", "6"],
+  });
+
+  assert.deepEqual(quickOrder.map((product) => product.id), [
+    "product-6", "product-2", "product-1", "product-3", "product-4", "product-5",
+  ]);
+  assert.equal(new Set(quickOrder.map((product) => product.id)).size, 6);
+});
+
+test("Quick Order ignores history absent from the current available catalog", () => {
+  const products = Array.from({ length: 7 }, (_, index) => ({
+    id: `product-${index + 1}`,
+    backendId: String(index + 1),
+    available: index !== 5,
+    featured: index < 4,
+  }));
+  const quickOrder = createQuickOrderItems(products, {
+    personalizedProductIds: ["6", "999", "5"],
+  });
+
+  assert.equal(quickOrder[0].id, "product-5");
+  assert.ok(!quickOrder.some((product) => product.id === "product-6"));
+  assert.equal(quickOrder.length, 6);
+});
