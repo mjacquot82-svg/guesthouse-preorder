@@ -36,3 +36,12 @@ export async function fetchOwnerCommunications({
   }
   return payload;
 }
+
+async function send(path, body, csrfToken, {fetchImpl=globalThis.fetch,apiBaseUrl=import.meta.env?.VITE_API_BASE_URL||""}={}) {
+  const response=await fetchImpl(`${apiBaseUrl.replace(/\/+$/,"")}${PATH}${path}`,{method:"POST",credentials:"include",headers:{Accept:"application/json","Content-Type":"application/json","X-CSRF-Token":csrfToken,"Idempotency-Key":crypto.randomUUID()},body:JSON.stringify(body)});
+  let payload={};try{payload=await response.json()}catch{}
+  if(!response.ok)throw new OwnerCommunicationsError(payload?.detail?.message||"Announcement could not be queued.",{code:payload?.detail?.code,status:response.status});
+  return payload;
+}
+export const sendLunchSpecial=(csrfToken,{override=false,confirmOverride=false}={})=>send("/lunch-special",{kind:"lunch_special",override,confirm_override:confirmOverride},csrfToken);
+export const sendGeneralAnnouncement=(csrfToken,{title,body,targetRoute})=>send("/general",{title,body,target_route:targetRoute},csrfToken);

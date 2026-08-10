@@ -13,6 +13,8 @@ from tests.test_owner_orders import owner_orders_api, principal
 def test_staff_announcement_capability_is_narrow() -> None:
     assert "communications.announce" in ROLE_PERMISSIONS["staff"]
     assert "communications.announce" in ROLE_PERMISSIONS["owner"]
+    assert "communications.general_announce" in ROLE_PERMISSIONS["owner"]
+    assert "communications.general_announce" not in ROLE_PERMISSIONS["staff"]
     assert "integrations.manage" not in ROLE_PERMISSIONS["staff"]
 
 

@@ -2,6 +2,7 @@
   "name": "The Guest House",
   "short_name": "Guest House",
   "description": "Boutique cafe preorder and pickup.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

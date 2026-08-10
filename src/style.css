@@ -2370,6 +2370,9 @@ main {
 @media (max-width: 900px) { .communication-layout { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .communication-heading, .communications-error, .announcement-special-card, .announcement-activity-list article { align-items: stretch; flex-direction: column; } .communication-heading button, .communications-error button, .announcement-composer .primary-button { margin-left: 0; width: 100%; } .health-list article { grid-template-columns: auto minmax(0,1fr); } .health-list .status-pill { grid-column: 2; justify-self: start; } }
 
+.notification-settings { display: grid; gap: 16px; margin-top: 22px; }
+.notification-state { align-items: center; background: #f5f0e8; border-radius: 12px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; padding: 14px; }
+.notification-settings button { justify-self: start; }
 /* Owner scheduling */
 .owner-orders-page {
   width: min(1120px, 100%);

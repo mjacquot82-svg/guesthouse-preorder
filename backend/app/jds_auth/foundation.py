@@ -12,6 +12,7 @@ PERMISSIONS = {
     "orders.read": "Read organization orders.",
     "orders.fulfill": "Progress order fulfillment.",
     "communications.announce": "Prepare customer Lunch Special announcements.",
+    "communications.general_announce": "Send owner-approved general customer announcements.",
     "lunch_special.manage": "Select or clear the current Lunch Special product.",
     "members.invite": "Invite organization members.",
     "members.manage": "Manage organization memberships.",
@@ -22,7 +23,7 @@ PERMISSIONS = {
 
 ROLE_PERMISSIONS = {
     "owner": frozenset(PERMISSIONS) - {"customer.profile", "customer.orders"},
-    "manager": frozenset(PERMISSIONS) - {"members.manage", "customer.profile", "customer.orders"},
+    "manager": frozenset(PERMISSIONS) - {"members.manage", "customer.profile", "customer.orders", "communications.general_announce"},
     "staff": frozenset({
         "catalog.read", "availability.manage", "orders.read", "orders.fulfill",
         "communications.announce", "lunch_special.manage",

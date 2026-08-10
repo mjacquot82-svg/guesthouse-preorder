@@ -1,4 +1,6 @@
 import os
+import asyncio
+from contextlib import suppress
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -13,6 +15,8 @@ from app.db.health import database_is_available
 from app.db.session import create_session_factory
 from app.jds_auth.config import AuthSettings
 from app.jds_auth.provider import IdentityProvider, SupabaseIdentityProvider
+from app.push.config import PushSettings
+from app.push.trigger import drain_push_outbox
 
 APP_NAME = "guesthouse-backend"
 APP_VERSION = "0.1.0"
@@ -33,9 +37,24 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        yield
-        if engine is not None:
-            engine.dispose()
+        async def periodic_push_drain() -> None:
+            while True:
+                await asyncio.to_thread(
+                    drain_push_outbox,
+                    session_factory,
+                    application.state.push_settings,
+                )
+                await asyncio.sleep(60)
+
+        push_task = asyncio.create_task(periodic_push_drain())
+        try:
+            yield
+        finally:
+            push_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await push_task
+            if engine is not None:
+                engine.dispose()
 
     application = FastAPI(
         title="The Guest House API",
@@ -56,6 +75,7 @@ def create_app(
         if resolved_auth_settings is not None
         else None
     )
+    application.state.push_settings = PushSettings.from_env()
     frontend_url = os.getenv("FRONTEND_URL") or (
         resolved_auth_settings.frontend_url if resolved_auth_settings else None
     )
@@ -65,7 +85,7 @@ def create_app(
         allow_origins=allowed_origins,
         allow_credentials=bool(frontend_url),
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Accept", "Content-Type", "X-CSRF-Token"],
+        allow_headers=["Accept", "Content-Type", "X-CSRF-Token", "Idempotency-Key"],
     )
     application.include_router(api_v1_router)
 

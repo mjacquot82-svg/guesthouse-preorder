@@ -46,3 +46,15 @@ services:
         sync: false
       - key: CLOVER_TOKEN_ENCRYPTION_KEY
         sync: false
+      - key: PUSH_RELEASE_ENABLED
+        value: "false"
+      - key: PUSH_ENROLLMENT_ENABLED
+        value: "false"
+      - key: WEB_PUSH_VAPID_PRIVATE_KEY
+        sync: false
+      - key: WEB_PUSH_VAPID_PUBLIC_KEY
+        sync: false
+      - key: WEB_PUSH_VAPID_SUBJECT
+        sync: false
+      - key: WEB_PUSH_SUBSCRIPTION_ENCRYPTION_KEY
+        sync: false

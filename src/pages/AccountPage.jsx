@@ -5,6 +5,7 @@ import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerProfile, updateCustomerProfile } from "../services/customerAccountApi.js";
 import { getCustomerErrorMessage } from "../services/customerMessages.js";
 import { formatCustomerPhone, isCompleteCustomerPhone, normalizeCustomerPhone } from "../services/customerPhone.js";
+import NotificationSettings from "../components/NotificationSettings.jsx";
 
 export default function AccountPage() {
   const { logout, session, status: authStatus } = useCustomerAuth();
@@ -45,7 +46,7 @@ export default function AccountPage() {
   return (
     <section className="page-section ordering-page app-simple-page">
       <div className="ordering-top-card compact-app-heading"><div><p className="eyebrow">Cafe profile</p><h1>Account</h1><p>Your defaults for faster checkout.</p></div></div>
-      <nav className="form-actions account-section-nav" aria-label="Account sections"><a className="secondary-button" href="#profile">Profile</a><Link className="secondary-button" to="/orders">My Orders</Link><button className="secondary-button" type="button" onClick={logout}>Logout</button></nav>
+      <nav className="form-actions account-section-nav" aria-label="Account sections"><a className="secondary-button" href="#profile">Profile</a><a className="secondary-button" href="#notifications">Notifications</a><Link className="secondary-button" to="/orders">My Orders</Link><button className="secondary-button" type="button" onClick={logout}>Logout</button></nav>
       {profile ? <form id="profile" className="content-block app-content-block product-form" aria-busy={isSaving} onSubmit={save}>
         <div className="account-card"><span className="account-avatar"><UserRound size={24} /></span><div><h2>Profile</h2><p>Manage the details saved to your account.</p></div></div>
         <label><span>Name</span><input disabled={isSaving} required value={profile.name} onChange={(event) => setProfile({ ...profile, name: event.target.value })} /></label>
@@ -55,6 +56,7 @@ export default function AccountPage() {
         <label><span>Preferred pickup information</span><textarea disabled={isSaving} maxLength={500} rows="3" value={profile.preferred_pickup_notes} onChange={(event) => setProfile({ ...profile, preferred_pickup_notes: event.target.value })} /></label>
         <button className="primary-button" disabled={isSaving} type="submit">{isSaving ? "Saving…" : "Save profile"}</button>{message ? <p className="form-status" aria-live="polite">{message}</p> : null}
       </form> : <p>Loading your profile…</p>}
+      <NotificationSettings csrfToken={session.csrf_token}/>
     </section>
   );
 }

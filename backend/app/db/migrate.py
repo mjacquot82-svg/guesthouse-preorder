@@ -15,6 +15,7 @@ from app.db.base import Base
 from app.orders import models as order_models  # noqa: F401
 from app.jds_auth import models as auth_models  # noqa: F401
 from app.customers import models as customer_models  # noqa: F401
+from app.push import models as push_models  # noqa: F401
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_BASELINE_REVISION = "20260727_01"

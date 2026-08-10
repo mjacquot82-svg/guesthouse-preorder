@@ -4,11 +4,11 @@ import { Link } from "react-router-dom";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
 import { canAccessOwnerPath } from "../auth/ownerProductPermissions.js";
 import { lunchSpecialAnnouncement } from "../services/announcementFormatting.js";
-import { fetchOwnerCommunications } from "../services/ownerCommunicationsApi.js";
+import { fetchOwnerCommunications, sendGeneralAnnouncement, sendLunchSpecial } from "../services/ownerCommunicationsApi.js";
 
 const money = (cents) => new Intl.NumberFormat("en-CA", { currency: "CAD", style: "currency" }).format(cents / 100);
 
-function Composer({ disabled, message, onMessageChange, title, onTitleChange, titleOptional = false }) {
+function Composer({ disabled, message, onMessageChange, title, onTitleChange, titleOptional = false, onSend, sending }) {
   return <div className="announcement-composer">
     {titleOptional ? <label>Title <span>Optional</span><input maxLength={80} onChange={(event) => onTitleChange(event.target.value)} placeholder="Holiday hours" value={title} /></label> : null}
     <label>Announcement message<textarea maxLength={280} onChange={(event) => onMessageChange(event.target.value)} rows={4} value={message} /></label>
@@ -18,22 +18,22 @@ function Composer({ disabled, message, onMessageChange, title, onTitleChange, ti
       {title ? <strong>{title}</strong> : null}
       <p>{message || "Your announcement preview will appear here."}</p>
     </div>
-    <button className="primary-button" disabled={disabled || !message.trim()} title={disabled ? "Push notifications are not connected" : undefined} type="button">
-      <Bell size={17} /> Send push announcement
+    <button className="primary-button" disabled={disabled || !message.trim() || sending} onClick={onSend} title={disabled ? "Push notifications are not release-enabled" : undefined} type="button">
+      <Bell size={17} /> {sending?"Queueing…":"Send general announcement"}
     </button>
     {disabled ? <p className="announcement-provider-note"><AlertTriangle size={16} /> Push notifications are not connected yet. This draft has not been sent.</p> : null}
   </div>;
 }
 
-function LunchSpecialPreview({ disabled, message }) {
+function LunchSpecialPreview({ disabled, message, onSend, sending }) {
   return <div className="announcement-composer announcement-generated-composer">
     <div className="announcement-preview" aria-label="Generated Lunch Special customer notification preview">
       <span>Customer preview · System generated</span>
       <p>{message}</p>
     </div>
     <p className="announcement-provider-note">This message uses the current Lunch Special name and catalog price and cannot be edited.</p>
-    <button className="primary-button" disabled={disabled || !message} title={disabled ? "Push notifications are not connected" : undefined} type="button">
-      <Bell size={17} /> Send push announcement
+    <button className="primary-button" disabled={disabled || !message || sending} onClick={onSend} title={disabled ? "Push notifications are not release-enabled" : undefined} type="button">
+      <Bell size={17} /> {sending?"Queueing…":"Send Lunch Special notification"}
     </button>
     {disabled ? <p className="announcement-provider-note"><AlertTriangle size={16} /> Push notifications are not connected yet. This preview has not been sent.</p> : null}
   </div>;
@@ -46,6 +46,8 @@ export default function CommunicationsPage() {
   const [state, setState] = useState({ status: "loading", data: null, message: "" });
   const [generalTitle, setGeneralTitle] = useState("");
   const [generalMessage, setGeneralMessage] = useState("");
+  const [sending,setSending]=useState("");
+  const [actionMessage,setActionMessage]=useState("");
   const load = useCallback(() => {
     const controller = new AbortController();
     setState((current) => ({ ...current, status: "loading", message: "" }));
@@ -57,6 +59,11 @@ export default function CommunicationsPage() {
     return controller;
   }, []);
   useEffect(() => { const controller = load(); return () => controller.abort(); }, [load]);
+  useEffect(() => {
+    if (!state.data?.activity?.some((item) => item.status === "queued" || item.status === "attempting")) return undefined;
+    const timer = window.setTimeout(load, 15_000);
+    return () => window.clearTimeout(timer);
+  }, [load, state.data]);
 
   if (state.status === "loading" && !state.data) return <section className="page-section communication-page" aria-live="polite"><div className="page-heading"><h1>Customer announcements</h1><p>Loading today’s announcement workspace…</p></div><div className="communications-skeleton" /></section>;
   if (state.status === "error") return <section className="page-section communication-page"><div className="page-heading"><h1>Customer announcements</h1><p>{owner ? "Lunch Special and café updates for customers." : "Lunch Special notifications for customers."}</p></div><div className="communications-error" role="alert"><AlertTriangle /><div><strong>Announcement status is unavailable.</strong><p>{state.message}</p></div><button className="secondary-button" type="button" onClick={load}><RefreshCw size={16} /> Try again</button></div></section>;
@@ -64,6 +71,8 @@ export default function CommunicationsPage() {
   const { activity, health, lunch_special: special, summary } = state.data;
   const pushUnavailable = !summary.push_release_enabled;
   const lunchMessage = lunchSpecialAnnouncement(special);
+  async function sendLunch(){if(sending)return;setSending("lunch");setActionMessage("");try{await sendLunchSpecial(session.csrf_token);setActionMessage("Lunch Special notification queued for eligible customers.");load()}catch(error){if(owner&&error.code==="duplicate_lunch_special"&&window.confirm("Today’s Lunch Special was already queued. Send it again to eligible customers?")){try{await sendLunchSpecial(session.csrf_token,{override:true,confirmOverride:true});setActionMessage("Owner-confirmed Lunch Special resend queued.");load()}catch(overrideError){setActionMessage(overrideError.message)}}else setActionMessage(error.message)}finally{setSending("")}}
+  async function sendGeneral(){if(sending)return;setSending("general");setActionMessage("");try{await sendGeneralAnnouncement(session.csrf_token,{title:generalTitle.trim()||"Ladel’s Café update",body:generalMessage.trim(),targetRoute:"/"});setGeneralTitle("");setGeneralMessage("");setActionMessage("General announcement queued for eligible customers.");load()}catch(error){setActionMessage(error.message)}finally{setSending("")}}
   return <section className="page-section communication-page">
     <div className="page-heading communication-heading"><div><p className="eyebrow">Customer announcements</p><h1>Communications</h1><p>{owner ? "Prepare Lunch Special and occasional café announcements for customer push notifications." : "Prepare Lunch Special notifications for customers."}</p></div><button className="secondary-button" disabled={state.status === "loading"} type="button" onClick={load}><RefreshCw size={16} /> Refresh</button></div>
 
@@ -77,7 +86,7 @@ export default function CommunicationsPage() {
               <strong>{money(special.price_cents)}</strong>
             </article>
             {special.warnings.length ? <div className="announcement-warning" role="alert"><AlertTriangle /><div><strong>Check the product before announcing it.</strong>{special.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div></div> : null}
-            <LunchSpecialPreview disabled={pushUnavailable || !special.orderable} message={lunchMessage} />
+            <LunchSpecialPreview disabled={pushUnavailable || !special.orderable} message={lunchMessage} onSend={sendLunch} sending={sending==="lunch"} />
           </> : <div className="communication-empty"><Megaphone /><h3>No Lunch Special selected</h3><p>Select a normal catalog product as the Lunch Special in Products before preparing an announcement.</p>{canOpenProducts ? <Link className="secondary-button" to="/admin/products">Open Products</Link> : <p>Ask an Owner to select today’s product in Products.</p>}</div>}
         </div>
       </section>
@@ -88,8 +97,9 @@ export default function CommunicationsPage() {
       </section>
     </div>
 
-    {owner ? <section className="communications-panel" aria-labelledby="general-announcement-heading"><div className="panel-heading"><div><h2 id="general-announcement-heading">General announcement</h2><p>Owner-only messages for closures, holidays, events, or café news.</p></div><Megaphone /></div><div className="announcement-panel-body"><Composer disabled={pushUnavailable} message={generalMessage} onMessageChange={setGeneralMessage} onTitleChange={setGeneralTitle} title={generalTitle} titleOptional /></div></section> : null}
+    {actionMessage?<p className="form-status" aria-live="polite">{actionMessage}</p>:null}
+    {owner ? <section className="communications-panel" aria-labelledby="general-announcement-heading"><div className="panel-heading"><div><h2 id="general-announcement-heading">General announcement</h2><p>Owner-only messages for closures, holidays, events, or café news.</p></div><Megaphone /></div><div className="announcement-panel-body"><Composer disabled={pushUnavailable} message={generalMessage} onMessageChange={setGeneralMessage} onSend={sendGeneral} sending={sending==="general"} onTitleChange={setGeneralTitle} title={generalTitle} titleOptional /></div></section> : null}
 
-    <section className="communications-panel" aria-labelledby="activity-heading"><div className="panel-heading"><div><h2 id="activity-heading">Recent announcement activity</h2><p>{owner ? "Actual Lunch Special and general announcements will appear here after delivery is connected." : "Actual Lunch Special announcements will appear here after delivery is connected."}</p></div></div>{activity.length ? <div className="announcement-activity-list">{activity.map((item) => <article key={item.id}><div><span>{item.kind}</span><strong>{item.title}</strong><p>{item.message}</p></div><div><strong>{item.status}</strong><small>{new Date(item.occurred_at).toLocaleString()} · {item.sent_by}</small></div></article>)}</div> : <div className="communication-empty compact"><CheckCircle2 /><div><h3>No announcement activity</h3><p>No customer announcements have been sent. Draft text on this page is not recorded as delivery.</p></div></div>}</section>
+    <section className="communications-panel" aria-labelledby="activity-heading"><div className="panel-heading"><div><h2 id="activity-heading">Recent announcement activity</h2><p>Push-service acceptance is not a delivery or read receipt.</p></div></div>{activity.length ? <div className="announcement-activity-list">{activity.map((item) => <article key={item.id}><div><span>{item.kind}</span><strong>{item.title}</strong><p>{item.message}</p></div><div><strong>{item.status}</strong><small>{new Date(item.occurred_at).toLocaleString()} · {item.sent_by}</small><small>Attempted {item.attempted} · Accepted {item.accepted} · Failed {item.failed} · Expired {item.expired}</small></div></article>)}</div> : <div className="communication-empty compact"><CheckCircle2 /><div><h3>No announcement activity</h3><p>No customer announcements have been queued.</p></div></div>}</section>
   </section>;
 }
