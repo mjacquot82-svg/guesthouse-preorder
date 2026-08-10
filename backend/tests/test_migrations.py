@@ -13,6 +13,7 @@ from app.catalog import models as catalog_models  # noqa: F401
 from app.clover import models as clover_models  # noqa: F401
 from app.orders import models as order_models  # noqa: F401
 from app.jds_auth import models as auth_models  # noqa: F401
+from app.loyalty import models as loyalty_models  # noqa: F401
 from app.db.base import Base
 from app.db.migrate import (
     MigrationBootstrapError,
@@ -43,7 +44,7 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
     config = make_alembic_config(postgresql_url)
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["20260809_15"]
+    assert script.get_heads() == ["20260810_16"]
 
     command.downgrade(config, "base")
     command.upgrade(config, "head")
@@ -52,7 +53,7 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
     try:
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260809_15"
+            assert context.get_current_revision() == "20260810_16"
 
         assert set(inspect(engine).get_table_names()) >= {
             "alembic_version",
@@ -89,6 +90,9 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
             "web_push_subscriptions",
             "push_announcements",
             "push_delivery_attempts",
+            "loyalty_programs",
+            "loyalty_program_products",
+            "customer_loyalty_events",
         }
         currency_column = next(
             column
@@ -144,6 +148,9 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
                 "web_push_subscriptions",
                 "push_announcements",
                 "push_delivery_attempts",
+                "loyalty_programs",
+                "loyalty_program_products",
+                "customer_loyalty_events",
             }
         )
     finally:
@@ -198,7 +205,7 @@ def test_migration_bootstrap_adopts_existing_catalog_without_data_loss(
 
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260809_15"
+            assert context.get_current_revision() == "20260810_16"
             assert connection.scalar(
                 text(
                     "SELECT name FROM categories "
@@ -255,7 +262,7 @@ def test_migration_bootstrap_reconciles_catalog_and_orders_without_data_loss(
         inspector = inspect(engine)
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260809_15"
+            assert context.get_current_revision() == "20260810_16"
             assert connection.scalar(
                 text(
                     "SELECT guest_name FROM orders "
@@ -335,7 +342,7 @@ def test_migration_bootstrap_resumes_interrupted_order_reconciliation(
 
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260809_15"
+            assert context.get_current_revision() == "20260810_16"
             assert connection.scalar(
                 text(
                     "SELECT guest_name FROM orders "

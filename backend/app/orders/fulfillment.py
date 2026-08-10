@@ -8,6 +8,7 @@ from app.availability.repository import AvailabilityRepository
 from app.orders.constants import FulfillmentStatus, OrderStatus
 from app.orders.models import Order
 from app.orders.repository import OrderRepository
+from app.loyalty.service import LoyaltyService
 
 
 class FulfillmentErrorCode(str, Enum):
@@ -95,6 +96,8 @@ class OwnerOrderService:
                 FulfillmentErrorCode.STALE,
                 "This order changed on another device. Refresh and try again.",
             )
+        if target == FulfillmentStatus.COMPLETED:
+            LoyaltyService(self._session).award_completed_order(order_id)
         self._session.commit()
         return self.order(order_id)
 

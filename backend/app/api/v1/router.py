@@ -14,6 +14,7 @@ from app.api.v1.runtime_diagnostics import router as runtime_diagnostics_router
 from app.api.v1.owner_communications import router as owner_communications_router
 from app.api.v1.customer_push import router as customer_push_router
 from app.api.v1.staff_access import router as staff_access_router
+from app.api.v1.loyalty import router as loyalty_router
 
 router = APIRouter(prefix="/api/v1")
 router.include_router(catalog_router)
@@ -30,3 +31,4 @@ router.include_router(runtime_diagnostics_router)
 router.include_router(owner_communications_router)
 router.include_router(customer_push_router)
 router.include_router(staff_access_router)
+router.include_router(loyalty_router)

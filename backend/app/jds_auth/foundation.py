@@ -14,6 +14,8 @@ PERMISSIONS = {
     "communications.announce": "Prepare customer Lunch Special announcements.",
     "communications.general_announce": "Send owner-approved general customer announcements.",
     "lunch_special.manage": "Select or clear the current Lunch Special product.",
+    "loyalty.manage": "Manage customer loyalty program configuration.",
+    "loyalty.adjust": "Apply audited customer loyalty adjustments.",
     "members.invite": "Invite organization members.",
     "members.manage": "Manage organization memberships.",
     "integrations.manage": "Connect and inspect organization integrations.",
@@ -23,7 +25,7 @@ PERMISSIONS = {
 
 ROLE_PERMISSIONS = {
     "owner": frozenset(PERMISSIONS) - {"customer.profile", "customer.orders"},
-    "manager": frozenset(PERMISSIONS) - {"members.manage", "customer.profile", "customer.orders", "communications.general_announce"},
+    "manager": frozenset(PERMISSIONS) - {"members.manage", "customer.profile", "customer.orders", "communications.general_announce", "loyalty.manage", "loyalty.adjust"},
     "staff": frozenset({
         "catalog.read", "availability.manage", "orders.read", "orders.fulfill",
         "communications.announce", "lunch_special.manage",

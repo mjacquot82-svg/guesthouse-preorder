@@ -19,6 +19,7 @@ import OwnerAuthBoundary from "./auth/OwnerAuthBoundary.jsx";
 import CommunicationsPage from "./admin/CommunicationsPage.jsx";
 import StaffPage from "./admin/StaffPage.jsx";
 import StaffLoginPage from "./admin/StaffLoginPage.jsx";
+import LoyaltyPage from "./admin/LoyaltyPage.jsx";
 
 export default function App() {
   return (
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="products" element={<ProductsPage />} />
             <Route path="scheduling" element={<SchedulingPage />} />
             <Route path="communications" element={<CommunicationsPage />} />
+            <Route path="loyalty" element={<LoyaltyPage />} />
             <Route path="staff" element={<StaffPage />} />
             <Route path="*" element={<Navigate replace to="/admin" />} />
           </Route>

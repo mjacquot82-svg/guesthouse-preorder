@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, ShoppingBag } from "lucide-react";
 import {
   createHomeCatalogView,
@@ -13,6 +13,9 @@ import {
   getSelectedOptions,
 } from "../services/menuCatalog.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
+import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
+import { fetchCustomerLoyalty } from "../services/loyaltyApi.js";
+import LoyaltyCard from "../components/LoyaltyCard.jsx";
 
 function formatPrice(price) {
   return new Intl.NumberFormat("en-CA", {
@@ -36,6 +39,9 @@ function storeCart(cart) {
 }
 
 export default function HomePage() {
+  const { session } = useCustomerAuth();
+  const [loyalty,setLoyalty]=useState({program:null,loading:false,error:""});
+  useEffect(()=>{let active=true;if(!session){setLoyalty({program:null,loading:false,error:""});return()=>{active=false}}setLoyalty({program:null,loading:true,error:""});fetchCustomerLoyalty().then(value=>{if(active)setLoyalty({program:value.programs?.[0]||null,loading:false,error:""})}).catch(()=>{if(active)setLoyalty({program:null,loading:false,error:"unavailable"})});return()=>{active=false}},[session]);
   const { status, catalog, reload } = useCustomerCatalog();
   const {
     categories,
@@ -244,18 +250,7 @@ export default function HomePage() {
       </section>
       ) : null}
 
-      <section className="content-block app-content-block loyalty-card" aria-labelledby="loyalty-heading">
-        <div>
-          <p className="eyebrow">Stamp card</p>
-          <h2 id="loyalty-heading">Two visits from a house pour</h2>
-          <p>Keep ordering your usual and collect stamps toward a complimentary drink.</p>
-        </div>
-        <div className="stamp-row" aria-label="6 of 8 stamps collected">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <span className={index < 6 ? "filled" : ""} key={index} />
-          ))}
-        </div>
-      </section>
+      <LoyaltyCard error={loyalty.error} loading={loyalty.loading} program={loyalty.program} signedIn={Boolean(session)} />
     </section>
   );
 }
