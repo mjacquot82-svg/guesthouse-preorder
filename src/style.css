@@ -490,6 +490,29 @@ h3 {
   color: var(--accent);
 }
 
+.app-menu-page .drink-card .product-customize-toggle,
+.app-menu-page .drink-card .product-customize-toggle[aria-expanded="true"],
+.app-menu-page .drink-card .product-customize-toggle:hover,
+.app-menu-page .drink-card .product-customize-toggle:active,
+.app-menu-page .drink-card .product-customize-toggle:focus,
+.app-menu-page .drink-card .product-customize-toggle:focus-visible {
+  color: #fffdf8;
+  -webkit-text-fill-color: #fffdf8;
+}
+
+.app-menu-page .drink-card .product-customize-toggle:focus-visible {
+  outline: 3px solid rgba(124, 139, 115, 0.72);
+  outline-offset: 2px;
+}
+
+.app-menu-page .drink-card .product-customize-toggle[aria-expanded="true"] {
+  background: #4c5a40;
+}
+
+.app-menu-page .drink-card .product-customize-toggle[aria-expanded="true"]:is(:hover, :active, :focus, :focus-visible) {
+  background: #3f4d35;
+}
+
 .menu-page {
   display: grid;
   gap: 16px;
@@ -7543,6 +7566,7 @@ body {
 /* Customer interaction-state foreground safety */
 .ordering-page .primary-button:not(:disabled),
 .ordering-page .drink-card button:not(:disabled),
+.app-menu-page .product-customize-toggle:not(:disabled),
 .home-page .quick-product-card button:not(:disabled),
 .modifier-options label.selected {
   color: #fffdf8;
@@ -7551,6 +7575,8 @@ body {
 
 .ordering-page .primary-button:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"], .active, .selected),
 .ordering-page .drink-card button:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"], .active, .selected, .is-added),
+.app-menu-page .product-customize-toggle[aria-expanded="true"]:not(:disabled),
+.app-menu-page .product-customize-toggle:not(:disabled):is(:active, :focus, :focus-visible),
 .home-page .quick-product-card button:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"]),
 .modifier-options label.selected:is(:active, :focus-within) {
   color: #fffdf8;
@@ -7558,7 +7584,6 @@ body {
 }
 
 .ordering-page .secondary-button:not(:disabled),
-.ordering-page .product-customize-toggle:not(:disabled),
 .ordering-page .quantity-stepper button:not(:disabled),
 .ordering-page .remove-cart-item:not(:disabled),
 .ordering-page .menu-category-rail button:not(.active):not(:disabled),
@@ -7569,7 +7594,6 @@ body {
 }
 
 .ordering-page .secondary-button:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"], .active, .selected),
-.ordering-page .product-customize-toggle:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"]),
 .ordering-page .quantity-stepper button:not(:disabled):is(:active, :focus, :focus-visible),
 .ordering-page .remove-cart-item:not(:disabled):is(:active, :focus, :focus-visible),
 .ordering-page .menu-category-rail button:not(.active):not(:disabled):is(:active, :focus, :focus-visible),

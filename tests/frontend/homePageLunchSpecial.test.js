@@ -76,6 +76,20 @@ test("customer button interaction states preserve foreground contrast", async ()
   assert.match(styles, /\.home-page a\.quick-product-card:is\(:active, :focus, :focus-visible\)/);
 });
 
+test("expanded Browse option toggle stays light-on-dark without changing light controls", async () => {
+  const styles = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
+
+  assert.match(styles, /\.app-menu-page \.product-customize-toggle\[aria-expanded="true"\]:not\(:disabled\)/);
+  assert.match(styles, /\.app-menu-page \.drink-card \.product-customize-toggle,[\s\S]*?\.app-menu-page \.drink-card \.product-customize-toggle:hover,[\s\S]*?\.app-menu-page \.drink-card \.product-customize-toggle:active,[\s\S]*?color:\s*#fffdf8;[\s\S]*?-webkit-text-fill-color:\s*#fffdf8/);
+  assert.match(styles, /\.app-menu-page \.drink-card \.product-customize-toggle\[aria-expanded="true"\] \{[\s\S]*?background:\s*#4c5a40/);
+  assert.match(styles, /\.app-menu-page \.drink-card \.product-customize-toggle\[aria-expanded="true"\]:is\(:hover, :active, :focus, :focus-visible\) \{[\s\S]*?background:\s*#3f4d35/);
+  assert.match(styles, /\.app-menu-page \.product-customize-toggle:not\(:disabled\):is\(:active, :focus, :focus-visible\)/);
+  assert.match(styles, /\.app-menu-page \.drink-card \.product-customize-toggle:focus-visible \{[\s\S]*?outline:\s*3px solid[\s\S]*?outline-offset:\s*2px/);
+  assert.doesNotMatch(styles, /\.ordering-page \.secondary-button:not\(:disabled\),\s*\.ordering-page \.product-customize-toggle/);
+  assert.match(styles, /\.ordering-page \.secondary-button:not\(:disabled\)[\s\S]*?color:\s*var\(--gh-charcoal\)/);
+  assert.match(styles, /\.ordering-page \.quantity-stepper button:not\(:disabled\)[\s\S]*?color:\s*var\(--gh-charcoal\)/);
+});
+
 test("image-less lunch specials never inherit generic product photography", async () => {
   const styles = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
 

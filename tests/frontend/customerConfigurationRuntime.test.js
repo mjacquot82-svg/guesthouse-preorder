@@ -142,8 +142,24 @@ test("customer configures real choice shapes, gets readable success feedback, an
     assert.match(drip.textContent, /1 in cart/);
 
     const latte = card("Latte");
-    assert.equal(latte.querySelector(".product-customize-toggle").textContent, "Customize");
-    await click(latte.querySelector(".product-customize-toggle"), dom.window);
+    const latteToggle = latte.querySelector(".product-customize-toggle");
+    assert.equal(latteToggle.textContent, "Customize");
+    assert.equal(latteToggle.getAttribute("aria-expanded"), "false");
+    assert.equal(dom.window.getComputedStyle(latteToggle).color, "rgb(255, 253, 248)");
+    await click(latteToggle, dom.window);
+    assert.equal(latteToggle.textContent, "Collapse options");
+    assert.equal(latteToggle.getAttribute("aria-expanded"), "true");
+    const expandedToggleStyle = dom.window.getComputedStyle(latteToggle);
+    assert.equal(expandedToggleStyle.color, "rgb(255, 253, 248)");
+    assert.equal(expandedToggleStyle.webkitTextFillColor, "rgb(255, 253, 248)");
+    latteToggle.focus();
+    assert.equal(dom.window.document.activeElement, latteToggle);
+    assert.equal(dom.window.getComputedStyle(latteToggle).color, "rgb(255, 253, 248)");
+    await click(latteToggle, dom.window);
+    assert.equal(latteToggle.textContent, "Customize");
+    assert.equal(latteToggle.getAttribute("aria-expanded"), "false");
+    await click(latteToggle, dom.window);
+    assert.equal(latteToggle.textContent, "Collapse options");
     await click([...latte.querySelectorAll("label")].find((label) => label.textContent.includes("20oz")), dom.window);
     await click([...latte.querySelectorAll("label")].find((label) => label.textContent.includes("Oat")), dom.window);
     assert.match(latte.textContent, /\$6\.50/);
@@ -192,6 +208,7 @@ test("customer configures real choice shapes, gets readable success feedback, an
     await click(noMilk, dom.window);
     const vanillaPlus = decaf.querySelector('button[aria-label="Add one Vanilla"]');
     const caramelPlus = decaf.querySelector('button[aria-label="Add one Caramel"]');
+    assert.equal(dom.window.getComputedStyle(vanillaPlus).color, "rgb(255, 253, 248)");
     const flavourGroup = [...decaf.querySelectorAll("fieldset")].find((group) => group.textContent.includes("Flavour shots"));
     assert.ok(document.querySelectorAll(".app-product-card").length > 1);
     assert.equal(flavourGroup.querySelector("legend").textContent, "Flavour shots (required)");
@@ -223,7 +240,10 @@ test("customer configures real choice shapes, gets readable success feedback, an
       ["16oz", 1], ["Sugar", 2], ["Vanilla", 2], ["Caramel", 1],
     ]);
     assert.equal(decafCart.options.some((item) => item.name.startsWith("No ")), false);
-    await click([...document.querySelectorAll("a")].find((link) => link.textContent === "View cart"), dom.window);
+    const viewCart = [...document.querySelectorAll("a")].find((link) => link.textContent === "View cart");
+    const viewCartStyle = dom.window.getComputedStyle(viewCart);
+    assert.equal(viewCartStyle.color, "rgb(255, 253, 248)");
+    await click(viewCart, dom.window);
     await waitForText(document.body, "Your order");
     assert.match(document.body.textContent, /Size: 16oz/);
     assert.match(document.body.textContent, /Size: 20oz · Milk: Oat/);
