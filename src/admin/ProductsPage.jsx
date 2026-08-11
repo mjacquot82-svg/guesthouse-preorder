@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
-import { Check, Search, SlidersHorizontal } from "lucide-react";
+import { Check, Plus, Search, SlidersHorizontal, Trash2 } from "lucide-react";
 import { createProductId, useCatalogProducts } from "../stores/catalogStore.js";
 import { visibleProducts } from "../services/ownerProductFilters.js";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
 import { canEditProducts, canManageLunchSpecial, canManageProductAvailability } from "../auth/ownerProductPermissions.js";
 import ModifierManager from "./ModifierManager.jsx";
 
-const emptyProduct = { id: "", name: "", description: "", price: "", category: "", image: "", available: true, published: true, featured: false, lunchSpecial: false, modifierGroupIds: [] };
+const emptyProduct = { id: "", name: "", description: "", price: "", category: "", image: "", available: true, published: true, featured: false, lunchSpecial: false, variants: [], modifierGroupIds: [] };
 const money = (price) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(price);
-const toFormProduct = (product) => ({ ...emptyProduct, ...product, price: String(product.price ?? ""), modifierGroupIds: product.modifierGroupIds || [] });
+const toFormProduct = (product) => ({ ...emptyProduct, ...product, price: String(product.price ?? ""), variants: (product.variants || []).map((variant) => ({ ...variant, price: (variant.price_cents / 100).toFixed(2) })), modifierGroupIds: product.modifierGroupIds || [] });
+const variantKey = () => `variant-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 export default function ProductsPage() {
   const { session } = useOwnerAuth();
@@ -32,6 +33,9 @@ export default function ProductsPage() {
   const resetForm = () => { setSelectedProductId(""); setFormProduct({ ...emptyProduct, category: categories[0]?.id || "" }); };
   const startEdit = (product) => { setSelectedProductId(product.id); setFormProduct(toFormProduct(product)); setNotice(""); window.scrollTo?.({ top: 0, behavior: "smooth" }); };
   function toggleModifierGroup(groupId) { setFormProduct((current) => ({ ...current, modifierGroupIds: current.modifierGroupIds.includes(groupId) ? current.modifierGroupIds.filter((id) => id !== groupId) : [...current.modifierGroupIds, groupId] })); }
+  function addVariant() { setFormProduct((current) => ({ ...current, variants: [...current.variants, { key: variantKey(), name: "", price: current.price || "", active: true, sort_order: current.variants.length }] })); }
+  function updateVariant(index, field, value) { setFormProduct((current) => ({ ...current, variants: current.variants.map((variant, variantIndex) => variantIndex === index ? { ...variant, [field]: value } : variant) })); }
+  function removeNewVariant(index) { setFormProduct((current) => ({ ...current, variants: current.variants.filter((_, variantIndex) => variantIndex !== index).map((variant, sortOrder) => ({ ...variant, sort_order: sortOrder })) })); }
 
   async function toggleAvailability(product) {
     if (availabilityBusy) return;
@@ -58,8 +62,10 @@ export default function ProductsPage() {
     event.preventDefault();
     if (saving) return;
     const productId = selectedProductId || createProductId(formProduct.name);
-    const payload = { ...formProduct, id: productId, name: formProduct.name.trim(), description: formProduct.description.trim(), price: Number(formProduct.price), category: formProduct.category || categories[0]?.id };
+    const variants = formProduct.variants.map((variant, index) => ({ ...variant, name: variant.name.trim(), price_cents: Math.round(Number(variant.price) * 100), sort_order: index }));
+    const payload = { ...formProduct, id: productId, name: formProduct.name.trim(), description: formProduct.description.trim(), price: Number(formProduct.price), category: formProduct.category || categories[0]?.id, variants };
     if (!payload.name || !Number.isFinite(payload.price) || payload.price < 0 || !payload.category) { setNotice("Add a name, category, and valid price."); return; }
+    if (variants.some((variant) => !variant.name || !Number.isFinite(variant.price_cents) || variant.price_cents < 0)) { setNotice("Every variant needs a name and valid price."); return; }
     setSaving(true); setNotice("");
     try {
       if (selectedProduct) await updateProduct(selectedProduct.id, payload);
@@ -95,18 +101,30 @@ export default function ProductsPage() {
         })}</div> : <div className="product-empty"><Search size={28} /><h3>No matching products</h3><p>Try another search or clear the filters.</p><button className="secondary-button" type="button" onClick={() => { setQuery(""); setCategory("all"); setStatusFilter("all"); }}>Clear filters</button></div>}
       </section>
 
-      {canEdit ? <section className="product-editor-panel" aria-labelledby="product-editor-heading"><div className="section-heading"><div><p className="eyebrow">Quick edit</p><h2 id="product-editor-heading">{selectedProduct ? `Edit ${selectedProduct.name}` : "Add a product"}</h2></div></div><form className="product-form" aria-busy={saving} onSubmit={handleSubmit}>
-        <label><span>Name</span><input required value={formProduct.name} onChange={(event) => updateField("name", event.target.value)} /></label>
-        <label><span>Description</span><textarea rows="3" value={formProduct.description} onChange={(event) => updateField("description", event.target.value)} /></label>
-        <div className="form-grid"><label><span>Price</span><input min="0" required step="0.01" type="number" value={formProduct.price} onChange={(event) => updateField("price", event.target.value)} /></label><label><span>Category</span><select required value={formProduct.category || categories[0]?.id || ""} onChange={(event) => updateField("category", event.target.value)}>{categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
-        <label><span>Image</span><input placeholder="Image URL or token" value={formProduct.image} onChange={(event) => updateField("image", event.target.value)} /></label>
+      {canEdit ? <section className="product-editor-panel" aria-labelledby="product-editor-heading"><div className="section-heading"><div><p className="eyebrow">Product configuration</p><h2 id="product-editor-heading">{selectedProduct ? `Edit ${selectedProduct.name}` : "Create product"}</h2></div></div><form className="product-form" aria-busy={saving} onSubmit={handleSubmit}>
+        <section className="product-editor-section" aria-labelledby="basic-information-heading"><div className="product-editor-section-heading"><h3 id="basic-information-heading">Basic information</h3><p>Describe the product and where customers can find it.</p></div>
+          <label><span>Name</span><input required value={formProduct.name} onChange={(event) => updateField("name", event.target.value)} /></label>
+          <label><span>Description</span><textarea rows="3" value={formProduct.description} onChange={(event) => updateField("description", event.target.value)} /></label>
+          <div className="form-grid"><label><span>Base price</span><input min="0" required step="0.01" type="number" value={formProduct.price} onChange={(event) => updateField("price", event.target.value)} /><small>Used when this product has no available variants.</small></label><label><span>Category</span><select required value={formProduct.category || categories[0]?.id || ""} onChange={(event) => updateField("category", event.target.value)}>{categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div>
+          <label><span>Image</span><input placeholder="Image URL or token" value={formProduct.image} onChange={(event) => updateField("image", event.target.value)} /></label>
+        </section>
+        <section className="product-editor-section product-variants" aria-labelledby="product-variants-heading"><div className="product-editor-section-heading"><h3 id="product-variants-heading">Variants</h3><p>Which version of this product is being purchased?</p></div>
+          {formProduct.variants.length ? <div className="product-variant-list">{formProduct.variants.map((variant, index) => <div className={variant.active === false ? "product-variant-row is-unavailable" : "product-variant-row"} key={variant.id || variant.key}>
+            <label><span>Variant</span><input aria-label={`Variant ${index + 1} name`} placeholder="For example, 16oz Iced" required value={variant.name} onChange={(event) => updateVariant(index, "name", event.target.value)} /></label>
+            <label><span>Price</span><input aria-label={`${variant.name || `Variant ${index + 1}`} price`} min="0" required step="0.01" type="number" value={variant.price} onChange={(event) => updateVariant(index, "price", event.target.value)} /></label>
+            {variant.id ? <label className="variant-available-toggle"><input checked={variant.active !== false} type="checkbox" onChange={(event) => updateVariant(index, "active", event.target.checked)} /><span>Available</span></label> : <button aria-label={`Remove variant ${index + 1}`} className="variant-remove-button" type="button" onClick={() => removeNewVariant(index)}><Trash2 aria-hidden="true" size={17} /> Remove</button>}
+          </div>)}</div> : <div className="variant-empty-state"><strong>No variants added.</strong><p>Customers will order this product at its base price.</p></div>}
+          <button className="secondary-button add-variant-button" type="button" onClick={addVariant}><Plus aria-hidden="true" size={17} /> Add variant</button>
+        </section>
+        <section className="product-editor-section product-modifiers" aria-labelledby="product-modifiers-heading"><div className="product-editor-section-heading"><h3 id="product-modifiers-heading">Modifiers</h3><p>What can the customer add or change? Choose which modifier categories are available on this product.</p></div>{modifierGroups.some((group) => group.active) ? <div className="product-modifier-options">{modifierGroups.filter((group) => group.active || formProduct.modifierGroupIds.includes(group.id)).map((group) => { const assigned = formProduct.modifierGroupIds.includes(group.id); const preview = group.options.filter((item) => item.active).map((item) => `${item.name}${item.priceAdjustmentCents ? ` +$${(item.priceAdjustmentCents / 100).toFixed(2)}` : ""}`).join(" · "); return <label className={assigned ? "is-selected" : ""} key={group.id}><input checked={assigned} disabled={!group.active && !assigned} type="checkbox" onChange={() => toggleModifierGroup(group.id)} /><span><strong>{group.name}</strong><small>{preview || "No available modifiers yet"}{group.active ? "" : " · Category unavailable"}</small><b>{assigned ? "Available on this product" : "Not available on this product"}</b></span></label>; })}</div> : <div className="modifier-assignment-empty"><strong>No modifiers have been created yet.</strong></div>}<button className="secondary-button" type="button" onClick={() => setManagingModifiers(true)}>Manage modifiers</button></section>
+        <section className="product-editor-section product-settings" aria-labelledby="product-settings-heading"><div className="product-editor-section-heading"><h3 id="product-settings-heading">Availability and placement</h3><p>Control where this product appears and whether it can be ordered.</p></div>
         <div className="product-state-controls" aria-label="Product visibility and placement">
           <label className={formProduct.available ? "product-state-toggle is-on" : "product-state-toggle"}><input checked={formProduct.available} type="checkbox" onChange={(event) => updateField("available", event.target.checked)} /><span aria-hidden="true" className="product-toggle-track" /><span><strong>Available for online ordering</strong><small>When visible, include it on the customer menu and allow ordering.</small></span></label>
           <label className={formProduct.published !== false ? "product-state-toggle is-on" : "product-state-toggle"}><input checked={formProduct.published !== false} type="checkbox" onChange={(event) => updateField("published", event.target.checked)} /><span aria-hidden="true" className="product-toggle-track" /><span><strong>Visible on customer menu</strong><small>Turn off to hide this product without archiving it.</small></span></label>
           <label className={formProduct.featured ? "product-state-toggle is-on" : "product-state-toggle"}><input checked={formProduct.featured} type="checkbox" onChange={(event) => updateField("featured", event.target.checked)} /><span aria-hidden="true" className="product-toggle-track" /><span><strong>Featured</strong><small>Highlight this product in customer recommendations.</small></span></label>
           <label className={formProduct.lunchSpecial ? "product-state-toggle is-on" : "product-state-toggle"}><input checked={formProduct.lunchSpecial} type="checkbox" onChange={(event) => updateField("lunchSpecial", event.target.checked)} /><span aria-hidden="true" className="product-toggle-track" /><span><strong>Lunch special</strong><small>Select as the current lunch special; choosing another product replaces it.</small></span></label>
         </div>
-        <section className="product-modifiers" aria-labelledby="product-modifiers-heading"><div><h3 id="product-modifiers-heading">Customization</h3><p>Choose which modifier categories are available on this product.</p></div>{modifierGroups.some((group) => group.active) ? <div className="product-modifier-options">{modifierGroups.filter((group) => group.active || formProduct.modifierGroupIds.includes(group.id)).map((group) => { const assigned = formProduct.modifierGroupIds.includes(group.id); const preview = group.options.filter((item) => item.active).map((item) => `${item.name}${item.priceAdjustmentCents ? ` +$${(item.priceAdjustmentCents / 100).toFixed(2)}` : ""}`).join(" · "); return <label className={assigned ? "is-selected" : ""} key={group.id}><input checked={assigned} disabled={!group.active && !assigned} type="checkbox" onChange={() => toggleModifierGroup(group.id)} /><span><strong>{group.name}</strong><small>{preview || "No available modifiers yet"}{group.active ? "" : " · Category unavailable"}</small><b>{assigned ? "Available on this product" : "Not available on this product"}</b></span></label>; })}</div> : <div className="modifier-assignment-empty"><strong>No modifiers have been created yet.</strong></div>}<button className="secondary-button" type="button" onClick={() => setManagingModifiers(true)}>Manage modifiers</button></section>
+        </section>
         <div className="form-actions"><button className="primary-button" disabled={saving} type="submit">{saving ? "Saving…" : selectedProduct ? "Save changes" : "Add product"}</button>{selectedProduct ? <button className="secondary-button" type="button" onClick={resetForm}>Cancel</button> : null}</div>
       </form></section> : null}
     </div>
