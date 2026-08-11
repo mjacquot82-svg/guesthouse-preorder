@@ -147,12 +147,12 @@ test("Menu resolves URL-backed categories with safe defaults and product precede
   );
 });
 
-test("Menu requires an intentional variant choice while defaulting optional single modifiers", () => {
+test("Menu begins every variant and modifier category unanswered", () => {
   const product = adaptedDrink();
 
   assert.deepEqual(getDefaultSelections(product), {
-    size: [],
-    milk: "whole",
+    size: "",
+    milk: "",
     "flavour-shots": [],
   });
   assert.deepEqual(
@@ -160,8 +160,20 @@ test("Menu requires an intentional variant choice while defaulting optional sing
     ["size", "milk", "flavour-shots"]
   );
   assert.equal(getMissingRequiredChoice(product, getDefaultSelections(product)).name, "Size");
-  assert.equal(getMissingRequiredChoice(product, { ...getDefaultSelections(product), size: "small" }), undefined);
+  assert.equal(getMissingRequiredChoice(product, { ...getDefaultSelections(product), size: "small" }).name, "Milk");
+  assert.equal(getMissingRequiredChoice(product, { ...getDefaultSelections(product), size: "small", milk: "__none__", "flavour-shots": "__none__" }), undefined);
   assert.equal(getDefaultSelections(product, { selectRequired: true }).size, "small");
+});
+
+test("modifier quantity affects price, completion, and cart identity", () => {
+  const product = adaptedDrink();
+  product.modifierGroups[2].allowQuantity = true;
+  product.modifierGroups[2].maxSelections = 3;
+  const one = { size: "small", milk: "__none__", "flavour-shots": { vanilla: 1 } };
+  const two = { size: "small", milk: "__none__", "flavour-shots": { vanilla: 2 } };
+  assert.equal(getConfiguredPrice(product, two) - getConfiguredPrice(product, one), .75);
+  assert.notEqual(getCartLineId(product, getSelectedOptions(product, one)), getCartLineId(product, getSelectedOptions(product, two)));
+  assert.equal(getSelectedOptions(product, two).find((option) => option.id === "vanilla").quantity, 2);
 });
 
 test("Menu derives direct, simple, and complex card presentations from choices", () => {

@@ -18,10 +18,16 @@ class OrderInputSchema(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class ModifierSelectionInput(OrderInputSchema):
+    modifier_option_id: int = Field(gt=0)
+    quantity: int = Field(ge=1, le=100)
+
+
 class ConfiguredOrderLineInput(OrderInputSchema):
     product_id: int = Field(gt=0)
     variant_id: int | None = Field(default=None, gt=0)
     modifier_option_ids: list[int] = Field(default_factory=list, max_length=100)
+    modifier_selections: list[ModifierSelectionInput] | None = Field(default=None, max_length=100)
     quantity: int = Field(ge=1, le=MAX_LINE_QUANTITY)
 
     @field_validator("modifier_option_ids")
@@ -32,6 +38,11 @@ class ConfiguredOrderLineInput(OrderInputSchema):
         if len(values) != len(set(values)):
             raise ValueError("modifier option IDs must be unique.")
         return values
+
+    def normalized_modifier_selections(self) -> list[ModifierSelectionInput]:
+        if self.modifier_selections is not None:
+            return self.modifier_selections
+        return [ModifierSelectionInput(modifier_option_id=value, quantity=1) for value in self.modifier_option_ids]
 
 
 class CreatePendingOrderInput(OrderInputSchema):

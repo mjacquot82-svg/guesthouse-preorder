@@ -69,7 +69,10 @@ test("buildPendingOrderRequest maps cart snapshots without client prices", () =>
       {
         product_id: 101,
         variant_id: 201,
-        modifier_option_ids: [301, 302],
+        modifier_selections: [
+          { modifier_option_id: 301, quantity: 1 },
+          { modifier_option_id: 302, quantity: 1 },
+        ],
         quantity: 2,
       },
     ],

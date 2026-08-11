@@ -146,6 +146,7 @@ async def test_catalog_returns_complete_seeded_guest_house_contract(
                 "required": False,
                 "min_selections": 0,
                 "max_selections": 1,
+                "allow_quantity": False,
                 "sort_order": 0,
                 "options": [
                     {
@@ -177,6 +178,7 @@ async def test_catalog_returns_complete_seeded_guest_house_contract(
                 "required": False,
                 "min_selections": 0,
                 "max_selections": 0,
+                "allow_quantity": False,
                 "sort_order": 1,
                 "options": [
                     {
@@ -236,6 +238,7 @@ async def test_catalog_returns_complete_seeded_guest_house_contract(
         "required",
         "min_selections",
         "max_selections",
+        "allow_quantity",
         "sort_order",
         "options",
     }

@@ -12,6 +12,7 @@ export function modifierDraftSignature(draft) {
     required: minSelections > 0,
     min_selections: minSelections,
     max_selections: maxSelections,
+    allow_quantity: Boolean(draft.allowQuantity),
     active: draft.active !== false,
     sort_order: Number(draft.sortOrder),
     choices: (draft.choices || []).map((choice, index) => ({

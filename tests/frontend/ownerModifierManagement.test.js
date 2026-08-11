@@ -47,7 +47,7 @@ test("simple category creation uses safe optional choose-one defaults", async ()
 
   const base = { name: "Milk", description: "", selectionType: "single", required: false, active: true, choices: [], sortOrder: 0 };
   assert.deepEqual(toOwnerCustomizationWrite(base, 4).group, {
-    name: "Milk", description: "", selection_type: "single", required: false,
+    name: "Milk", description: "", selection_type: "single", required: false, allow_quantity: false,
     min_selections: 0, max_selections: 1, active: true, sort_order: 0,
   });
 });

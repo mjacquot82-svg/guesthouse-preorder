@@ -47,13 +47,28 @@ function ProductModifiers({ product, selections, onChange }) {
         <fieldset key={group.id} className="modifier-group">
           <legend>{group.name}{group.required ? " (required)" : ""}</legend>
           <div className="modifier-options">
+            {group.id !== "size" && !group.required ? <label className={selections[group.id] === "__none__" ? "selected" : ""}>
+              <input checked={selections[group.id] === "__none__"} name={`${product.id}-${group.id}`} type="radio" onChange={() => onChange(group.id, "__none__")} />
+              <span>No {group.name.toLowerCase()}</span>
+            </label> : null}
             {group.options.map((option) => {
               const selectedValue = selections[group.id];
-              const isSelected = Array.isArray(selectedValue)
+              const optionQuantity = group.allowQuantity ? Number(selectedValue?.[option.id] || 0) : 0;
+              const isSelected = group.allowQuantity ? optionQuantity > 0 : Array.isArray(selectedValue)
                 ? selectedValue.includes(option.id)
                 : selectedValue === option.id;
 
-              return (
+              return group.allowQuantity ? (
+                <div key={option.id} className={`modifier-quantity-row${isSelected ? " selected" : ""}`}>
+                  <span>{option.name}</span>
+                  <div className="modifier-stepper" aria-label={`${option.name} quantity`}>
+                    <button type="button" aria-label={`Remove one ${option.name}`} disabled={!optionQuantity} onClick={() => onChange(group.id, { ...(selectedValue && selectedValue !== "__none__" ? selectedValue : {}), [option.id]: Math.max(0, optionQuantity - 1) })}>−</button>
+                    <output aria-live="polite">{optionQuantity}</output>
+                    <button type="button" aria-label={`Add one ${option.name}`} disabled={group.maxSelections > 0 && Object.values(selectedValue && selectedValue !== "__none__" ? selectedValue : {}).reduce((sum, value) => sum + value, 0) >= group.maxSelections} onClick={() => onChange(group.id, { ...(selectedValue && selectedValue !== "__none__" ? selectedValue : {}), [option.id]: optionQuantity + 1 })}>+</button>
+                  </div>
+                  {option.priceDelta ? <small>+{formatPrice(option.priceDelta)} each</small> : null}
+                </div>
+              ) : (
                 <label key={option.id} className={isSelected ? "selected" : ""}>
                   <input
                     checked={isSelected}
@@ -99,6 +114,7 @@ function ProductAddAction({ isAdded, missingChoice, quantity, onAdd }) {
       >
         <span>{missingChoice ? `Choose ${missingChoice.name}` : isAdded ? "Added — Add another" : quantity ? "Add another" : "Add to order"}</span>
       </button>
+      {missingChoice ? <small className="product-choice-guidance">Choose {missingChoice.name.toLowerCase()}{missingChoice.id === "size" ? "" : ` or select No ${missingChoice.name.toLowerCase()}`}</small> : null}
     </div>
   );
 }
@@ -224,6 +240,10 @@ export default function MenuPage() {
         groupName: option.groupName,
         name: option.name,
         priceDelta: option.priceDelta,
+        quantity: option.quantity || 1,
+        backendId: option.backendId,
+        variantId: option.variantId,
+        groupId: option.groupId,
       })),
     };
     const nextCart = cart.some((item) => item.id === cartLineId)

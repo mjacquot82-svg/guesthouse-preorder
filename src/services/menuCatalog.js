@@ -39,10 +39,11 @@ export function resolveMenuCategory(sections, categorySlug, targetProduct) {
 
 export function getDefaultSelections(product, { selectRequired = false } = {}) {
   return getModifierGroupsForProduct(product).reduce((selections, group) => {
-    const defaultOption = group.options[0]?.id;
     return {
       ...selections,
-      [group.id]: group.type === "multiple" || (group.required && !selectRequired) ? [] : defaultOption || "",
+      [group.id]: selectRequired && group.required && group.options[0]
+        ? (group.allowQuantity ? { [group.options[0].id]: 1 } : group.type === "multiple" ? [group.options[0].id] : group.options[0].id)
+        : group.allowQuantity ? {} : group.type === "multiple" ? [] : "",
     };
   }, {});
 }
@@ -50,20 +51,25 @@ export function getDefaultSelections(product, { selectRequired = false } = {}) {
 export function getMissingRequiredChoice(product, selections) {
   return getModifierGroupsForProduct(product).find((group) => {
     const selectedValue = selections[group.id];
-    const selectedCount = Array.isArray(selectedValue)
+    if (selectedValue === "__none__") return group.required;
+    const selectedCount = group.allowQuantity
+      ? Object.values(selectedValue || {}).reduce((sum, quantity) => sum + quantity, 0)
+      : Array.isArray(selectedValue)
       ? selectedValue.length
       : selectedValue
         ? 1
         : 0;
     const minimum = group.required ? Math.max(1, group.minSelections || 0) : group.minSelections || 0;
-    return selectedCount < minimum;
+    return selectedCount < minimum || (group.maxSelections > 0 && selectedCount > group.maxSelections) || selectedCount === 0;
   });
 }
 
 export function getSelectedOptions(product, selections) {
   return getModifierGroupsForProduct(product).flatMap((group) => {
     const selectedValue = selections[group.id];
-    const selectedIds = Array.isArray(selectedValue)
+    const selectedIds = group.allowQuantity
+      ? Object.keys(selectedValue || {}).filter((id) => selectedValue[id] > 0)
+      : Array.isArray(selectedValue)
       ? selectedValue
       : [selectedValue];
 
@@ -71,7 +77,7 @@ export function getSelectedOptions(product, selections) {
       .map((optionId) => {
         const option = group.options.find((item) => item.id === optionId);
         return option
-          ? { groupId: group.id, groupName: group.name, ...option }
+          ? { groupId: group.id, groupName: group.name, quantity: group.allowQuantity ? selectedValue[optionId] : 1, ...option }
           : null;
       })
       .filter(Boolean);
@@ -80,14 +86,14 @@ export function getSelectedOptions(product, selections) {
 
 export function getConfiguredPrice(product, selections) {
   return getSelectedOptions(product, selections).reduce(
-    (sum, option) => sum + (Number(option.priceDelta) || 0),
+    (sum, option) => sum + (Number(option.priceDelta) || 0) * (option.quantity || 1),
     product.price
   );
 }
 
 export function getCartLineId(product, selectedOptions) {
   const optionSignature = selectedOptions
-    .map((option) => `${option.groupId}:${option.id}`)
+    .map((option) => `${option.groupId}:${option.id}${(option.quantity || 1) > 1 ? `:${option.quantity}` : ""}`)
     .sort()
     .join("|");
 

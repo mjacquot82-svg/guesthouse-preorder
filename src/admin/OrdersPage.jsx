@@ -73,7 +73,7 @@ function OrderDetail({ order, showFinancials }) {
             <strong>{item.quantity} × {item.product_name}</strong>
             <span>{item.variant_name || "Standard"}</span>
             {item.modifiers.map((modifier) => (
-              <small key={`${modifier.group_key}-${modifier.option_key}`}>{modifier.group_name}: {modifier.option_name}</small>
+              <small key={`${modifier.group_key}-${modifier.option_key}`}>{modifier.group_name}: {modifier.option_name}{(modifier.quantity || 1) > 1 ? ` x${modifier.quantity}` : ""}</small>
             ))}
             {showFinancials ? <b>{money(item.line_subtotal_cents, order.currency)}</b> : null}
           </div>

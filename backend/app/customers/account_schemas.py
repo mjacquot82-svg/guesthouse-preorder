@@ -36,5 +36,19 @@ class CustomerOrderSummary(CustomerSchema):
     item_count: int
 
 
+class CustomerQuickOrderModifier(CustomerSchema):
+    option_id: str
+    option_name: str
+    quantity: int
+
+
+class CustomerQuickOrderConfiguration(CustomerSchema):
+    product_id: str
+    variant_id: str | None
+    modifiers: list[CustomerQuickOrderModifier]
+    unit_price_cents: int
+
+
 class CustomerQuickOrderResponse(CustomerSchema):
     product_ids: list[str]
+    configurations: list[CustomerQuickOrderConfiguration] = Field(default_factory=list)

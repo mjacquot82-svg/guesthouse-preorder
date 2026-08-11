@@ -44,7 +44,7 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
     config = make_alembic_config(postgresql_url)
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["20260810_17"]
+    assert script.get_heads() == ["20260811_18"]
 
     command.downgrade(config, "base")
     command.upgrade(config, "head")
@@ -53,7 +53,7 @@ def test_catalog_migration_upgrades_and_downgrades(postgresql_url: str) -> None:
     try:
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260810_17"
+            assert context.get_current_revision() == "20260811_18"
 
         assert set(inspect(engine).get_table_names()) >= {
             "alembic_version",
@@ -205,7 +205,7 @@ def test_migration_bootstrap_adopts_existing_catalog_without_data_loss(
 
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260810_17"
+            assert context.get_current_revision() == "20260811_18"
             assert connection.scalar(
                 text(
                     "SELECT name FROM categories "
@@ -262,7 +262,7 @@ def test_migration_bootstrap_reconciles_catalog_and_orders_without_data_loss(
         inspector = inspect(engine)
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260810_17"
+            assert context.get_current_revision() == "20260811_18"
             assert connection.scalar(
                 text(
                     "SELECT guest_name FROM orders "
@@ -342,7 +342,7 @@ def test_migration_bootstrap_resumes_interrupted_order_reconciliation(
 
         with engine.connect() as connection:
             context = MigrationContext.configure(connection)
-            assert context.get_current_revision() == "20260810_17"
+            assert context.get_current_revision() == "20260811_18"
             assert connection.scalar(
                 text(
                     "SELECT guest_name FROM orders "

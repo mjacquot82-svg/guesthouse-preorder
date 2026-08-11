@@ -15,9 +15,12 @@ function parseConfiguredSelections(item, productId) {
       }
 
       const groupId = signature.slice(0, separator);
-      const optionId = signature.slice(separator + 1);
+      const remainder = signature.slice(separator + 1);
+      const quantitySeparator = remainder.lastIndexOf(":");
+      const optionId = quantitySeparator === -1 ? remainder : remainder.slice(0, quantitySeparator);
+      const quantity = quantitySeparator === -1 ? 1 : Number(remainder.slice(quantitySeparator + 1));
       const selectedOptions = selections.get(groupId) || [];
-      selectedOptions.push(optionId);
+      selectedOptions.push({ optionId, quantity: Number.isSafeInteger(quantity) && quantity > 0 ? quantity : 1 });
       selections.set(groupId, selectedOptions);
       return selections;
     }, new Map());
@@ -48,7 +51,8 @@ function resolveSelections(product, selections) {
   }
 
   for (const group of product.modifierGroups) {
-    const selectedIds = selections.get(group.id) || [];
+    const selectedEntries = selections.get(group.id) || [];
+    const selectedIds = selectedEntries.map((entry) => typeof entry === "string" ? entry : entry.optionId);
     const selectedOptions = group.options.filter((option) =>
       selectedIds.includes(option.id)
     );
@@ -60,11 +64,12 @@ function resolveSelections(product, selections) {
       issues.push(`${group.name} must have one selection.`);
     }
 
+    const totalQuantity = selectedEntries.reduce((sum, entry) => sum + (typeof entry === "string" ? 1 : entry.quantity), 0);
     const minimum = group.required ? Math.max(1, group.minSelections || 0) : group.minSelections || 0;
-    if (selectedOptions.length < minimum) {
+    if (totalQuantity < minimum) {
       issues.push(`${group.name} needs a selection.`);
     }
-    if (group.maxSelections > 0 && selectedOptions.length > group.maxSelections) {
+    if (group.maxSelections > 0 && totalQuantity > group.maxSelections) {
       issues.push(`${group.name} has too many selections.`);
     }
 
@@ -79,6 +84,7 @@ function resolveSelections(product, selections) {
         name: option.name,
         priceDelta: getPriceAdjustmentCents(option) / 100,
         priceAdjustmentCents: getPriceAdjustmentCents(option),
+        quantity: selectedEntries.find((entry) => (typeof entry === "string" ? entry : entry.optionId) === option.id)?.quantity || 1,
       }))
     );
   }
@@ -107,7 +113,7 @@ export function resolveCart(catalog, cart) {
     const { issues, options } = resolveSelections(product, selections);
     const priceCents =
       product.basePriceCents +
-      options.reduce((sum, option) => sum + option.priceAdjustmentCents, 0);
+      options.reduce((sum, option) => sum + option.priceAdjustmentCents * option.quantity, 0);
 
     if (issues.length) {
       return {

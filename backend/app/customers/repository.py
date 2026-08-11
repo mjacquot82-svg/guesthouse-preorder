@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.availability.models import ProductAvailability
-from app.catalog.models import Category, Product
+from app.catalog.models import Category, ModifierGroup, Product, ProductModifierGroup, ProductVariant
 from app.customers.models import CustomerProfile
 from app.jds_auth.models import JdsUser
 from app.orders.constants import FulfillmentStatus, OrderStatus
@@ -84,3 +84,62 @@ class CustomerRepository:
             )
             .limit(limit)
         ).all())
+
+    def quick_order_configurations(self, user_id: UUID, *, limit: int = 6) -> list[dict]:
+        """Rank paid exact configurations and retain only current-catalog-valid ones."""
+        items = self.session.scalars(
+            select(OrderItem).join(Order).options(selectinload(OrderItem.modifiers)).where(
+                Order.customer_user_id == user_id,
+                Order.status == OrderStatus.PAID,
+                Order.fulfillment_status != FulfillmentStatus.CANCELLED,
+            )
+        ).all()
+        aggregates: dict[tuple, dict] = {}
+        for item in items:
+            if item.source_product_id is None:
+                continue
+            modifier_key = tuple(sorted(
+                (modifier.source_modifier_option_id, modifier.quantity or 1)
+                for modifier in item.modifiers
+                if modifier.source_modifier_option_id is not None
+            ))
+            key = (item.source_product_id, item.source_variant_id, modifier_key)
+            aggregate = aggregates.setdefault(key, {"count": 0, "latest": item.order.created_at})
+            aggregate["count"] += item.quantity
+            aggregate["latest"] = max(aggregate["latest"], item.order.created_at)
+
+        ranked = sorted(aggregates, key=lambda key: (-aggregates[key]["count"], -aggregates[key]["latest"].timestamp(), key[0], key[1] or 0, key[2]))
+        result = []
+        for product_id, variant_id, modifier_key in ranked:
+            product = self.session.scalar(select(Product).options(
+                selectinload(Product.category), selectinload(Product.availability),
+                selectinload(Product.variants),
+                selectinload(Product.modifier_group_assignments).selectinload(ProductModifierGroup.modifier_group).selectinload(ModifierGroup.options),
+            ).where(Product.id == product_id))
+            if product is None or not product.is_published or product.archived_at is not None or not product.category.is_published or (product.availability and not product.availability.default_available):
+                continue
+            active_variants = {variant.id: variant for variant in product.variants if variant.is_active}
+            if bool(active_variants) != bool(variant_id) or (variant_id and variant_id not in active_variants):
+                continue
+            groups = [assignment.modifier_group for assignment in product.modifier_group_assignments if assignment.is_active and assignment.modifier_group.is_active]
+            options = {option.id: (group, option) for group in groups for option in group.options if option.is_active}
+            if any(option_id not in options for option_id, _ in modifier_key):
+                continue
+            valid = True
+            for group in groups:
+                selected = [(options[option_id][1], quantity) for option_id, quantity in modifier_key if option_id in options and options[option_id][0].id == group.id]
+                total = sum(quantity for _, quantity in selected)
+                if (not group.allow_quantity and any(quantity != 1 for _, quantity in selected)) or total < group.minimum_selections or (group.maximum_selections > 0 and total > group.maximum_selections):
+                    valid = False
+                    break
+            if not valid:
+                continue
+            base = active_variants[variant_id].price_cents if variant_id else product.base_price_cents
+            result.append({
+                "product_id": str(product_id), "variant_id": str(variant_id) if variant_id else None,
+                "modifiers": [{"option_id": str(option_id), "option_name": options[option_id][1].name, "quantity": quantity} for option_id, quantity in modifier_key],
+                "unit_price_cents": base + sum(options[option_id][1].price_adjustment_cents * quantity for option_id, quantity in modifier_key),
+            })
+            if len(result) == limit:
+                break
+        return result

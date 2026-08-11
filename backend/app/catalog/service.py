@@ -118,6 +118,7 @@ class CatalogService:
                 description=item.description or "", selection_type=item.selection_type,
                 required=item.is_required, min_selections=item.minimum_selections,
                 max_selections=item.maximum_selections, active=item.is_active,
+                allow_quantity=item.allow_quantity,
                 sort_order=item.sort_order,
                 assignment_count=len(item.product_assignments),
                 options=[self._owner_option_response(option) for option in sorted(
@@ -151,6 +152,7 @@ class CatalogService:
             payload.active
             and group.product_assignments
             and payload.max_selections
+            and not payload.allow_quantity
             and payload.max_selections > enabled_options
         ):
             raise ValueError("Maximum selections cannot exceed the number of enabled options while this group is assigned.")
@@ -191,6 +193,7 @@ class CatalogService:
             group.is_active
             and group.product_assignments
             and group.maximum_selections
+            and not group.allow_quantity
             and group.maximum_selections > enabled_after
         ):
             raise ValueError("This option cannot be disabled because the group's maximum exceeds its remaining enabled options.")
@@ -283,7 +286,7 @@ class CatalogService:
                 raise ValueError(
                     f"{group.name} needs at least {required_count} enabled options before assignment."
                 )
-            if group.maximum_selections and group.maximum_selections > active_options:
+            if group.maximum_selections and not group.allow_quantity and group.maximum_selections > active_options:
                 raise ValueError(
                     f"{group.name} needs at least {group.maximum_selections} enabled options before assignment."
                 )
@@ -298,6 +301,10 @@ class CatalogService:
             raise ValueError("Optional groups must have a minimum of zero.")
         if payload.selection_type == "single" and payload.max_selections != 1:
             raise ValueError("Choose-one groups must have a maximum of one.")
+        if payload.allow_quantity and payload.selection_type != "multiple":
+            raise ValueError("Quantity can only be enabled for choose-more-than-one groups.")
+        if payload.allow_quantity and payload.max_selections == 0:
+            raise ValueError("Quantity-enabled groups need a maximum quantity.")
         if payload.selection_type == "multiple" and payload.max_selections and payload.max_selections < payload.min_selections:
             raise ValueError("Maximum selections cannot be less than minimum selections.")
 
@@ -309,6 +316,7 @@ class CatalogService:
         group.is_required = payload.required
         group.minimum_selections = payload.min_selections
         group.maximum_selections = payload.max_selections
+        group.allow_quantity = payload.allow_quantity
         group.is_active = payload.active
         group.sort_order = payload.sort_order
 
@@ -349,6 +357,7 @@ class CatalogService:
             description=group.description or "", selection_type=group.selection_type,
             required=group.is_required, min_selections=group.minimum_selections,
             max_selections=group.maximum_selections, active=group.is_active,
+            allow_quantity=group.allow_quantity,
             sort_order=group.sort_order,
             assignment_count=len(group.product_assignments),
             options=[self._owner_option_response(option) for option in sorted(
@@ -447,6 +456,7 @@ class CatalogService:
                     required=group.is_required,
                     min_selections=group.minimum_selections,
                     max_selections=group.maximum_selections,
+                    allow_quantity=group.allow_quantity,
                     sort_order=assignment.sort_order,
                     options=options_by_group[group.id],
                 )

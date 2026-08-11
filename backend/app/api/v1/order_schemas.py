@@ -13,6 +13,7 @@ from app.orders.models import Order, OrderItem, OrderItemModifier
 from app.orders.schemas import (
     ConfiguredOrderLineInput,
     CreatePendingOrderInput,
+    ModifierSelectionInput,
 )
 
 
@@ -24,6 +25,7 @@ class OrderLineRequest(OrderApiSchema):
     product_id: int = Field(gt=0)
     variant_id: int | None = Field(default=None, gt=0)
     modifier_option_ids: list[int] = Field(default_factory=list, max_length=100)
+    modifier_selections: list[ModifierSelectionInput] | None = Field(default=None, max_length=100)
     quantity: int = Field(ge=1, le=MAX_LINE_QUANTITY)
 
     @field_validator("modifier_option_ids")
@@ -93,6 +95,7 @@ class OrderModifierSnapshot(OrderApiSchema):
     option_key: str
     option_name: str
     price_adjustment_cents: int
+    quantity: int
 
     @classmethod
     def from_model(
@@ -105,6 +108,7 @@ class OrderModifierSnapshot(OrderApiSchema):
             option_key=modifier.modifier_option_key,
             option_name=modifier.modifier_option_name,
             price_adjustment_cents=modifier.price_adjustment_cents,
+            quantity=modifier.quantity,
         )
 
 

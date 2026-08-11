@@ -16,20 +16,27 @@ function reorderCart(order, catalog) {
     if (item.variant_key) {
       const group = product.modifierGroups.find((candidate) => candidate.id === "size");
       const option = group?.options.find((candidate) => candidate.id === item.variant_key);
-      if (group && option) selected.push({ group, option });
+      if (group && option) selected.push({ group, option, quantity: 1 });
+      else return [];
     }
     for (const modifier of item.modifiers) {
       const group = product.modifierGroups.find((candidate) => candidate.id === modifier.group_key);
       const option = group?.options.find((candidate) => candidate.id === modifier.option_key);
-      if (group && option) selected.push({ group, option });
+      if (group && option) selected.push({ group, option, quantity: modifier.quantity || 1 });
+      else return [];
     }
-    const signature = selected.map(({ group, option }) => `${group.id}:${option.id}`).sort().join("|");
+    for (const group of product.modifierGroups.filter((candidate) => candidate.id !== "size")) {
+      const groupSelections = selected.filter((value) => value.group.id === group.id);
+      const total = groupSelections.reduce((sum, value) => sum + value.quantity, 0);
+      if ((!group.allowQuantity && groupSelections.some((value) => value.quantity !== 1)) || total < group.minSelections || (group.maxSelections > 0 && total > group.maxSelections)) return [];
+    }
+    const signature = selected.map(({ group, option, quantity }) => `${group.id}:${option.id}${quantity > 1 ? `:${quantity}` : ""}`).sort().join("|");
     return [{
       id: signature ? `${product.id}__${signature}` : product.id,
       productId: product.id, name: product.name, description: product.description,
-      price: product.price + selected.reduce((sum, value) => sum + value.option.priceDelta, 0),
+      price: product.price + selected.reduce((sum, value) => sum + value.option.priceDelta * value.quantity, 0),
       basePrice: product.price, category: product.category, quantity: item.quantity,
-      options: selected.map(({ group, option }) => ({ groupName: group.name, name: option.name, priceDelta: option.priceDelta })),
+      options: selected.map(({ group, option, quantity }) => ({ groupName: group.name, groupId: group.id, name: option.name, backendId: option.backendId, variantId: option.variantId, priceDelta: option.priceDelta, quantity })),
     }];
   });
 }

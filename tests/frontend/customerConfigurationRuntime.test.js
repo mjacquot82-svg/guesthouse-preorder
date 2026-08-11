@@ -138,8 +138,8 @@ test("customer configures real choice shapes, gets readable success feedback, an
 
     await click([...document.querySelectorAll("a")].find((link) => link.textContent.trim() === "Home"), dom.window);
     await waitForText(document.body, "Quick Order");
-    await click(document.querySelector('button[aria-label="Quick add Drip Coffee"]'), dom.window);
-    assert.ok(JSON.parse(localStorage.getItem("cafe-cart")).some((item) => item.id === "drip-coffee__size:12oz"));
+    assert.equal(document.querySelector('button[aria-label="Quick add Drip Coffee"]'), null);
+    assert.ok(document.querySelector('a[aria-label="Customize Drip Coffee"]'));
     await click([...document.querySelectorAll("a")].find((link) => link.textContent.includes("Coffee") && link.getAttribute("href")?.includes("category=coffee")), dom.window);
     await waitForText(document.body, "Crafted drinks and fresh bites");
     assert.equal(document.querySelector(".menu-category-rail button.active").textContent, "Coffee");

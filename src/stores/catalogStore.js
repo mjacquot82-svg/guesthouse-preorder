@@ -25,6 +25,7 @@ function adaptOwnerCatalog(payload) {
     id: item.key, backendId: item.id, name: item.name, description: item.description || "",
     selectionType: item.selection_type, required: item.required,
     minSelections: item.min_selections, maxSelections: item.max_selections,
+    allowQuantity: Boolean(item.allow_quantity),
     active: item.active, sortOrder: item.sort_order, assignmentCount: item.assignment_count,
     options: (item.options || []).map((option) => ({
       id: option.key, backendId: option.id, name: option.name,

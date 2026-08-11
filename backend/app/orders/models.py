@@ -344,6 +344,7 @@ class OrderItemModifier(OrderModelValidation, Base):
             name="price_adjustment_nonnegative",
         ),
         CheckConstraint("sort_order >= 0", name="sort_order_nonnegative"),
+        CheckConstraint("quantity >= 1", name="quantity_positive"),
         UniqueConstraint(
             "order_item_id",
             "sort_order",
@@ -377,6 +378,7 @@ class OrderItemModifier(OrderModelValidation, Base):
     modifier_option_key: Mapped[str] = mapped_column(String(100))
     modifier_option_name: Mapped[str] = mapped_column(String(200))
     price_adjustment_cents: Mapped[int] = mapped_column(Integer)
+    quantity: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     sort_order: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

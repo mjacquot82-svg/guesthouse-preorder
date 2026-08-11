@@ -10,6 +10,7 @@ import {
   getCartLineId,
   getConfiguredPrice,
   getDefaultSelections,
+  getMissingRequiredChoice,
   getProductSpecificImageUrl,
   getSelectedOptions,
 } from "../services/menuCatalog.js";
@@ -45,6 +46,7 @@ export default function HomePage() {
   const { session } = useCustomerAuth();
   const [quickOrderPersonalization, setQuickOrderPersonalization] = useState({
     productIds: [],
+    configurations: [],
     userId: null,
   });
   const personalizedProductIds =
@@ -59,7 +61,7 @@ export default function HomePage() {
     fetchCustomerQuickOrder()
       .then((value) => {
         if (active && Array.isArray(value.product_ids)) {
-          setQuickOrderPersonalization({ productIds: value.product_ids, userId });
+          setQuickOrderPersonalization({ productIds: value.product_ids, configurations: Array.isArray(value.configurations) ? value.configurations : [], userId });
         }
       })
       .catch(() => {
@@ -96,9 +98,16 @@ export default function HomePage() {
     })
     .filter((category) => category.count)
     .slice(0, 6);
-  const quickOrderItems = createQuickOrderItems(catalog?.products || [], {
-    personalizedProductIds,
-  });
+  const productsByBackendId = new Map((catalog?.products || []).map((product) => [product.backendId, product]));
+  const exactQuickOrderItems = (quickOrderPersonalization.configurations || []).map((configuration) => {
+    const product = productsByBackendId.get(configuration.product_id);
+    return product ? { ...product, quickConfiguration: configuration, quickKey: `${configuration.product_id}:${configuration.variant_id || "standard"}:${configuration.modifiers.map((modifier) => `${modifier.option_id}x${modifier.quantity}`).join("|")}` } : null;
+  }).filter(Boolean);
+  const fallbackQuickOrderItems = createQuickOrderItems(catalog?.products || [], {
+    personalizedProductIds: exactQuickOrderItems.length ? [] : personalizedProductIds,
+    limit: Math.max(0, 6 - exactQuickOrderItems.length),
+  }).filter((product) => !exactQuickOrderItems.some((exact) => exact.id === product.id)).map((product) => ({ ...product, quickConfiguration: null, quickKey: product.id }));
+  const quickOrderItems = [...exactQuickOrderItems, ...fallbackQuickOrderItems].slice(0, 6);
   const hasPersonalizedQuickOrder = personalizedProductIds.some((productId) =>
     quickOrderItems.some((product) => product.backendId === String(productId))
   );
@@ -117,7 +126,22 @@ export default function HomePage() {
   const recommendationImageUrl = getProductSpecificImageUrl(recommendation);
 
   function addQuickItem(product) {
-    const selections = getDefaultSelections(product, { selectRequired: true });
+    const configuration = product.quickConfiguration;
+    const selections = configuration ? product.modifierGroups.reduce((result, group) => {
+      if (group.id === "size") {
+        const variant = group.options.find((option) => option.backendId === configuration.variant_id);
+        result[group.id] = variant?.id || "";
+      } else if (group.allowQuantity) {
+        result[group.id] = Object.fromEntries(configuration.modifiers.map((modifier) => {
+          const option = group.options.find((candidate) => candidate.backendId === modifier.option_id);
+          return option ? [option.id, modifier.quantity] : null;
+        }).filter(Boolean));
+      } else {
+        const ids = configuration.modifiers.map((modifier) => group.options.find((candidate) => candidate.backendId === modifier.option_id)?.id).filter(Boolean);
+        result[group.id] = group.type === "multiple" ? ids : ids[0] || "__none__";
+      }
+      return result;
+    }, {}) : getDefaultSelections(product);
     const selectedOptions = getSelectedOptions(product, selections);
     const configuredPrice = getConfiguredPrice(product, selections);
     const cartLineId = getCartLineId(product, selectedOptions);
@@ -134,6 +158,10 @@ export default function HomePage() {
         groupName: option.groupName,
         name: option.name,
         priceDelta: option.priceDelta,
+        quantity: option.quantity || 1,
+        backendId: option.backendId,
+        variantId: option.variantId,
+        groupId: option.groupId,
       })),
     };
     const nextCart = cart.some((item) => item.id === cartLineId)
@@ -288,17 +316,24 @@ export default function HomePage() {
             const productImageUrl = getProductSpecificImageUrl(item);
 
             return (
-              <article className={`quick-product-card${productImageUrl ? " has-product-image" : " is-image-free"}`} key={item.id}>
+              <article className={`quick-product-card${productImageUrl ? " has-product-image" : " is-image-free"}`} key={item.quickKey}>
                 {productImageUrl ? (
                   <div className="quick-product-image" style={{ backgroundImage: `url(${productImageUrl})` }} aria-hidden="true" />
                 ) : null}
                 <div className="quick-product-copy">
                   <h3>{item.name}</h3>
-                  <strong>{formatPrice(getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
+                  {item.quickConfiguration ? <small>{[
+                    item.modifierGroups.find((group) => group.id === "size")?.options.find((option) => option.backendId === item.quickConfiguration.variant_id)?.name,
+                    ...item.modifierGroups.filter((group) => group.id !== "size").flatMap((group) => {
+                      const selected = item.quickConfiguration.modifiers.filter((modifier) => group.options.some((option) => option.backendId === modifier.option_id));
+                      return selected.length ? selected.map((modifier) => `${modifier.option_name}${modifier.quantity > 1 ? ` x${modifier.quantity}` : ""}`) : [`No ${group.name.toLowerCase()}`];
+                    }),
+                  ].filter(Boolean).join(" · ") || "Standard"}</small> : <small>Customize on the menu</small>}
+                  <strong>{formatPrice(item.quickConfiguration ? item.quickConfiguration.unit_price_cents / 100 : getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
                 </div>
-                <button type="button" aria-label={`Quick add ${item.name}`} onClick={() => addQuickItem(item)}>
+                {item.quickConfiguration || !getMissingRequiredChoice(item, getDefaultSelections(item)) ? <button type="button" aria-label={`Quick add ${item.name}`} onClick={() => addQuickItem(item)}>
                   <Plus size={18} strokeWidth={2.8} />
-                </button>
+                </button> : <Link aria-label={`Customize ${item.name}`} to={`/menu?product=${encodeURIComponent(item.id)}`}>Customize</Link>}
               </article>
             );
           })}

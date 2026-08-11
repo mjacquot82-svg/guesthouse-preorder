@@ -200,14 +200,14 @@ class OrderCreationService:
         variant = self._validate_variant(product, request.variant_id)
         selected_modifiers = self._validate_modifiers(
             product,
-            request.modifier_option_ids,
+            request.normalized_modifier_selections(),
         )
         base_unit_price_cents = (
             variant.price_cents if variant is not None else product.base_price_cents
         )
         unit_price_cents = base_unit_price_cents + sum(
-            option.price_adjustment_cents
-            for _, option in selected_modifiers
+            option.price_adjustment_cents * quantity
+            for _, option, quantity in selected_modifiers
         )
         line_subtotal_cents = unit_price_cents * request.quantity
         item = OrderItem(
@@ -231,9 +231,10 @@ class OrderCreationService:
                     modifier_option_key=option.key,
                     modifier_option_name=option.name,
                     price_adjustment_cents=option.price_adjustment_cents,
+                    quantity=quantity,
                     sort_order=index,
                 )
-                for index, (group, option) in enumerate(selected_modifiers)
+                for index, (group, option, quantity) in enumerate(selected_modifiers)
             ],
         )
         return ValidatedLine(item=item, subtotal_cents=line_subtotal_cents)
@@ -272,8 +273,8 @@ class OrderCreationService:
     @staticmethod
     def _validate_modifiers(
         product: Product,
-        selected_option_ids: list[int],
-    ) -> list[tuple[ModifierGroup, ModifierOption]]:
+        selections,
+    ) -> list[tuple[ModifierGroup, ModifierOption, int]]:
         active_groups = [
             assignment.modifier_group
             for assignment in sorted(
@@ -291,6 +292,10 @@ class OrderCreationService:
             for option in group.options
             if option.is_active
         }
+        selected_option_ids = [selection.modifier_option_id for selection in selections]
+        if len(selected_option_ids) != len(set(selected_option_ids)):
+            raise OrderCreationError(OrderCreationErrorCode.MODIFIER_SELECTION_INVALID, "Modifier options must be unique.")
+        quantities = {selection.modifier_option_id: selection.quantity for selection in selections}
         unknown_options = set(selected_option_ids) - options_by_id.keys()
         if unknown_options:
             raise OrderCreationError(
@@ -299,7 +304,7 @@ class OrderCreationService:
             )
 
         selected_ids = set(selected_option_ids)
-        selected: list[tuple[ModifierGroup, ModifierOption]] = []
+        selected: list[tuple[ModifierGroup, ModifierOption, int]] = []
         for group in active_groups:
             group_options = sorted(
                 (
@@ -309,7 +314,9 @@ class OrderCreationService:
                 ),
                 key=lambda option: (option.sort_order, option.id),
             )
-            selection_count = len(group_options)
+            if not group.allow_quantity and any(quantities[option.id] != 1 for option in group_options):
+                raise OrderCreationError(OrderCreationErrorCode.MODIFIER_SELECTION_INVALID, f"{group.name} does not allow quantities.")
+            selection_count = sum(quantities[option.id] for option in group_options)
             minimum = group.minimum_selections
             maximum = group.maximum_selections
             if selection_count < minimum:
@@ -322,7 +329,7 @@ class OrderCreationService:
                     OrderCreationErrorCode.MODIFIER_SELECTION_INVALID,
                     f"{group.name} allows at most {maximum} selection(s).",
                 )
-            selected.extend((group, option) for option in group_options)
+            selected.extend((group, option, quantities[option.id]) for option in group_options)
 
         return selected
 
@@ -330,6 +337,13 @@ class OrderCreationService:
     def _fingerprint(request: CreatePendingOrderInput) -> str:
         payload = request.model_dump(mode="json")
         payload.pop("idempotency_key", None)
+        for line in payload["lines"]:
+            selections = line.get("modifier_selections")
+            if selections is None:
+                selections = [{"modifier_option_id": value, "quantity": 1} for value in line.pop("modifier_option_ids", [])]
+            else:
+                line.pop("modifier_option_ids", None)
+            line["modifier_selections"] = sorted(selections, key=lambda value: value["modifier_option_id"])
         encoded = json.dumps(
             payload,
             sort_keys=True,

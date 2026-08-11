@@ -214,6 +214,7 @@ class ModifierGroup(CatalogModelValidation, Base):
     is_required: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     minimum_selections: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     maximum_selections: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    allow_quantity: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     sort_order: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(

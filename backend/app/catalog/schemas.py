@@ -25,6 +25,7 @@ class ProductModifierGroupResponse(CatalogSchema):
     required: bool
     min_selections: int
     max_selections: int
+    allow_quantity: bool
     sort_order: int
     options: list[ModifierOptionResponse]
 
@@ -90,6 +91,7 @@ class OwnerModifierGroupResponse(CatalogSchema):
     required: bool
     min_selections: int
     max_selections: int
+    allow_quantity: bool
     active: bool
     sort_order: int
     assignment_count: int
@@ -112,6 +114,7 @@ class OwnerModifierGroupWrite(CatalogSchema):
     required: bool = False
     min_selections: int = Field(default=0, ge=0)
     max_selections: int = Field(default=1, ge=0)
+    allow_quantity: bool = False
     active: bool = True
     sort_order: int = Field(default=0, ge=0)
 

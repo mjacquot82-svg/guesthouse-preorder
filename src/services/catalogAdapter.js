@@ -82,6 +82,7 @@ function adaptModifierGroup(group, path) {
       group.max_selections,
       `${path}.max_selections`
     ),
+    ...(Object.hasOwn(group, "allow_quantity") ? { allowQuantity: Boolean(group.allow_quantity) } : {}),
     sortOrder: requireInteger(group.sort_order, `${path}.sort_order`),
     options: requireArray(group.options, `${path}.options`)
       .map((option, index) =>

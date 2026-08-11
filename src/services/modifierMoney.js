@@ -16,6 +16,7 @@ export function toOwnerCustomizationWrite(customization, naturalOrder = 0) {
       name: customization.name.trim(), description: customization.description?.trim() || "",
       selection_type: customization.selectionType, required: minSelections > 0,
       min_selections: minSelections, max_selections: maxSelections,
+      allow_quantity: Boolean(customization.allowQuantity),
       active: customization.active !== false,
       sort_order: Number.isFinite(Number(customization.sortOrder))
         ? Number(customization.sortOrder)

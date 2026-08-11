@@ -16,7 +16,7 @@ function categoryDraft(category, naturalOrder = 0) {
   if (category) return { ...category, choices: category.options.map(modifierDraft) };
   return {
     name: "", description: "", selectionType: "single", required: false,
-    minSelections: 0, maxSelections: 1, active: true, sortOrder: naturalOrder,
+    minSelections: 0, maxSelections: 1, active: true, allowQuantity: false, sortOrder: naturalOrder,
     choices: [],
   };
 }
@@ -71,6 +71,7 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
       if (field === "selectionType" && value === "single") {
         next.minSelections = current.required ? 1 : 0;
         next.maxSelections = 1;
+        next.allowQuantity = false;
       }
       if (field === "selectionType" && value === "multiple" && current.maxSelections === 1) next.maxSelections = 0;
       if (field === "required") next.minSelections = value ? 1 : 0;
@@ -150,6 +151,7 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
         <fieldset><legend>Customers can</legend><label><input checked={draft.selectionType === "single"} name="selection-type" type="radio" onChange={() => updateDraft("selectionType", "single")} /> Choose one</label><label><input checked={draft.selectionType === "multiple"} name="selection-type" type="radio" onChange={() => updateDraft("selectionType", "multiple")} /> Choose more than one</label></fieldset>
         <fieldset><legend>Choice requirement</legend><label><input checked={!draft.required} name="requirement" type="radio" onChange={() => updateDraft("required", false)} /> Optional</label><label><input checked={draft.required} name="requirement" type="radio" onChange={() => updateDraft("required", true)} /> Required</label></fieldset>
         {draft.selectionType === "multiple" ? <div className="modifier-limits"><label><span>Minimum choices</span><input min="0" type="number" value={draft.minSelections} onChange={(event) => updateDraft("minSelections", Number(event.target.value))} /></label><label><span>Maximum choices <small>(0 means no limit)</small></span><input min="0" type="number" value={draft.maxSelections} onChange={(event) => updateDraft("maxSelections", Number(event.target.value))} /></label></div> : null}
+        {draft.selectionType === "multiple" ? <label className="modifier-enabled"><input checked={draft.allowQuantity} type="checkbox" onChange={(event) => updateDraft("allowQuantity", event.target.checked)} /><span><strong>Allow quantity</strong><small>Customers can add the same modifier more than once. Maximum choices limits the total quantity.</small></span></label> : null}
       </div></details>
 
       {editing || draft.choices.length ? <section className="modifier-list-editor" aria-labelledby="modifier-list-editor-heading"><div><h3 id="modifier-list-editor-heading">Modifiers</h3><p>Add or edit the choices and extra prices customers see.</p></div>

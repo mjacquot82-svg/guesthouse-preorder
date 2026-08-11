@@ -68,10 +68,10 @@ export function buildPendingOrderRequest({
         variant_id: variant
           ? requireBackendId(variant.variantId, `${line.name} variant`)
           : null,
-        modifier_option_ids: line.options
+        modifier_selections: line.options
           .filter((option) => !option.variantId)
           .map((option) =>
-            requireBackendId(option.backendId, `${line.name} modifier`)
+            ({ modifier_option_id: requireBackendId(option.backendId, `${line.name} modifier`), quantity: option.quantity || 1 })
           ),
         quantity: line.quantity,
       };

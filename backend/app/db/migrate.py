@@ -32,6 +32,7 @@ CATALOG_TABLE_NAMES = frozenset(
     }
 )
 CATALOG_HEAD_ONLY_COLUMN_NAMES = frozenset({"is_lunch_special"})
+MODIFIER_GROUP_HEAD_ONLY_COLUMN_NAMES = frozenset({"allow_quantity"})
 AVAILABILITY_TABLE_NAMES = frozenset(
     {
         "business_settings",
@@ -83,6 +84,10 @@ ORDER_HEAD_ONLY_CHECK_NAMES = frozenset(
         "ck_orders_tax_rate_millionths_valid",
         "ck_orders_fulfillment_status_valid",
     }
+)
+ORDER_ITEM_MODIFIER_HEAD_ONLY_COLUMN_NAMES = frozenset({"quantity"})
+ORDER_ITEM_MODIFIER_HEAD_ONLY_CHECK_NAMES = frozenset(
+    {"ck_order_item_modifiers_quantity_positive"}
 )
 AVAILABILITY_HEAD_ONLY_COLUMN_NAMES = frozenset(
     {"tax_name", "tax_rate_millionths", "ordering_mode"}
@@ -277,6 +282,8 @@ def _validate_catalog_baseline(engine: Engine) -> None:
             excluded_column_names=(
                 CATALOG_HEAD_ONLY_COLUMN_NAMES
                 if table_name == "products"
+                else MODIFIER_GROUP_HEAD_ONLY_COLUMN_NAMES
+                if table_name == "modifier_groups"
                 else frozenset()
             ),
         )
@@ -300,7 +307,20 @@ def _validate_order_baseline(engine: Engine) -> None:
     problems.extend(
         problem
         for table_name in sorted(ORDER_TABLE_NAMES - {"orders"})
-        for problem in _validate_table(engine, table_name)
+        for problem in _validate_table(
+            engine,
+            table_name,
+            excluded_column_names=(
+                ORDER_ITEM_MODIFIER_HEAD_ONLY_COLUMN_NAMES
+                if table_name == "order_item_modifiers"
+                else frozenset()
+            ),
+            excluded_check_names=(
+                ORDER_ITEM_MODIFIER_HEAD_ONLY_CHECK_NAMES
+                if table_name == "order_item_modifiers"
+                else frozenset()
+            ),
+        )
     )
     if problems:
         formatted = "\n- ".join(problems)

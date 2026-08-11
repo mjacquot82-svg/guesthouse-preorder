@@ -47,8 +47,9 @@ def list_orders(principal: AuthPrincipal = Depends(current_customer), session: S
 def quick_order(response: Response, principal: AuthPrincipal = Depends(current_customer), session: Session = Depends(get_order_session)) -> CustomerQuickOrderResponse:
     response.headers["Cache-Control"] = "no-store"
     try:
-        product_ids = CustomerRepository(session).quick_order_product_ids(principal.user_id)
-        return CustomerQuickOrderResponse(product_ids=[str(product_id) for product_id in product_ids])
+        repository = CustomerRepository(session)
+        product_ids = repository.quick_order_product_ids(principal.user_id)
+        return CustomerQuickOrderResponse(product_ids=[str(product_id) for product_id in product_ids], configurations=repository.quick_order_configurations(principal.user_id))
     except SQLAlchemyError as error:
         raise HTTPException(status_code=503, detail="Quick Order personalization is unavailable.") from error
 
