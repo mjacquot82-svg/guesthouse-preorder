@@ -194,9 +194,8 @@ class ModifierGroup(CatalogModelValidation, Base):
             name="required_minimum_consistent",
         ),
         CheckConstraint(
-            "(selection_type = 'single' AND maximum_selections = 1) "
-            "OR (selection_type = 'multiple' AND "
-            "(maximum_selections = 0 OR maximum_selections >= minimum_selections))",
+            "(selection_type <> 'single' OR allow_quantity OR maximum_selections = 1) "
+            "AND (maximum_selections = 0 OR maximum_selections >= minimum_selections)",
             name="selection_range_valid",
         ),
         CheckConstraint("sort_order >= 0", name="sort_order_nonnegative"),
@@ -252,13 +251,9 @@ class ModifierGroup(CatalogModelValidation, Base):
             raise ValueError("required groups must select at least one option.")
         if not self.is_required and minimum != 0:
             raise ValueError("optional groups must have a minimum of zero.")
-        if self.selection_type == SelectionType.SINGLE and maximum != 1:
-            raise ValueError("single-selection groups must have a maximum of one.")
-        if (
-            self.selection_type == SelectionType.MULTIPLE
-            and maximum != 0
-            and maximum < minimum
-        ):
+        if not self.allow_quantity and self.selection_type == SelectionType.SINGLE and maximum != 1:
+            raise ValueError("single-selection groups without quantities must have a maximum of one.")
+        if maximum != 0 and maximum < minimum:
             raise ValueError("maximum selections must be zero or at least the minimum.")
 
 

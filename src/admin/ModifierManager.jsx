@@ -70,11 +70,10 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
       const next = { ...current, [field]: value };
       if (field === "selectionType" && value === "single") {
         next.minSelections = current.required ? 1 : 0;
-        next.maxSelections = 1;
-        next.allowQuantity = false;
       }
       if (field === "selectionType" && value === "multiple" && current.maxSelections === 1) next.maxSelections = 0;
       if (field === "required") next.minSelections = value ? 1 : 0;
+      if (field === "allowQuantity" && value && current.maxSelections === 1) next.maxSelections = 0;
       return next;
     });
   }
@@ -98,8 +97,8 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
       if (cents === null) return setMessage(`Check the extra price for ${choice.name}. Use dollars and cents, such as 0.75.`);
       choices.push({ ...choice, priceAdjustmentCents: cents });
     }
-    if (draft.selectionType === "multiple" && Number(draft.maxSelections) && Number(draft.maxSelections) < Number(draft.minSelections)) {
-      return setMessage("Maximum choices cannot be less than minimum choices.");
+    if ((draft.selectionType === "multiple" || draft.allowQuantity) && Number(draft.maxSelections) && Number(draft.maxSelections) < Number(draft.minSelections)) {
+      return setMessage("Maximum total selections cannot be less than minimum selections.");
     }
     busyRef.current = true; setBusy(true); setMessage("");
     try {
@@ -147,10 +146,13 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
       {editing ? <label className="modifier-enabled"><input checked={draft.active} type="checkbox" onChange={(event) => updateDraft("active", event.target.checked)} /><span><strong>Available to customers</strong><small>Turn off safely while keeping product assignments and past order details.</small></span></label> : null}
 
       <details className="modifier-advanced"><summary>Advanced settings</summary><div className="modifier-advanced-fields">
-        <fieldset><legend>Customers can</legend><label><input checked={draft.selectionType === "single"} name="selection-type" type="radio" onChange={() => updateDraft("selectionType", "single")} /> Choose one</label><label><input checked={draft.selectionType === "multiple"} name="selection-type" type="radio" onChange={() => updateDraft("selectionType", "multiple")} /> Choose more than one</label></fieldset>
-        <fieldset><legend>Choice requirement</legend><label><input checked={!draft.required} name="requirement" type="radio" onChange={() => updateDraft("required", false)} /> Optional</label><label><input checked={draft.required} name="requirement" type="radio" onChange={() => updateDraft("required", true)} /> Required</label></fieldset>
-        {draft.selectionType === "multiple" ? <div className="modifier-limits"><label><span>Minimum choices</span><input min="0" type="number" value={draft.minSelections} onChange={(event) => updateDraft("minSelections", Number(event.target.value))} /></label><label><span>Maximum choices <small>(0 means no limit)</small></span><input min="0" type="number" value={draft.maxSelections} onChange={(event) => updateDraft("maxSelections", Number(event.target.value))} /></label></div> : null}
-        <fieldset><legend>Quantity</legend><label className="modifier-enabled"><input checked={draft.allowQuantity} disabled={draft.selectionType !== "multiple"} type="checkbox" onChange={(event) => updateDraft("allowQuantity", event.target.checked)} /><span><strong>Allow quantity</strong><small>{draft.selectionType === "multiple" ? "Customers can select more than one of the same modifier. Maximum choices limits the total quantity." : "Choose more than one to let customers select more than one of the same modifier."}</small></span></label></fieldset>
+        <fieldset><legend>How can customers choose?</legend><label className="modifier-setting-choice"><input checked={draft.selectionType === "single"} name="selection-type" type="radio" onChange={() => updateDraft("selectionType", "single")} /><span><strong>One option</strong><small>For example, choose one type of milk.</small></span></label><label className="modifier-setting-choice"><input checked={draft.selectionType === "multiple"} name="selection-type" type="radio" onChange={() => updateDraft("selectionType", "multiple")} /><span><strong>Multiple options</strong><small>For example, choose Vanilla and Caramel.</small></span></label></fieldset>
+        <fieldset><legend>Can customers choose multiples of the same option?</legend><label className="modifier-enabled"><input checked={draft.allowQuantity} type="checkbox" onChange={(event) => updateDraft("allowQuantity", event.target.checked)} /><span><strong>Allow quantities</strong><small>For example, 2 sugars or 2 Vanilla shots.</small></span></label></fieldset>
+        <fieldset><legend>Does the customer need to make a choice?</legend><label><input checked={!draft.required} name="requirement" type="radio" onChange={() => updateDraft("required", false)} /> No — they can choose None</label><label><input checked={draft.required} name="requirement" type="radio" onChange={() => updateDraft("required", true)} /> Yes — they must choose something</label></fieldset>
+        {draft.selectionType === "multiple" || draft.allowQuantity ? <details className="modifier-selection-limits"><summary>Selection limits</summary><div className="modifier-limits">
+          {draft.selectionType === "multiple" && draft.required ? <label><span>Minimum selections</span><input min="1" type="number" value={draft.minSelections} onChange={(event) => updateDraft("minSelections", Number(event.target.value))} /></label> : null}
+          <label><span>{draft.allowQuantity ? "Maximum total selections" : "Maximum selections"} <small>(0 means no limit)</small></span><input min="0" type="number" value={draft.maxSelections} onChange={(event) => updateDraft("maxSelections", Number(event.target.value))} /></label>
+        </div>{draft.allowQuantity ? <small>The maximum counts all units across this category.</small> : null}</details> : null}
       </div></details>
 
       {editing || draft.choices.length ? <section className="modifier-list-editor" aria-labelledby="modifier-list-editor-heading"><div><h3 id="modifier-list-editor-heading">Modifiers</h3><p>Add or edit the choices and extra prices customers see.</p></div>

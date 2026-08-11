@@ -32,6 +32,7 @@ from app.orders.repository import OrderRepository
 from app.orders.schemas import (
     ConfiguredOrderLineInput,
     CreatePendingOrderInput,
+    ModifierSelectionInput,
 )
 from app.orders.service import (
     OrderCreationError,
@@ -162,7 +163,8 @@ def seed_order_dependencies(session: Session) -> dict[str, int]:
         selection_type=SelectionType.MULTIPLE,
         is_required=False,
         minimum_selections=0,
-        maximum_selections=2,
+        maximum_selections=3,
+        allow_quantity=True,
         is_active=True,
         sort_order=1,
     )
@@ -173,6 +175,42 @@ def seed_order_dependencies(session: Session) -> dict[str, int]:
         price_adjustment_cents=75,
         is_active=True,
         sort_order=0,
+    )
+    caramel = ModifierOption(
+        modifier_group=flavours,
+        key="caramel",
+        name="Caramel",
+        price_adjustment_cents=75,
+        is_active=True,
+        sort_order=1,
+    )
+    sugar = ModifierGroup(
+        key="sugar",
+        name="Sugar",
+        description=None,
+        selection_type=SelectionType.SINGLE,
+        is_required=False,
+        minimum_selections=0,
+        maximum_selections=3,
+        allow_quantity=True,
+        is_active=True,
+        sort_order=2,
+    )
+    sugar_option = ModifierOption(
+        modifier_group=sugar,
+        key="sugar",
+        name="Sugar",
+        price_adjustment_cents=0,
+        is_active=True,
+        sort_order=0,
+    )
+    sweetener = ModifierOption(
+        modifier_group=sugar,
+        key="sweetener",
+        name="Sweetener",
+        price_adjustment_cents=0,
+        is_active=True,
+        sort_order=1,
     )
     latte.modifier_group_assignments.extend(
         [
@@ -186,10 +224,15 @@ def seed_order_dependencies(session: Session) -> dict[str, int]:
                 is_active=True,
                 sort_order=1,
             ),
+            ProductModifierGroup(
+                modifier_group=sugar,
+                is_active=True,
+                sort_order=2,
+            ),
         ]
     )
     latte.availability = ProductAvailability(default_available=True)
-    session.add_all([settings, category, milk, flavours])
+    session.add_all([settings, category, milk, flavours, sugar])
     session.commit()
 
     return {
@@ -202,6 +245,10 @@ def seed_order_dependencies(session: Session) -> dict[str, int]:
         "oat": oat.id,
         "flavours": flavours.id,
         "vanilla": vanilla.id,
+        "caramel": caramel.id,
+        "sugar": sugar.id,
+        "sugar_option": sugar_option.id,
+        "sweetener": sweetener.id,
     }
 
 
@@ -269,6 +316,66 @@ def test_creates_authoritatively_priced_pending_order_with_snapshots(
                 OrderItemModifier.order_item_id == item.id
             )
         )
+
+
+@pytest.mark.postgresql
+def test_quantity_is_independent_from_distinct_option_cardinality(
+    prepared_order_engine: Engine,
+) -> None:
+    with Session(prepared_order_engine, expire_on_commit=False) as session:
+        ids = seed_order_dependencies(session)
+        base_line = dict(product_id=ids["product"], variant_id=ids["large"], quantity=1)
+
+        order = OrderCreationService(session).create_pending_order(
+            make_request(ids, idempotency_key="single-quantity", lines=[ConfiguredOrderLineInput(
+                **base_line,
+                modifier_selections=[
+                    ModifierSelectionInput(modifier_option_id=ids["oat"], quantity=1),
+                    ModifierSelectionInput(modifier_option_id=ids["sugar_option"], quantity=2),
+                    ModifierSelectionInput(modifier_option_id=ids["vanilla"], quantity=2),
+                    ModifierSelectionInput(modifier_option_id=ids["caramel"], quantity=1),
+                ],
+            )]),
+            now=local_datetime(8),
+        )
+        assert order.items[0].unit_price_cents == 960
+        assert [(item.modifier_option_key, item.quantity) for item in order.items[0].modifiers] == [
+            ("oat", 1), ("vanilla", 2), ("caramel", 1), ("sugar", 2),
+        ]
+
+        with pytest.raises(OrderCreationError, match="one distinct option"):
+            OrderCreationService(session).create_pending_order(
+                make_request(ids, idempotency_key="two-sugars", lines=[ConfiguredOrderLineInput(
+                    **base_line,
+                    modifier_selections=[
+                        ModifierSelectionInput(modifier_option_id=ids["oat"], quantity=1),
+                        ModifierSelectionInput(modifier_option_id=ids["sugar_option"], quantity=1),
+                        ModifierSelectionInput(modifier_option_id=ids["sweetener"], quantity=1),
+                    ],
+                )]),
+                now=local_datetime(8),
+            )
+
+        with pytest.raises(OrderCreationError, match="does not allow quantities"):
+            OrderCreationService(session).create_pending_order(
+                make_request(ids, idempotency_key="milk-quantity", lines=[ConfiguredOrderLineInput(
+                    **base_line,
+                    modifier_selections=[ModifierSelectionInput(modifier_option_id=ids["oat"], quantity=2)],
+                )]),
+                now=local_datetime(8),
+            )
+
+        with pytest.raises(OrderCreationError, match="at most 3"):
+            OrderCreationService(session).create_pending_order(
+                make_request(ids, idempotency_key="too-much-sugar", lines=[ConfiguredOrderLineInput(
+                    **base_line,
+                    modifier_selections=[
+                        ModifierSelectionInput(modifier_option_id=ids["oat"], quantity=1),
+                        ModifierSelectionInput(modifier_option_id=ids["sugar_option"], quantity=4),
+                    ],
+                )]),
+                now=local_datetime(8),
+            )
 
 
 @pytest.mark.postgresql

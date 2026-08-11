@@ -60,7 +60,10 @@ export function getMissingRequiredChoice(product, selections) {
         ? 1
         : 0;
     const minimum = group.required ? Math.max(1, group.minSelections || 0) : group.minSelections || 0;
-    return selectedCount < minimum || (group.maxSelections > 0 && selectedCount > group.maxSelections) || selectedCount === 0;
+    const distinctCount = group.allowQuantity
+      ? Object.values(selectedValue || {}).filter((quantity) => quantity > 0).length
+      : Array.isArray(selectedValue) ? selectedValue.length : selectedValue ? 1 : 0;
+    return (group.type === "single" && distinctCount > 1) || selectedCount < minimum || (group.maxSelections > 0 && selectedCount > group.maxSelections) || selectedCount === 0;
   });
 }
 

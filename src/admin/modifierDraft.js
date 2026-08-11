@@ -4,7 +4,7 @@ export function modifierDraftSignature(draft) {
   if (!draft) return "";
   const single = draft.selectionType === "single";
   const minSelections = single ? (draft.required ? 1 : 0) : Number(draft.minSelections);
-  const maxSelections = single ? 1 : Number(draft.maxSelections);
+  const maxSelections = single && !draft.allowQuantity ? 1 : Number(draft.maxSelections);
   return JSON.stringify({
     name: (draft.name ?? "").trim(),
     description: (draft.description ?? "").trim(),

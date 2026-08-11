@@ -54,6 +54,7 @@ function ProductModifiers({ product, selections, onChange }) {
             {group.options.map((option) => {
               const selectedValue = selections[group.id];
               const optionQuantity = group.allowQuantity ? Number(selectedValue?.[option.id] || 0) : 0;
+              const hasDifferentOption = group.allowQuantity && group.type === "single" && Object.entries(selectedValue && selectedValue !== "__none__" ? selectedValue : {}).some(([id, quantity]) => id !== option.id && quantity > 0);
               const isSelected = group.allowQuantity ? optionQuantity > 0 : Array.isArray(selectedValue)
                 ? selectedValue.includes(option.id)
                 : selectedValue === option.id;
@@ -64,7 +65,7 @@ function ProductModifiers({ product, selections, onChange }) {
                   <div className="modifier-stepper" aria-label={`${option.name} quantity`}>
                     <button type="button" aria-label={`Remove one ${option.name}`} disabled={!optionQuantity} onClick={() => onChange(group.id, { ...(selectedValue && selectedValue !== "__none__" ? selectedValue : {}), [option.id]: Math.max(0, optionQuantity - 1) })}>−</button>
                     <output aria-live="polite">{optionQuantity}</output>
-                    <button type="button" aria-label={`Add one ${option.name}`} disabled={group.maxSelections > 0 && Object.values(selectedValue && selectedValue !== "__none__" ? selectedValue : {}).reduce((sum, value) => sum + value, 0) >= group.maxSelections} onClick={() => onChange(group.id, { ...(selectedValue && selectedValue !== "__none__" ? selectedValue : {}), [option.id]: optionQuantity + 1 })}>+</button>
+                    <button type="button" aria-label={`Add one ${option.name}`} disabled={hasDifferentOption || (group.maxSelections > 0 && Object.values(selectedValue && selectedValue !== "__none__" ? selectedValue : {}).reduce((sum, value) => sum + value, 0) >= group.maxSelections)} onClick={() => onChange(group.id, { ...(selectedValue && selectedValue !== "__none__" ? selectedValue : {}), [option.id]: optionQuantity + 1 })}>+</button>
                   </div>
                   {option.priceDelta ? <small>+{formatPrice(option.priceDelta)} each</small> : null}
                 </div>

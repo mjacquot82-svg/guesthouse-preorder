@@ -56,12 +56,14 @@ test("advanced category settings are collapsed and reveal conditional limits", a
   const manager = await source("../../src/admin/ModifierManager.jsx");
   assert.match(manager, /<details className="modifier-advanced"><summary>Advanced settings<\/summary>/);
   assert.doesNotMatch(manager, /<details className="modifier-advanced" open/);
-  assert.match(manager, /Choose one/);
-  assert.match(manager, /Choose more than one/);
-  assert.match(manager, /Choice requirement/);
-  assert.match(manager, /> Optional</);
-  assert.match(manager, /> Required</);
-  assert.match(manager, /draft\.selectionType === "multiple" \? <div className="modifier-limits"/);
+  assert.match(manager, /One option/);
+  assert.match(manager, /Multiple options/);
+  assert.match(manager, /Allow quantities/);
+  assert.match(manager, /Does the customer need to make a choice/);
+  assert.match(manager, /No — they can choose None/);
+  assert.match(manager, /Yes — they must choose something/);
+  assert.match(manager, /Selection limits/);
+  assert.match(manager, /Maximum total selections/);
   assert.doesNotMatch(manager, />Display order</);
 });
 

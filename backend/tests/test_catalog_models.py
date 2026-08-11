@@ -203,6 +203,21 @@ def test_modifier_group_model_rejects_invalid_selection_rules(
 
 
 @pytest.mark.postgresql
+def test_single_selection_group_can_allow_quantity_with_total_unit_limit(
+    catalog_engine: Engine,
+) -> None:
+    with Session(catalog_engine) as session:
+        group = make_modifier_group(
+            selection_type=SelectionType.SINGLE,
+            allow_quantity=True,
+            maximum_selections=3,
+        )
+        session.add(group)
+        session.flush()
+        assert group.maximum_selections == 3
+
+
+@pytest.mark.postgresql
 def test_database_rejects_invalid_constraints(catalog_engine: Engine) -> None:
     invalid_statements = [
         (
@@ -218,6 +233,13 @@ def test_database_rejects_invalid_constraints(catalog_engine: Engine) -> None:
             "(key, name, selection_type, is_required, minimum_selections, "
             "maximum_selections, sort_order) "
             "VALUES ('invalid-range', 'Invalid', 'multiple', true, 2, 1, 0)"
+        ),
+        (
+            "INSERT INTO modifier_groups "
+            "(key, name, selection_type, is_required, minimum_selections, "
+            "maximum_selections, allow_quantity, sort_order) "
+            "VALUES ('invalid-single-range', 'Invalid single', 'single', "
+            "false, 0, 2, false, 0)"
         ),
     ]
 

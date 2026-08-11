@@ -56,8 +56,11 @@ const catalog = {
             options: [{ id: "4011", key: "oat", name: "Oat", price_adjustment_cents: 85, sort_order: 0 }],
           },
           {
-            id: "402", key: "sugar", name: "Sugar", description: "", selection_type: "multiple", required: false, min_selections: 0, max_selections: 3, allow_quantity: true, sort_order: 1,
-            options: [{ id: "4021", key: "sugar", name: "Sugar", price_adjustment_cents: 0, sort_order: 0 }],
+            id: "402", key: "sugar", name: "Sugar", description: "", selection_type: "single", required: false, min_selections: 0, max_selections: 3, allow_quantity: true, sort_order: 1,
+            options: [
+              { id: "4021", key: "sugar", name: "Sugar", price_adjustment_cents: 0, sort_order: 0 },
+              { id: "4022", key: "sweetener", name: "Sweetener", price_adjustment_cents: 0, sort_order: 1 },
+            ],
           },
           {
             id: "403", key: "flavour-shots", name: "Flavour shots", description: "", selection_type: "multiple", required: false, min_selections: 0, max_selections: 3, allow_quantity: true, sort_order: 2,
@@ -150,6 +153,7 @@ test("customer configures real choice shapes, gets readable success feedback, an
     const sugarOutput = decaf.querySelector('[aria-label="Sugar quantity"] output');
     const sugarPlus = decaf.querySelector('button[aria-label="Add one Sugar"]');
     const sugarMinus = decaf.querySelector('button[aria-label="Remove one Sugar"]');
+    const sweetenerPlus = decaf.querySelector('button[aria-label="Add one Sweetener"]');
     const noSugar = [...decaf.querySelectorAll("label")].find((label) => label.textContent.includes("No sugar"));
     const decafAdd = decaf.querySelector(".product-add-button");
     assert.equal(sugarOutput.textContent, "0");
@@ -157,12 +161,14 @@ test("customer configures real choice shapes, gets readable success feedback, an
     assert.equal(decafAdd.disabled, true);
     await click(sugarPlus, dom.window);
     assert.equal(sugarOutput.textContent, "1");
+    assert.equal(sweetenerPlus.disabled, true);
     await click(sugarPlus, dom.window);
     assert.equal(sugarOutput.textContent, "2");
     await click(sugarMinus, dom.window);
     assert.equal(sugarOutput.textContent, "1");
     await click(sugarMinus, dom.window);
     assert.equal(sugarOutput.textContent, "0");
+    assert.equal(sweetenerPlus.disabled, false);
     assert.equal(decafAdd.disabled, true);
     await click(noSugar, dom.window);
     assert.equal(noSugar.querySelector("input").checked, true);

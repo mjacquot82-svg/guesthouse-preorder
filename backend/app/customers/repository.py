@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.availability.models import ProductAvailability
-from app.catalog.models import Category, ModifierGroup, Product, ProductModifierGroup, ProductVariant
+from app.catalog.models import Category, ModifierGroup, Product, ProductModifierGroup, ProductVariant, SelectionType
 from app.customers.models import CustomerProfile
 from app.jds_auth.models import JdsUser
 from app.orders.constants import FulfillmentStatus, OrderStatus
@@ -129,7 +129,7 @@ class CustomerRepository:
             for group in groups:
                 selected = [(options[option_id][1], quantity) for option_id, quantity in modifier_key if option_id in options and options[option_id][0].id == group.id]
                 total = sum(quantity for _, quantity in selected)
-                if (not group.allow_quantity and any(quantity != 1 for _, quantity in selected)) or total < group.minimum_selections or (group.maximum_selections > 0 and total > group.maximum_selections):
+                if (group.selection_type == SelectionType.SINGLE and len(selected) > 1) or (not group.allow_quantity and any(quantity != 1 for _, quantity in selected)) or total < group.minimum_selections or (group.maximum_selections > 0 and total > group.maximum_selections):
                     valid = False
                     break
             if not valid:

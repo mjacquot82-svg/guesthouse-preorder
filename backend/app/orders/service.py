@@ -14,7 +14,7 @@ from app.availability.service import (
     PickupSchedulingService,
     SellabilityService,
 )
-from app.catalog.models import ModifierGroup, ModifierOption, Product, ProductVariant
+from app.catalog.models import ModifierGroup, ModifierOption, Product, ProductVariant, SelectionType
 from app.orders.constants import (
     DEFAULT_CURRENCY,
     DEFAULT_PENDING_EXPIRY_MINUTES,
@@ -314,6 +314,11 @@ class OrderCreationService:
                 ),
                 key=lambda option: (option.sort_order, option.id),
             )
+            if group.selection_type == SelectionType.SINGLE and len(group_options) > 1:
+                raise OrderCreationError(
+                    OrderCreationErrorCode.MODIFIER_SELECTION_INVALID,
+                    f"{group.name} allows only one distinct option.",
+                )
             if not group.allow_quantity and any(quantities[option.id] != 1 for option in group_options):
                 raise OrderCreationError(OrderCreationErrorCode.MODIFIER_SELECTION_INVALID, f"{group.name} does not allow quantities.")
             selection_count = sum(quantities[option.id] for option in group_options)

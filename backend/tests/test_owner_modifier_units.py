@@ -44,7 +44,7 @@ def test_catalog_organization_is_server_derived() -> None:
 @pytest.mark.parametrize("payload,message", [
     (dict(required=True, min_selections=0), "minimum"),
     (dict(required=False, min_selections=1), "minimum of zero"),
-    (dict(selection_type="single", max_selections=2), "maximum of one"),
+    (dict(selection_type="single", max_selections=2, allow_quantity=False), "maximum of one"),
     (dict(selection_type="multiple", required=True, min_selections=2, max_selections=1), "Maximum selections"),
 ])
 def test_group_selection_validation(payload: dict, message: str) -> None:
@@ -55,6 +55,25 @@ def test_group_selection_validation(payload: dict, message: str) -> None:
     values.update(payload)
     with pytest.raises(ValueError, match=message):
         CatalogService._validate_group_write(OwnerModifierGroupWrite(**values))
+
+
+@pytest.mark.parametrize(("selection_type", "allow_quantity", "max_selections"), [
+    ("single", False, 1),
+    ("single", True, 0),
+    ("single", True, 3),
+    ("multiple", False, 0),
+    ("multiple", True, 0),
+    ("multiple", True, 3),
+])
+def test_distinct_selection_mode_and_same_option_quantity_are_independent(
+    selection_type: str, allow_quantity: bool, max_selections: int,
+) -> None:
+    payload = OwnerModifierGroupWrite(
+        name="Generic group", selection_type=selection_type, required=False,
+        min_selections=0, max_selections=max_selections,
+        allow_quantity=allow_quantity,
+    )
+    CatalogService._validate_group_write(payload)
 
 
 def test_price_adjustments_are_nonnegative_integer_minor_units() -> None:

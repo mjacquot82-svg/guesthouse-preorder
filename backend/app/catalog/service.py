@@ -299,13 +299,9 @@ class CatalogService:
             raise ValueError("Required groups must have a minimum of at least one.")
         if not payload.required and payload.min_selections != 0:
             raise ValueError("Optional groups must have a minimum of zero.")
-        if payload.selection_type == "single" and payload.max_selections != 1:
-            raise ValueError("Choose-one groups must have a maximum of one.")
-        if payload.allow_quantity and payload.selection_type != "multiple":
-            raise ValueError("Quantity can only be enabled for choose-more-than-one groups.")
-        if payload.allow_quantity and payload.max_selections == 0:
-            raise ValueError("Quantity-enabled groups need a maximum quantity.")
-        if payload.selection_type == "multiple" and payload.max_selections and payload.max_selections < payload.min_selections:
+        if payload.selection_type == "single" and not payload.allow_quantity and payload.max_selections != 1:
+            raise ValueError("Choose-one groups without quantities must have a maximum of one.")
+        if payload.max_selections and payload.max_selections < payload.min_selections:
             raise ValueError("Maximum selections cannot be less than minimum selections.")
 
     @staticmethod

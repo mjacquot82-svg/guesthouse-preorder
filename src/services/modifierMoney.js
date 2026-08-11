@@ -9,7 +9,7 @@ export function dollarsToCents(value) {
 export function toOwnerCustomizationWrite(customization, naturalOrder = 0) {
   const single = customization.selectionType === "single";
   const minSelections = single ? (customization.required ? 1 : 0) : Number(customization.minSelections);
-  const maxSelections = single ? 1 : Number(customization.maxSelections);
+  const maxSelections = single && !customization.allowQuantity ? 1 : Number(customization.maxSelections);
   return {
     groupId: customization.backendId,
     group: {

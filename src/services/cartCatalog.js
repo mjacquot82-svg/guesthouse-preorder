@@ -66,6 +66,9 @@ function resolveSelections(product, selections) {
 
     const totalQuantity = selectedEntries.reduce((sum, entry) => sum + (typeof entry === "string" ? 1 : entry.quantity), 0);
     const minimum = group.required ? Math.max(1, group.minSelections || 0) : group.minSelections || 0;
+    if (!group.allowQuantity && selectedEntries.some((entry) => typeof entry !== "string" && entry.quantity !== 1)) {
+      issues.push(`${group.name} does not allow quantities.`);
+    }
     if (totalQuantity < minimum) {
       issues.push(`${group.name} needs a selection.`);
     }

@@ -7517,3 +7517,9 @@ body {
 .modifier-stepper { display: inline-grid; grid-template-columns: 2.75rem 2.5rem 2.75rem; align-items: center; text-align: center; }
 .modifier-stepper button { min-width: 2.75rem; min-height: 2.75rem; border-radius: .65rem; }
 .product-choice-guidance { display: block; margin-top: .4rem; color: var(--muted, #665f55); }
+.modifier-advanced .modifier-setting-choice { align-items: flex-start; }
+.modifier-setting-choice span { display: grid; gap: .15rem; }
+.modifier-setting-choice small { color: #655e54; font-weight: 500; }
+.modifier-selection-limits { border-left: 3px solid #ded5c8; padding-left: 1rem; }
+.modifier-selection-limits summary { min-height: 32px; }
+.modifier-selection-limits > small { color: #655e54; display: block; margin-top: .55rem; }

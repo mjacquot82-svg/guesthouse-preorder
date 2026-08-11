@@ -28,7 +28,7 @@ function reorderCart(order, catalog) {
     for (const group of product.modifierGroups.filter((candidate) => candidate.id !== "size")) {
       const groupSelections = selected.filter((value) => value.group.id === group.id);
       const total = groupSelections.reduce((sum, value) => sum + value.quantity, 0);
-      if ((!group.allowQuantity && groupSelections.some((value) => value.quantity !== 1)) || total < group.minSelections || (group.maxSelections > 0 && total > group.maxSelections)) return [];
+      if ((group.type === "single" && groupSelections.length > 1) || (!group.allowQuantity && groupSelections.some((value) => value.quantity !== 1)) || total < group.minSelections || (group.maxSelections > 0 && total > group.maxSelections)) return [];
     }
     const signature = selected.map(({ group, option, quantity }) => `${group.id}:${option.id}${quantity > 1 ? `:${quantity}` : ""}`).sort().join("|");
     return [{

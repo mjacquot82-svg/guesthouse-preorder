@@ -17,12 +17,12 @@ const [{ default: ModifierManager }, { toOwnerCustomizationWrite }] = await Prom
 
 after(() => vite.close());
 
-const group = (name, allowQuantity = false) => ({
+const group = (name, allowQuantity = false, selectionType = allowQuantity ? "multiple" : "single") => ({
   id: name.toLowerCase().replaceAll(" ", "-"),
-  backendId: name === "Sugar" ? "41" : name === "Flavour shots" ? "42" : "43",
+  backendId: `group-${name.toLowerCase().replaceAll(" ", "-")}`,
   name,
   description: "",
-  selectionType: allowQuantity ? "multiple" : "single",
+  selectionType,
   required: false,
   minSelections: 0,
   maxSelections: allowQuantity ? 3 : 1,
@@ -66,34 +66,36 @@ async function click(element, dom) {
 }
 
 const button = (label) => [...document.querySelectorAll("button")].find((item) => item.textContent.trim() === label);
-const quantityInput = () => [...document.querySelectorAll('input[type="checkbox"]')].find((input) => input.closest("label")?.textContent.includes("Allow quantity"));
+const quantityInput = () => [...document.querySelectorAll('input[type="checkbox"]')].find((input) => input.closest("label")?.textContent.includes("Allow quantities"));
 
-test("actual Modifier Edit UI always renders the generic quantity capability and tracks both toggle directions", { concurrency: false }, async () => {
-  const app = await renderManager({ groups: [group("Sugar"), group("Flavour shots", true), group("Milk")] });
+test("actual Modifier Edit UI independently composes all selection and quantity modes", { concurrency: false }, async () => {
+  const app = await renderManager({ groups: [group("Generic one"), group("Generic multiple quantity", true), group("Generic one quantity", true, "single")] });
   try {
     await click(button("Edit"), app.dom);
-    assert.match(document.querySelector(".modifier-editor").textContent, /Quantity.*Allow quantity/);
+    assert.match(document.querySelector(".modifier-editor").textContent, /How can customers choose.*Allow quantities/s);
     assert.equal(quantityInput().checked, false);
-    assert.equal(quantityInput().disabled, true);
-    assert.match(quantityInput().closest("label").textContent, /Choose more than one/);
-    await click([...document.querySelectorAll("label")].find((item) => item.textContent.includes("Choose more than one")), app.dom);
     assert.equal(quantityInput().disabled, false);
     await click(quantityInput(), app.dom);
     assert.equal(quantityInput().checked, true);
+    assert.equal([...document.querySelectorAll("label")].find((item) => item.textContent.includes("One option")).querySelector("input").checked, true);
     assert.match(document.querySelector(".modifier-save-actions").textContent, /Unsaved changes/);
     await click(quantityInput(), app.dom);
-    await click([...document.querySelectorAll("label")].find((item) => item.textContent.includes("Choose one")), app.dom);
     assert.doesNotMatch(document.querySelector(".modifier-save-actions").textContent, /Unsaved changes/);
 
     await click(button("Back to modifiers"), app.dom);
     await click([...document.querySelectorAll(".modifier-category header button")][1], app.dom);
-    assert.equal(document.querySelector(".modifier-editor h2").textContent, "Flavour shots");
+    assert.equal(document.querySelector(".modifier-editor h2").textContent, "Generic multiple quantity");
     assert.equal(quantityInput().checked, true);
+    assert.equal([...document.querySelectorAll("label")].find((item) => item.textContent.includes("Multiple options")).querySelector("input").checked, true);
     await click(quantityInput(), app.dom);
     assert.equal(quantityInput().checked, false);
     assert.match(document.querySelector(".modifier-save-actions").textContent, /Unsaved changes/);
     await click(quantityInput(), app.dom);
     assert.doesNotMatch(document.querySelector(".modifier-save-actions").textContent, /Unsaved changes/);
+    await click(button("Back to modifiers"), app.dom);
+    await click([...document.querySelectorAll(".modifier-category header button")][2], app.dom);
+    assert.equal(quantityInput().checked, true);
+    assert.equal([...document.querySelectorAll("label")].find((item) => item.textContent.includes("One option")).querySelector("input").checked, true);
     assert.equal(document.querySelectorAll(".modifier-editor").length, 1);
   } finally { await app.cleanup(); }
 });
@@ -105,9 +107,9 @@ test("actual Modifier Create UI exposes quantity and failed Edit Save preserves 
   });
   try {
     await click(button("+ Add modifier category"), app.dom);
-    assert.match(document.querySelector(".modifier-editor").textContent, /Quantity.*Allow quantity/);
+    assert.match(document.querySelector(".modifier-editor").textContent, /Allow quantities/);
     assert.equal(quantityInput().checked, false);
-    assert.equal(quantityInput().disabled, true);
+    assert.equal(quantityInput().disabled, false);
     await click(button("Back to modifiers"), app.dom);
     await click(button("Edit"), app.dom);
     await click(quantityInput(), app.dom);
@@ -124,13 +126,13 @@ test("actual Modifier Create UI exposes quantity and failed Edit Save preserves 
 test("actual Modifier Edit Save sends quantity and uses each authoritative response as the clean baseline", { concurrency: false }, async () => {
   const requests = [];
   const app = await renderManager({
-    groups: [group("Sugar")],
+    groups: [group("Generic group")],
     onSaveCustomization: async (draft) => {
       requests.push(toOwnerCustomizationWrite(draft).group);
       return {
         group: {
-          id: "41", name: draft.name, description: "", selection_type: "multiple", required: false,
-          min_selections: 0, max_selections: 3, allow_quantity: requests.length === 1,
+          id: "41", name: draft.name, description: "", selection_type: "single", required: false,
+          min_selections: 0, max_selections: requests.length === 1 ? 3 : 1, allow_quantity: requests.length === 1,
           active: true, sort_order: 0,
         },
         choices: draft.choices.map((choice) => ({ clientId: choice.draftId, response: { id: choice.backendId } })),
@@ -139,12 +141,13 @@ test("actual Modifier Edit Save sends quantity and uses each authoritative respo
   });
   try {
     await click(button("Edit"), app.dom);
-    await click([...document.querySelectorAll("label")].find((item) => item.textContent.includes("Choose more than one")), app.dom);
-    const maximum = [...document.querySelectorAll('input[type="number"]')][1];
-    await act(async () => { maximum.value = "3"; maximum.dispatchEvent(new app.dom.window.Event("input", { bubbles: true })); });
     await click(quantityInput(), app.dom);
+    const maximum = [...document.querySelectorAll('input[type="number"]')][0];
+    await act(async () => { maximum.value = "3"; maximum.dispatchEvent(new app.dom.window.Event("input", { bubbles: true })); });
     await click(button("Save changes"), app.dom);
     assert.equal(requests[0].allow_quantity, true);
+    assert.equal(requests[0].selection_type, "single");
+    assert.equal(requests[0].max_selections, 0);
     assert.equal(quantityInput().checked, true);
     assert.doesNotMatch(document.querySelector(".modifier-save-actions").textContent, /Unsaved changes/);
 
