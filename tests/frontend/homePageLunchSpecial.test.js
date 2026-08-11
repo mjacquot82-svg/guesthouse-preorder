@@ -44,10 +44,6 @@ test("category browser retains a stable place through catalog states", () => {
 });
 
 test("Home distinguishes unresolved, unavailable, and genuinely empty catalog states", () => {
-  assert.match(home, /status === "ready" \? <span>\{coffeeCount\} crafted drinks<\/span> : null/);
-  assert.match(home, /Loading today’s drinks…/);
-  assert.match(home, /Menu count unavailable/);
-  assert.match(home, /No crafted drinks available today/);
   assert.match(home, /Loading today’s special…/);
   assert.match(home, /Today’s special is temporarily unavailable/);
   assert.match(home, /onClick=\{reload\}>Try again/);

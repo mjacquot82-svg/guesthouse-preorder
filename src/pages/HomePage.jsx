@@ -76,7 +76,6 @@ export default function HomePage() {
     categories,
     popularItems,
     lunchSpecial,
-    coffeeCount,
   } = createHomeCatalogView(status, catalog);
   const availableProducts = (catalog?.products || []).filter(
     (product) => product.available
@@ -178,21 +177,7 @@ export default function HomePage() {
   return (
     <section className="home-page ordering-page">
       <div className="welcome-panel app-welcome-panel">
-        <div>
-          <p className="eyebrow">Coffee bar</p>
-          <h1>Fresh café rituals, made easy</h1>
-          <p>Seasonal pours, bakery favorites, and quiet coffee bar classics.</p>
-        </div>
-        <div className="cafe-hero-image" aria-hidden="true" />
-        <div className="welcome-actions">
-          <Link className="primary-button" to="/menu">
-            Browse menu
-          </Link>
-          {status === "ready" ? <span>{coffeeCount} crafted drinks</span> : null}
-          {status === "empty" ? <span>No crafted drinks available today</span> : null}
-          {status === "idle" || status === "loading" ? <span>Loading today’s drinks…</span> : null}
-          {status === "error" ? <span>Menu count unavailable</span> : null}
-        </div>
+        <img className="ladels-hero-logo" src="/ladels.png" alt="Ladel's Wellness Café" />
       </div>
 
       <div className="home-order-status" aria-live="polite">

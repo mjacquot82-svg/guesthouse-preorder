@@ -6464,6 +6464,20 @@ body {
 
 .home-page .app-welcome-panel {
   border-radius: 22px;
+  min-height: clamp(190px, 34vw, 300px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(18px, 4vw, 34px);
+}
+
+.home-page .ladels-hero-logo {
+  display: block;
+  width: min(74%, 430px);
+  max-width: 100%;
+  max-height: 248px;
+  object-fit: contain;
+  object-position: center;
 }
 
 .home-page .welcome-actions {
@@ -6678,9 +6692,13 @@ body {
   }
 
   .home-page .app-welcome-panel {
-    min-height: 272px;
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.58fr);
-    padding: clamp(22px, 3vw, 32px);
+    min-height: 300px;
+    padding: clamp(24px, 3vw, 34px);
+  }
+
+  .home-page .ladels-hero-logo {
+    width: min(48vw, 430px);
+    max-height: 250px;
   }
 
   .home-page .cafe-hero-image {
@@ -6720,6 +6738,16 @@ body {
 }
 
 @media (max-width: 760px) {
+  .home-page .app-welcome-panel {
+    min-height: clamp(184px, 62vw, 238px);
+    padding: clamp(16px, 5vw, 24px);
+  }
+
+  .home-page .ladels-hero-logo {
+    width: min(78vw, 280px);
+    max-height: 204px;
+  }
+
   .home-page .category-pill-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
