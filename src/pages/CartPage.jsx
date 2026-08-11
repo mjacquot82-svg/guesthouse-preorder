@@ -19,6 +19,7 @@ import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerProfile } from "../services/customerAccountApi.js";
 import { formatCustomerPhone } from "../services/customerPhone.js";
 import { formatTaxLabel, getOrderPricing } from "../services/orderPricing.js";
+import { formatConfigurationDescription } from "../services/configurationDescription.js";
 import {
   buildSchedulingLines,
   fetchSchedulingOptions,
@@ -388,7 +389,7 @@ export default function CartPage() {
                 <div>
                   <strong>{item.quantity} × {item.product_name}</strong>
                   {item.variant_name ? <span>{item.variant_name}</span> : null}
-                  {item.modifiers?.length ? <small>{item.modifiers.map((modifier) => `${modifier.option_name}${(modifier.quantity || 1) > 1 ? ` x${modifier.quantity}` : ""}`).join(", ")}</small> : null}
+                  {item.modifiers?.length ? <small>{formatConfigurationDescription(item.modifiers)}</small> : null}
                 </div>
                 <strong>{formatPrice(item.line_subtotal_cents / 100)}</strong>
               </li>
@@ -433,7 +434,7 @@ export default function CartPage() {
                 <strong>{item.name}</strong>
                 {item.options?.length ? (
                   <small>
-                    {item.options.map((option) => `${option.groupName}: ${option.name}${(option.quantity || 1) > 1 ? ` x${option.quantity}` : ""}`).join(", ")}
+                    {formatConfigurationDescription(item.options)}
                   </small>
                 ) : null}
                 <span>

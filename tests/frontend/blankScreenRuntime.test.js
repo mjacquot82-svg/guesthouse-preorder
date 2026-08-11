@@ -169,11 +169,36 @@ for (const [name, session, quickOrder] of [
       await waitForText(app.container, "Quick Order");
       assert.equal(app.container.querySelector('.ladels-hero-logo')?.getAttribute('alt'), "Ladel's Wellness Café");
       assert.ok(app.container.querySelector(".home-page"));
+      const genericCard = app.container.querySelector("a.quick-product-card");
+      assert.ok(genericCard);
+      assert.equal(genericCard.getAttribute("aria-label"), "Customize Drip Coffee");
+      assert.equal(genericCard.textContent.includes("Customize on the menu"), true);
+      assert.equal(genericCard.textContent.trim().endsWith("Customize"), false);
+      assert.equal(genericCard.querySelector("button"), null);
     } finally {
       await app.cleanup();
     }
   });
 }
+
+test("Home keeps direct Add only on personalized exact-configuration Quick Order cards", { concurrency: false }, async () => {
+  const app = await renderApp({
+    initialPath: "/",
+    quickOrder: {
+      configurations: [{ modifiers: [], product_id: "100", unit_price_cents: 375, variant_id: null }],
+      product_ids: ["100"],
+    },
+  });
+  try {
+    await waitForText(app.container, "Quick Order");
+    const exactCard = app.container.querySelector("article.quick-product-card");
+    assert.ok(exactCard);
+    assert.ok(exactCard.querySelector('button[aria-label="Quick add Drip Coffee"]'));
+    assert.equal(exactCard.querySelector('a[aria-label="Customize Drip Coffee"]'), null);
+  } finally {
+    await app.cleanup();
+  }
+});
 
 test("Owner Operations to Staff renders loading and API success without an effect cleanup crash", { concurrency: false }, async () => {
   const app = await renderApp({ initialPath: "/admin", staff: [{ id: "staff-1", display_name: "Morning Barista", active: true }] });

@@ -7539,6 +7539,45 @@ body {
   }
 }
 .product-choice-guidance { display: block; margin-top: .4rem; color: var(--muted, #665f55); }
+
+/* Customer interaction-state foreground safety */
+.ordering-page .primary-button:not(:disabled),
+.ordering-page .drink-card button:not(:disabled),
+.home-page .quick-product-card button:not(:disabled),
+.modifier-options label.selected {
+  color: #fffdf8;
+  -webkit-text-fill-color: #fffdf8;
+}
+
+.ordering-page .primary-button:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"], .active, .selected),
+.ordering-page .drink-card button:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"], .active, .selected, .is-added),
+.home-page .quick-product-card button:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"]),
+.modifier-options label.selected:is(:active, :focus-within) {
+  color: #fffdf8;
+  -webkit-text-fill-color: #fffdf8;
+}
+
+.ordering-page .secondary-button:not(:disabled),
+.ordering-page .product-customize-toggle:not(:disabled),
+.ordering-page .quantity-stepper button:not(:disabled),
+.ordering-page .remove-cart-item:not(:disabled),
+.ordering-page .menu-category-rail button:not(.active):not(:disabled),
+.bottom-nav a,
+.home-page a.quick-product-card {
+  color: var(--gh-charcoal);
+  -webkit-text-fill-color: var(--gh-charcoal);
+}
+
+.ordering-page .secondary-button:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"], .active, .selected),
+.ordering-page .product-customize-toggle:not(:disabled):is(:active, :focus, :focus-visible, [aria-pressed="true"]),
+.ordering-page .quantity-stepper button:not(:disabled):is(:active, :focus, :focus-visible),
+.ordering-page .remove-cart-item:not(:disabled):is(:active, :focus, :focus-visible),
+.ordering-page .menu-category-rail button:not(.active):not(:disabled):is(:active, :focus, :focus-visible),
+.bottom-nav a:is(:active, :focus, :focus-visible),
+.home-page a.quick-product-card:is(:active, :focus, :focus-visible) {
+  color: var(--gh-charcoal);
+  -webkit-text-fill-color: var(--gh-charcoal);
+}
 .modifier-advanced .modifier-setting-choice { align-items: flex-start; }
 .modifier-setting-choice span { display: grid; gap: .15rem; }
 .modifier-setting-choice small { color: #655e54; font-weight: 500; }

@@ -49,16 +49,31 @@ test("Home distinguishes unresolved, unavailable, and genuinely empty catalog st
   assert.match(home, /onClick=\{reload\}>Try again/);
 });
 
-test("quick order restores one-tap horizontal product cards", () => {
+test("Quick Order makes generic cards configuration links and reserves direct Add for exact configurations", () => {
   assert.match(home, /Quick Order/);
   assert.match(home, /quick-product-rail/);
   assert.match(home, /quick-product-card/);
   assert.match(home, /Quick add/);
   assert.match(home, /addQuickItem/);
   assert.match(home, /storeCart/);
+  assert.match(home, /const QuickOrderCard = item\.quickConfiguration \? "article" : Link/);
+  assert.match(home, /"aria-label": `Customize \$\{item\.name\}`/);
+  assert.match(home, /\{item\.quickConfiguration \? <button/);
+  assert.doesNotMatch(home, />Customize<\/Link>/);
   assert.match(home, /getProductSpecificImageUrl\(item\)/);
   assert.match(home, /productImageUrl \? \(/);
   assert.doesNotMatch(home, /item-thumb-\$\{item\.image\}/);
+});
+
+test("customer button interaction states preserve foreground contrast", async () => {
+  const styles = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
+
+  assert.match(styles, /Customer interaction-state foreground safety/);
+  assert.match(styles, /\.ordering-page \.primary-button:not\(:disabled\)[\s\S]*?color:\s*#fffdf8;[\s\S]*?-webkit-text-fill-color:\s*#fffdf8/);
+  assert.match(styles, /\.ordering-page \.drink-card button:not\(:disabled\):is\(:active, :focus, :focus-visible, \[aria-pressed="true"\], \.active, \.selected, \.is-added\)/);
+  assert.match(styles, /\.home-page \.quick-product-card button:not\(:disabled\):is\(:active, :focus, :focus-visible, \[aria-pressed="true"\]\)/);
+  assert.match(styles, /\.ordering-page \.secondary-button:not\(:disabled\)[\s\S]*?color:\s*var\(--gh-charcoal\);[\s\S]*?-webkit-text-fill-color:\s*var\(--gh-charcoal\)/);
+  assert.match(styles, /\.home-page a\.quick-product-card:is\(:active, :focus, :focus-visible\)/);
 });
 
 test("image-less lunch specials never inherit generic product photography", async () => {

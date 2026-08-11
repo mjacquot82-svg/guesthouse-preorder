@@ -18,6 +18,7 @@ import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerLoyalty } from "../services/loyaltyApi.js";
 import { fetchCustomerQuickOrder } from "../services/customerAccountApi.js";
+import { formatConfigurationDescription } from "../services/configurationDescription.js";
 import LoyaltyCard from "../components/LoyaltyCard.jsx";
 
 function formatPrice(price) {
@@ -299,27 +300,38 @@ export default function HomePage() {
         <div className="quick-product-rail">
           {quickOrderItems.map((item) => {
             const productImageUrl = getProductSpecificImageUrl(item);
+            const QuickOrderCard = item.quickConfiguration ? "article" : Link;
+            const quickOrderCardProps = item.quickConfiguration ? {} : {
+              "aria-label": `Customize ${item.name}`,
+              to: `/menu?product=${encodeURIComponent(item.id)}`,
+            };
 
             return (
-              <article className={`quick-product-card${productImageUrl ? " has-product-image" : " is-image-free"}`} key={item.quickKey}>
+              <QuickOrderCard {...quickOrderCardProps} className={`quick-product-card${productImageUrl ? " has-product-image" : " is-image-free"}`} key={item.quickKey}>
                 {productImageUrl ? (
                   <div className="quick-product-image" style={{ backgroundImage: `url(${productImageUrl})` }} aria-hidden="true" />
                 ) : null}
                 <div className="quick-product-copy">
                   <h3>{item.name}</h3>
-                  {item.quickConfiguration ? <small>{[
-                    item.modifierGroups.find((group) => group.id === "size")?.options.find((option) => option.backendId === item.quickConfiguration.variant_id)?.name,
+                  {item.quickConfiguration ? <small>{formatConfigurationDescription([
+                    ...(() => {
+                      const size = item.modifierGroups.find((group) => group.id === "size");
+                      const option = size?.options.find((candidate) => candidate.backendId === item.quickConfiguration.variant_id);
+                      return size && option ? [{ groupName: size.name, name: option.name }] : [];
+                    })(),
                     ...item.modifierGroups.filter((group) => group.id !== "size").flatMap((group) => {
                       const selected = item.quickConfiguration.modifiers.filter((modifier) => group.options.some((option) => option.backendId === modifier.option_id));
-                      return selected.length ? selected.map((modifier) => `${modifier.option_name}${modifier.quantity > 1 ? ` x${modifier.quantity}` : ""}`) : [`No ${group.name.toLowerCase()}`];
+                      return selected.length
+                        ? selected.map((modifier) => ({ groupName: group.name, name: modifier.option_name, quantity: modifier.quantity }))
+                        : [{ groupName: group.name, name: `No ${group.name.toLowerCase()}` }];
                     }),
-                  ].filter(Boolean).join(" · ") || "Standard"}</small> : <small>Customize on the menu</small>}
+                  ]) || "Standard"}</small> : <small>Customize on the menu</small>}
                   <strong>{formatPrice(item.quickConfiguration ? item.quickConfiguration.unit_price_cents / 100 : getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
                 </div>
-                {item.quickConfiguration || !getMissingRequiredChoice(item, getDefaultSelections(item)) ? <button type="button" aria-label={`Quick add ${item.name}`} onClick={() => addQuickItem(item)}>
+                {item.quickConfiguration ? <button type="button" aria-label={`Quick add ${item.name}`} onClick={() => addQuickItem(item)}>
                   <Plus size={18} strokeWidth={2.8} />
-                </button> : <Link aria-label={`Customize ${item.name}`} to={`/menu?product=${encodeURIComponent(item.id)}`}>Customize</Link>}
-              </article>
+                </button> : null}
+              </QuickOrderCard>
             );
           })}
         </div>

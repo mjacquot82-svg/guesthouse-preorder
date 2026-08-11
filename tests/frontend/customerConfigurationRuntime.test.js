@@ -226,9 +226,11 @@ test("customer configures real choice shapes, gets readable success feedback, an
     await click([...document.querySelectorAll("a")].find((link) => link.textContent === "View cart"), dom.window);
     await waitForText(document.body, "Your order");
     assert.match(document.body.textContent, /Size: 16oz/);
-    assert.match(document.body.textContent, /Size: 20oz, Milk: Oat/);
+    assert.match(document.body.textContent, /Size: 20oz · Milk: Oat/);
     assert.match(document.body.textContent, /Sugar x2/);
     assert.match(document.body.textContent, /Vanilla x2/);
+    assert.match(document.body.textContent, /Flavour shots: Vanilla x2, Caramel/);
+    assert.doesNotMatch(document.body.textContent, /Flavour shots: Vanilla x2[^·]*Flavour shots: Caramel/);
     assert.match(document.body.textContent, /\$6\.50/);
 
     await click([...document.querySelectorAll("a")].find((link) => link.textContent.trim() === "Home"), dom.window);
