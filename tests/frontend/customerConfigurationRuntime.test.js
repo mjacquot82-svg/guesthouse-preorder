@@ -63,10 +63,11 @@ const catalog = {
             ],
           },
           {
-            id: "403", key: "flavour-shots", name: "Flavour shots", description: "", selection_type: "multiple", required: false, min_selections: 0, max_selections: 3, allow_quantity: true, sort_order: 2,
+            id: "403", key: "flavour-shots", name: "Flavour shots", description: "", selection_type: "multiple", required: true, min_selections: 1, max_selections: 3, allow_quantity: true, sort_order: 2,
             options: [
               { id: "4031", key: "vanilla", name: "Vanilla", price_adjustment_cents: 75, sort_order: 0 },
               { id: "4032", key: "caramel", name: "Caramel", price_adjustment_cents: 75, sort_order: 1 },
+              { id: "4033", key: "hazelnut", name: "Hazelnut", price_adjustment_cents: 75, sort_order: 2 },
             ],
           },
         ],
@@ -191,6 +192,12 @@ test("customer configures real choice shapes, gets readable success feedback, an
     await click(noMilk, dom.window);
     const vanillaPlus = decaf.querySelector('button[aria-label="Add one Vanilla"]');
     const caramelPlus = decaf.querySelector('button[aria-label="Add one Caramel"]');
+    const flavourGroup = [...decaf.querySelectorAll("fieldset")].find((group) => group.textContent.includes("Flavour shots"));
+    assert.equal(flavourGroup.querySelector("legend").textContent, "Flavour shots (required)");
+    assert.equal([...flavourGroup.querySelectorAll("label")].some((label) => label.textContent.includes("No flavour")), false);
+    assert.deepEqual([...flavourGroup.querySelectorAll(".modifier-quantity-row > span")].map((name) => name.textContent), ["Vanilla", "Caramel", "Hazelnut"]);
+    assert.equal(flavourGroup.querySelectorAll("small").length, 3);
+    assert.equal(flavourGroup.querySelectorAll("small")[0].textContent, "+$0.75 each");
     await click(vanillaPlus, dom.window);
     await click(vanillaPlus, dom.window);
     await click(caramelPlus, dom.window);

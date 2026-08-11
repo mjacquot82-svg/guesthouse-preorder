@@ -40,6 +40,15 @@ test("mobile loyalty and product cards use compact presentations", () => {
   assert.match(menu, /"Customize"/);
 });
 
+test("quantity modifier rows keep names, controls, and prices readable on narrow cards", () => {
+  assert.match(styles, /\.modifier-quantity-row \{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto auto/);
+  assert.match(styles, /\.modifier-quantity-row > span \{[\s\S]*?overflow-wrap:\s*break-word;[\s\S]*?word-break:\s*normal/);
+  assert.match(styles, /@media \(max-width: 760px\) \{[\s\S]*?\.modifier-quantity-row \{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?grid-template-columns:\s*minmax\(6rem, 1fr\) auto/);
+  assert.match(styles, /@media \(max-width: 760px\) \{[\s\S]*?\.modifier-quantity-row > small \{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-self:\s*start/);
+  assert.match(styles, /\.modifier-stepper \{[\s\S]*?grid-template-columns:\s*2\.75rem 2\.5rem 2\.75rem/);
+  assert.match(styles, /\.modifier-stepper button \{[\s\S]*?min-width:\s*2\.75rem;[\s\S]*?min-height:\s*2\.75rem/);
+});
+
 test("customization, pricing selections, and add action remain mounted", () => {
   assert.match(menu, /<ProductModifiers/);
   assert.match(menu, /updateSelection\(item\.id, groupId, value\)/);
