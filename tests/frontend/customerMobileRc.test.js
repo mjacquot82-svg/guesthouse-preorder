@@ -53,12 +53,12 @@ test("direct and simple products avoid Customize while complex products stay col
   assert.match(menu, /choicePresentation === "direct"/);
   assert.match(menu, /choicePresentation === "simple" \? " is-simple"/);
   assert.match(menu, /getConfiguredPrice\(item, selections\)/);
-  assert.match(menu, /<ProductAddAction isAdded=\{isAdded\} quantity=\{quantity\}/);
+  assert.match(menu, /<ProductAddAction isAdded=\{isAdded\} missingChoice=\{missingChoice\} quantity=\{quantity\}/);
 });
 
 test("exact cart quantity and repeat-add action are unambiguous", () => {
   assert.match(menu, /\{quantity\} in cart/);
-  assert.match(menu, /quantity \? "Add another" : "Add to order"/);
+  assert.match(menu, /isAdded \? "Added — Add another" : quantity \? "Add another" : "Add to order"/);
   assert.doesNotMatch(menu, /Add again/);
 });
 

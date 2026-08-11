@@ -117,7 +117,7 @@ export default function HomePage() {
   const recommendationImageUrl = getProductSpecificImageUrl(recommendation);
 
   function addQuickItem(product) {
-    const selections = getDefaultSelections(product);
+    const selections = getDefaultSelections(product, { selectRequired: true });
     const selectedOptions = getSelectedOptions(product, selections);
     const configuredPrice = getConfiguredPrice(product, selections);
     const cartLineId = getCartLineId(product, selectedOptions);

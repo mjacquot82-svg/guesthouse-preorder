@@ -5,6 +5,7 @@ import {
   getCartLineId,
   getConfiguredPrice,
   getDefaultSelections,
+  getMissingRequiredChoice,
   getModifierGroupsForProduct,
   getProductChoicePresentation,
   getProductSpecificImageUrl,
@@ -44,7 +45,7 @@ function ProductModifiers({ product, selections, onChange }) {
     <div className="modifier-stack">
       {modifierGroups.map((group) => (
         <fieldset key={group.id} className="modifier-group">
-          <legend>{group.name}</legend>
+          <legend>{group.name}{group.required ? " (required)" : ""}</legend>
           <div className="modifier-options">
             {group.options.map((option) => {
               const selectedValue = selections[group.id];
@@ -86,16 +87,17 @@ function ProductModifiers({ product, selections, onChange }) {
   );
 }
 
-function ProductAddAction({ isAdded, quantity, onAdd }) {
+function ProductAddAction({ isAdded, missingChoice, quantity, onAdd }) {
   return (
     <div className="product-add-action">
       {quantity ? <span className="product-cart-quantity">{quantity} in cart</span> : null}
       <button
         className={`product-add-button${isAdded ? " is-added" : ""}`}
+        disabled={Boolean(missingChoice)}
         type="button"
         onClick={onAdd}
       >
-        {quantity ? "Add another" : "Add to order"}
+        <span>{missingChoice ? `Choose ${missingChoice.name}` : isAdded ? "Added — Add another" : quantity ? "Add another" : "Add to order"}</span>
       </button>
     </div>
   );
@@ -372,6 +374,7 @@ export default function MenuPage() {
               <ul className="drink-card-grid">
                 {activeMenuSection.items.map((item) => {
                   const selections = getSelections(item);
+                  const missingChoice = getMissingRequiredChoice(item, selections);
                   const quantity = getItemQuantity(item);
                   const price = getConfiguredPrice(item, selections);
                   const category = getCategoryById(categories, item.category);
@@ -408,7 +411,7 @@ export default function MenuPage() {
                         ) : null}
 
                         {choicePresentation === "direct" ? (
-                          <ProductAddAction isAdded={isAdded} quantity={quantity} onAdd={() => addItem(item)} />
+                          <ProductAddAction isAdded={isAdded} missingChoice={missingChoice} quantity={quantity} onAdd={() => addItem(item)} />
                         ) : (
                           <div
                             className={`product-customization${choicePresentation === "simple" ? " is-simple" : ""}`}
@@ -420,7 +423,7 @@ export default function MenuPage() {
                               onChange={(groupId, value) => updateSelection(item.id, groupId, value)}
                             />
 
-                            <ProductAddAction isAdded={isAdded} quantity={quantity} onAdd={() => addItem(item)} />
+                            <ProductAddAction isAdded={isAdded} missingChoice={missingChoice} quantity={quantity} onAdd={() => addItem(item)} />
                           </div>
                         )}
                       </div>

@@ -6,6 +6,7 @@ import {
   getCategoryById,
   getConfiguredPrice,
   getDefaultSelections,
+  getMissingRequiredChoice,
   getModifierGroupsForProduct,
   getProductChoicePresentation,
   getProductSpecificImageUrl,
@@ -146,11 +147,11 @@ test("Menu resolves URL-backed categories with safe defaults and product precede
   );
 });
 
-test("Menu defaults to the first variant and single modifier options", () => {
+test("Menu requires an intentional variant choice while defaulting optional single modifiers", () => {
   const product = adaptedDrink();
 
   assert.deepEqual(getDefaultSelections(product), {
-    size: "small",
+    size: [],
     milk: "whole",
     "flavour-shots": [],
   });
@@ -158,6 +159,9 @@ test("Menu defaults to the first variant and single modifier options", () => {
     getModifierGroupsForProduct(product).map((group) => group.id),
     ["size", "milk", "flavour-shots"]
   );
+  assert.equal(getMissingRequiredChoice(product, getDefaultSelections(product)).name, "Size");
+  assert.equal(getMissingRequiredChoice(product, { ...getDefaultSelections(product), size: "small" }), undefined);
+  assert.equal(getDefaultSelections(product, { selectRequired: true }).size, "small");
 });
 
 test("Menu derives direct, simple, and complex card presentations from choices", () => {

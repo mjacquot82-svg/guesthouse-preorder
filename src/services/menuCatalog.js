@@ -37,14 +37,27 @@ export function resolveMenuCategory(sections, categorySlug, targetProduct) {
     : sections[0]?.id || "";
 }
 
-export function getDefaultSelections(product) {
+export function getDefaultSelections(product, { selectRequired = false } = {}) {
   return getModifierGroupsForProduct(product).reduce((selections, group) => {
     const defaultOption = group.options[0]?.id;
     return {
       ...selections,
-      [group.id]: group.type === "multiple" ? [] : defaultOption || "",
+      [group.id]: group.type === "multiple" || (group.required && !selectRequired) ? [] : defaultOption || "",
     };
   }, {});
+}
+
+export function getMissingRequiredChoice(product, selections) {
+  return getModifierGroupsForProduct(product).find((group) => {
+    const selectedValue = selections[group.id];
+    const selectedCount = Array.isArray(selectedValue)
+      ? selectedValue.length
+      : selectedValue
+        ? 1
+        : 0;
+    const minimum = group.required ? Math.max(1, group.minSelections || 0) : group.minSelections || 0;
+    return selectedCount < minimum;
+  });
 }
 
 export function getSelectedOptions(product, selections) {
