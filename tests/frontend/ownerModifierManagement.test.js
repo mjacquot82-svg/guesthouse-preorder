@@ -4,6 +4,8 @@ import test from "node:test";
 
 import { dollarsToCents, toOwnerCustomizationWrite } from "../../src/services/modifierMoney.js";
 
+const source = (path) => readFile(new URL(path, import.meta.url), "utf8");
+
 test("owner modifier dollar input converts exactly to integer cents", () => {
   assert.equal(dollarsToCents("0"), 0);
   assert.equal(dollarsToCents("0.75"), 75);
@@ -13,71 +15,85 @@ test("owner modifier dollar input converts exactly to integer cents", () => {
   assert.equal(dollarsToCents("not money"), null);
 });
 
-test("Products and first-use screen use café-friendly customer-option language", async () => {
-  const products = await readFile(new URL("../../src/admin/ProductsPage.jsx", import.meta.url), "utf8");
-  const manager = await readFile(new URL("../../src/admin/ModifierManager.jsx", import.meta.url), "utf8");
-  assert.match(products, />Manage customer options</);
-  assert.match(products, /No customer options yet/);
-  assert.match(products, /Which options can customers choose for this product/);
-  assert.match(products, /modifierGroupIds\.includes\(group\.id\)/);
-  assert.match(manager, /Create customization/);
-  assert.match(manager, /No customer options yet/);
-  assert.match(manager, /Name it, such as Milk/);
-  assert.match(manager, /add the choices you offer/i);
-  assert.doesNotMatch(manager, /Modifier groups/);
-  assert.doesNotMatch(manager, /Customer-facing name/);
+test("Products exposes Menu items and Modifiers as one catalog experience", async () => {
+  const [products, manager] = await Promise.all([
+    source("../../src/admin/ProductsPage.jsx"),
+    source("../../src/admin/ModifierManager.jsx"),
+  ]);
+  assert.match(products, /aria-label="Products sections"/);
+  assert.match(products, />Menu items</);
+  assert.match(products, />Modifiers</);
+  assert.match(manager, /Product catalog/);
+  assert.match(manager, />Menu items</);
+  assert.doesNotMatch(manager, /Customer options/);
+  assert.doesNotMatch(manager, /Modifier group/);
 });
 
-test("create and edit use one coherent form with draft choices and one save action", async () => {
-  const manager = await readFile(new URL("../../src/admin/ModifierManager.jsx", import.meta.url), "utf8");
-  assert.match(manager, /choices: \[choiceDraft\(\), choiceDraft\(\)\]/);
-  assert.match(manager, />\+ Add choice</);
-  assert.match(manager, /Save customization/);
-  assert.match(manager, /Save changes/);
-  assert.match(manager, /One save creates this customization and its starting choices/);
-  assert.match(manager, /partialCustomization/);
-  assert.match(manager, /if \(busy\) return/);
-  assert.match(manager, /Your entries are still here; try again/);
+test("zero-modifier first use is a simple empty state", async () => {
+  const manager = await source("../../src/admin/ModifierManager.jsx");
+  assert.match(manager, /No modifiers yet\./);
+  assert.match(manager, /Create modifier categories for things customers can add or choose/);
+  assert.match(manager, />Add modifier category</);
+  assert.doesNotMatch(manager, /Create example/);
 });
 
-test("simple single-choice rules map to the authoritative domain without numeric UI", async () => {
-  const base = { name: "Milk", description: "", selectionType: "single", active: true, choices: [], sortOrder: 0 };
-  assert.deepEqual(toOwnerCustomizationWrite({ ...base, required: false }, 4).group, {
+test("simple category creation uses safe optional choose-one defaults", async () => {
+  const manager = await source("../../src/admin/ModifierManager.jsx");
+  assert.match(manager, /selectionType: "single", required: false/);
+  assert.match(manager, /minSelections: 0, maxSelections: 1, active: true/);
+  assert.match(manager, /choices: \[\]/);
+  assert.match(manager, /New modifier category/);
+  assert.match(manager, /Save modifier category/);
+
+  const base = { name: "Milk", description: "", selectionType: "single", required: false, active: true, choices: [], sortOrder: 0 };
+  assert.deepEqual(toOwnerCustomizationWrite(base, 4).group, {
     name: "Milk", description: "", selection_type: "single", required: false,
     min_selections: 0, max_selections: 1, active: true, sort_order: 0,
   });
-  assert.deepEqual(toOwnerCustomizationWrite({ ...base, required: true }, 4).group, {
-    name: "Milk", description: "", selection_type: "single", required: true,
-    min_selections: 1, max_selections: 1, active: true, sort_order: 0,
-  });
 });
 
-test("advanced limits appear only for choose-more-than-one while ordering stays implicit", async () => {
-  const manager = await readFile(new URL("../../src/admin/ModifierManager.jsx", import.meta.url), "utf8");
+test("advanced category settings are collapsed and reveal conditional limits", async () => {
+  const manager = await source("../../src/admin/ModifierManager.jsx");
+  assert.match(manager, /<details className="modifier-advanced"><summary>Advanced settings<\/summary>/);
+  assert.doesNotMatch(manager, /<details className="modifier-advanced" open/);
   assert.match(manager, /Choose one/);
   assert.match(manager, /Choose more than one/);
-  assert.match(manager, /draft\.selectionType === "single"[\s\S]*?: <div className="customization-limits"/);
-  assert.match(manager, /Minimum choices/);
-  assert.match(manager, /Maximum choices/);
+  assert.match(manager, /Choice requirement/);
+  assert.match(manager, /> Optional</);
+  assert.match(manager, /> Required</);
+  assert.match(manager, /draft\.selectionType === "multiple" \? <div className="modifier-limits"/);
   assert.doesNotMatch(manager, />Display order</);
-  assert.match(manager, /Move up/);
-  assert.match(manager, /Move down/);
 });
 
-test("choice price and availability language hide cents and safe-disable mechanics", async () => {
-  const manager = await readFile(new URL("../../src/admin/ModifierManager.jsx", import.meta.url), "utf8");
+test("modifier catalog supports add, edit, prices, and safe disable", async () => {
+  const manager = await source("../../src/admin/ModifierManager.jsx");
+  assert.match(manager, /modifier-category-list/);
+  assert.match(manager, /\+ Add modifier/);
   assert.match(manager, /Extra price/);
   assert.match(manager, /placeholder="0\.00"/);
-  assert.match(manager, /Available to customers/);
   assert.match(manager, /Make unavailable/);
-  assert.match(manager, /retained for existing products and order history/);
+  assert.match(manager, /Make available/);
+  assert.match(manager, /retained for order history/);
+  assert.match(manager, /priceLabel\(modifier\.priceAdjustmentCents\)/);
   assert.doesNotMatch(manager, /price_adjustment_cents/);
 });
 
-test("responsive modifier management styles collapse to one column", async () => {
-  const css = await readFile(new URL("../../src/style.css", import.meta.url), "utf8");
-  assert.match(css, /\.modifier-manager-layout \{[^}]*display: grid/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.modifier-manager-layout \{ grid-template-columns: 1fr; \}/);
-  assert.match(css, /\.customization-choice-row \{[\s\S]*?grid-template-columns:/);
-  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.customization-choice-row \{ grid-template-columns: 1fr; \}/);
+test("product editor accurately assigns whole categories and previews their modifiers", async () => {
+  const products = await source("../../src/admin/ProductsPage.jsx");
+  assert.match(products, /Choose which modifier categories are available on this product/);
+  assert.match(products, /modifierGroupIds\.includes\(group\.id\)/);
+  assert.match(products, /group\.options\.filter\(\(item\) => item\.active\)/);
+  assert.match(products, /Available on this product/);
+  assert.match(products, /No modifiers have been created yet\./);
+  assert.match(products, />Manage modifiers</);
+  assert.doesNotMatch(products, /modifierOptionIds/);
+});
+
+test("responsive styles keep catalog controls and modifier rows touch-friendly", async () => {
+  const css = await source("../../src/style.css");
+  assert.match(css, /\.modifier-category-list \{ display: grid/);
+  assert.match(css, /\.modifier-edit-row \{[\s\S]*?grid-template-columns:/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.products-view-switch button \{ flex: 1; \}/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.modifier-edit-row, \.modifier-limits \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /\.product-modifier-options label \{[\s\S]*?min-height: 68px/);
 });
