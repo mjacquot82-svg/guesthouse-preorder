@@ -40,13 +40,20 @@ test("mobile loyalty and product cards use compact presentations", () => {
   assert.match(menu, /"Customize"/);
 });
 
-test("quantity modifier rows keep names, controls, and prices readable on narrow cards", () => {
-  assert.match(styles, /\.modifier-quantity-row \{[^}]*grid-template-columns:\s*minmax\(0, 1fr\) auto auto/);
-  assert.match(styles, /\.modifier-quantity-row > span \{[\s\S]*?overflow-wrap:\s*break-word;[\s\S]*?word-break:\s*normal/);
-  assert.match(styles, /@media \(max-width: 760px\) \{[\s\S]*?\.modifier-quantity-row \{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?grid-template-columns:\s*minmax\(6rem, 1fr\) auto/);
-  assert.match(styles, /@media \(max-width: 760px\) \{[\s\S]*?\.modifier-quantity-row > small \{[\s\S]*?grid-column:\s*1 \/ -1;[\s\S]*?justify-self:\s*start/);
+test("quantity modifier layout responds to constrained product cards instead of the viewport", () => {
+  assert.match(styles, /\.modifier-options:has\(> \.modifier-quantity-row\) \{[\s\S]*?container-name:\s*quantity-options;[\s\S]*?container-type:\s*inline-size;[\s\S]*?grid-template-columns:\s*repeat\(auto-fit, minmax\(min\(100%, 24rem\), 1fr\)\)/);
+  assert.match(styles, /\.modifier-quantity-row \{[^}]*grid-template-columns:\s*minmax\(7rem, 1fr\) auto auto;[^}]*min-width:\s*0;[^}]*width:\s*100%/);
+  assert.match(styles, /@container quantity-options \(max-width: 34rem\) \{[\s\S]*?\.modifier-quantity-row \{[\s\S]*?grid-template-columns:\s*minmax\(6rem, 1fr\) auto/);
+  assert.match(styles, /@container quantity-options \(max-width: 22rem\) \{[\s\S]*?\.modifier-quantity-row > span \{[\s\S]*?grid-column:\s*1 \/ -1/);
+});
+
+test("quantity modifier names cannot collapse while controls and prices remain readable", () => {
+  assert.match(styles, /\.modifier-quantity-row > span \{[^}]*min-width:\s*7rem;[^}]*overflow-wrap:\s*normal;[^}]*word-break:\s*normal/);
   assert.match(styles, /\.modifier-stepper \{[\s\S]*?grid-template-columns:\s*2\.75rem 2\.5rem 2\.75rem/);
+  assert.match(styles, /\.modifier-stepper \{[^}]*flex-shrink:\s*0/);
   assert.match(styles, /\.modifier-stepper button \{[\s\S]*?min-width:\s*2\.75rem;[\s\S]*?min-height:\s*2\.75rem/);
+  assert.match(styles, /\.modifier-quantity-row > small \{[^}]*min-width:\s*max-content;[^}]*white-space:\s*nowrap/);
+  assert.doesNotMatch(styles, /\.modifier-quantity-row > span \{[^}]*(?:overflow-wrap:\s*anywhere|word-break:\s*break-all)/);
 });
 
 test("customization, pricing selections, and add action remain mounted", () => {

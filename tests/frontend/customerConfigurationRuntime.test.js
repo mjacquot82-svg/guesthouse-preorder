@@ -33,7 +33,7 @@ const catalog = {
         id: "100", slug: "granola-yogurt", name: "Granola Yogurt", description: "Ready to enjoy.", image: "", featured: false, lunch_special: false, base_price_cents: 550, sort_order: 0, variants: [], modifier_groups: [],
       },
       {
-        id: "101", slug: "drip-coffee", name: "Drip Coffee", description: "Fresh brewed.", image: "", featured: true, lunch_special: false, base_price_cents: 205, sort_order: 1,
+        id: "101", slug: "drip-coffee", name: "House Coffee", description: "Fresh brewed.", image: "", featured: true, lunch_special: false, base_price_cents: 205, sort_order: 1,
         variants: [option("1001", "12oz", "12oz", 205, 0), option("1002", "16oz", "16oz", 240, 1), option("1003", "20oz", "20oz", 275, 2)], modifier_groups: [],
       },
       {
@@ -48,7 +48,7 @@ const catalog = {
         }],
       },
       {
-        id: "103", slug: "decaf-coffee", name: "Decaf Coffee", description: "Fresh brewed decaf.", image: "", featured: false, lunch_special: false, base_price_cents: 205, sort_order: 3,
+        id: "103", slug: "decaf-coffee", name: "Drip Coffee", description: "Fresh brewed decaf.", image: "", featured: false, lunch_special: false, base_price_cents: 205, sort_order: 3,
         variants: [option("4001", "16oz", "16oz", 240, 0)],
         modifier_groups: [
           {
@@ -113,14 +113,14 @@ test("customer configures real choice shapes, gets readable success feedback, an
   const root = createRoot(document.getElementById("root"));
   try {
     await act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ["/menu?category=coffee"] }, React.createElement(CustomerAuthProvider, null, React.createElement(App)))));
-    await waitForText(document.body, "Drip Coffee");
+    await waitForText(document.body, "House Coffee");
 
     const card = (name) => [...document.querySelectorAll(".app-product-card")].find((item) => item.textContent.includes(name));
     const direct = card("Granola Yogurt");
     assert.equal(direct.querySelector(".product-customization"), null);
     await click(direct.querySelector(".product-add-button"), dom.window);
 
-    const drip = card("Drip Coffee");
+    const drip = card("House Coffee");
     const dripAdd = drip.querySelector(".product-add-button");
     assert.equal(drip.querySelector("legend").textContent, "Size (required)");
     assert.equal(dripAdd.disabled, true);
@@ -149,7 +149,7 @@ test("customer configures real choice shapes, gets readable success feedback, an
     assert.match(latte.textContent, /\$6\.50/);
     await click(latte.querySelector(".product-add-button"), dom.window);
 
-    const decaf = card("Decaf Coffee");
+    const decaf = card("Drip Coffee");
     await click(decaf.querySelector(".product-customize-toggle"), dom.window);
     const sugarOutput = decaf.querySelector('[aria-label="Sugar quantity"] output');
     const sugarPlus = decaf.querySelector('button[aria-label="Add one Sugar"]');
@@ -193,9 +193,12 @@ test("customer configures real choice shapes, gets readable success feedback, an
     const vanillaPlus = decaf.querySelector('button[aria-label="Add one Vanilla"]');
     const caramelPlus = decaf.querySelector('button[aria-label="Add one Caramel"]');
     const flavourGroup = [...decaf.querySelectorAll("fieldset")].find((group) => group.textContent.includes("Flavour shots"));
+    assert.ok(document.querySelectorAll(".app-product-card").length > 1);
     assert.equal(flavourGroup.querySelector("legend").textContent, "Flavour shots (required)");
     assert.equal([...flavourGroup.querySelectorAll("label")].some((label) => label.textContent.includes("No flavour")), false);
     assert.deepEqual([...flavourGroup.querySelectorAll(".modifier-quantity-row > span")].map((name) => name.textContent), ["Vanilla", "Caramel", "Hazelnut"]);
+    assert.equal(flavourGroup.querySelector(".modifier-options").children.length, 3);
+    assert.ok([...flavourGroup.querySelectorAll(".modifier-quantity-row")].every((row) => row.parentElement.classList.contains("modifier-options")));
     assert.equal(flavourGroup.querySelectorAll("small").length, 3);
     assert.equal(flavourGroup.querySelectorAll("small")[0].textContent, "+$0.75 each");
     await click(vanillaPlus, dom.window);
@@ -230,8 +233,8 @@ test("customer configures real choice shapes, gets readable success feedback, an
 
     await click([...document.querySelectorAll("a")].find((link) => link.textContent.trim() === "Home"), dom.window);
     await waitForText(document.body, "Quick Order");
-    assert.equal(document.querySelector('button[aria-label="Quick add Drip Coffee"]'), null);
-    assert.ok(document.querySelector('a[aria-label="Customize Drip Coffee"]'));
+    assert.equal(document.querySelector('button[aria-label="Quick add House Coffee"]'), null);
+    assert.ok(document.querySelector('a[aria-label="Customize House Coffee"]'));
     await click([...document.querySelectorAll("a")].find((link) => link.textContent.includes("Coffee") && link.getAttribute("href")?.includes("category=coffee")), dom.window);
     await waitForText(document.body, "Crafted drinks and fresh bites");
     assert.equal(document.querySelector(".menu-category-rail button.active").textContent, "Coffee");
