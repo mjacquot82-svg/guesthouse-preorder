@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { dollarsToCents } from "../services/modifierMoney.js";
-import { isModifierDraftDirty } from "./modifierDraft.js";
+import { applySavedModifierGroup, isModifierDraftDirty } from "./modifierDraft.js";
 
 let nextDraftId = 0;
 const modifierDraft = (modifier = {}) => ({
@@ -105,12 +105,11 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
     try {
       const result = await onSaveCustomization({ ...draft, name: draft.name.trim(), choices });
       const savedChoices = new Map(result.choices.map(({ clientId, response }) => [clientId, response]));
-      const authoritativeDraft = {
-        ...draft,
-        name: draft.name.trim(),
-        backendId: result.group?.id || draft.backendId,
-        choices: choices.map((choice) => ({ ...choice, backendId: savedChoices.get(choice.draftId)?.id || choice.backendId })),
-      };
+      const authoritativeDraft = applySavedModifierGroup(
+        draft,
+        result.group,
+        choices.map((choice) => ({ ...choice, backendId: savedChoices.get(choice.draftId)?.id || choice.backendId })),
+      );
       setDraft(authoritativeDraft);
       setSavedDraft(authoritativeDraft);
       setMessage(editing ? "Modifier category saved." : "Modifier category created. You can add modifiers now.");

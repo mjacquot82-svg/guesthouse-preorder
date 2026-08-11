@@ -47,6 +47,27 @@ const catalog = {
           ],
         }],
       },
+      {
+        id: "103", slug: "decaf-coffee", name: "Decaf Coffee", description: "Fresh brewed decaf.", image: "", featured: false, lunch_special: false, base_price_cents: 205, sort_order: 3,
+        variants: [option("4001", "16oz", "16oz", 240, 0)],
+        modifier_groups: [
+          {
+            id: "401", key: "milk", name: "Milk", description: "", selection_type: "single", required: false, min_selections: 0, max_selections: 1, allow_quantity: false, sort_order: 0,
+            options: [{ id: "4011", key: "oat", name: "Oat", price_adjustment_cents: 85, sort_order: 0 }],
+          },
+          {
+            id: "402", key: "sugar", name: "Sugar", description: "", selection_type: "multiple", required: false, min_selections: 0, max_selections: 3, allow_quantity: true, sort_order: 1,
+            options: [{ id: "4021", key: "sugar", name: "Sugar", price_adjustment_cents: 0, sort_order: 0 }],
+          },
+          {
+            id: "403", key: "flavour-shots", name: "Flavour shots", description: "", selection_type: "multiple", required: false, min_selections: 0, max_selections: 3, allow_quantity: true, sort_order: 2,
+            options: [
+              { id: "4031", key: "vanilla", name: "Vanilla", price_adjustment_cents: 75, sort_order: 0 },
+              { id: "4032", key: "caramel", name: "Caramel", price_adjustment_cents: 75, sort_order: 1 },
+            ],
+          },
+        ],
+      },
     ],
   }],
 };
@@ -124,16 +145,74 @@ test("customer configures real choice shapes, gets readable success feedback, an
     assert.match(latte.textContent, /\$6\.50/);
     await click(latte.querySelector(".product-add-button"), dom.window);
 
+    const decaf = card("Decaf Coffee");
+    await click(decaf.querySelector(".product-customize-toggle"), dom.window);
+    const sugarOutput = decaf.querySelector('[aria-label="Sugar quantity"] output');
+    const sugarPlus = decaf.querySelector('button[aria-label="Add one Sugar"]');
+    const sugarMinus = decaf.querySelector('button[aria-label="Remove one Sugar"]');
+    const noSugar = [...decaf.querySelectorAll("label")].find((label) => label.textContent.includes("No sugar"));
+    const decafAdd = decaf.querySelector(".product-add-button");
+    assert.equal(sugarOutput.textContent, "0");
+    assert.equal(noSugar.querySelector("input").checked, false);
+    assert.equal(decafAdd.disabled, true);
+    await click(sugarPlus, dom.window);
+    assert.equal(sugarOutput.textContent, "1");
+    await click(sugarPlus, dom.window);
+    assert.equal(sugarOutput.textContent, "2");
+    await click(sugarMinus, dom.window);
+    assert.equal(sugarOutput.textContent, "1");
+    await click(sugarMinus, dom.window);
+    assert.equal(sugarOutput.textContent, "0");
+    assert.equal(decafAdd.disabled, true);
+    await click(noSugar, dom.window);
+    assert.equal(noSugar.querySelector("input").checked, true);
+    await click(sugarPlus, dom.window);
+    assert.equal(noSugar.querySelector("input").checked, false);
+    await click(sugarPlus, dom.window);
+    await click(noSugar, dom.window);
+    assert.equal(sugarOutput.textContent, "0");
+    await click(sugarPlus, dom.window);
+    await click(sugarPlus, dom.window);
+    await click(sugarPlus, dom.window);
+    assert.equal(sugarPlus.disabled, true);
+    await click(sugarMinus, dom.window);
+    assert.equal(sugarOutput.textContent, "2");
+
+    await click([...decaf.querySelectorAll("label")].find((label) => label.textContent.includes("16oz")), dom.window);
+    const noMilk = [...decaf.querySelectorAll("label")].find((label) => label.textContent.includes("No milk"));
+    assert.equal(noMilk.querySelector("input").type, "radio");
+    assert.equal(decaf.querySelector('[aria-label="Oat quantity"]'), null);
+    await click(noMilk, dom.window);
+    const vanillaPlus = decaf.querySelector('button[aria-label="Add one Vanilla"]');
+    const caramelPlus = decaf.querySelector('button[aria-label="Add one Caramel"]');
+    await click(vanillaPlus, dom.window);
+    await click(vanillaPlus, dom.window);
+    await click(caramelPlus, dom.window);
+    assert.equal(vanillaPlus.disabled, true);
+    assert.equal(caramelPlus.disabled, true);
+    assert.equal(decafAdd.disabled, false);
+    assert.match(decaf.textContent, /\$4\.65/);
+    await click(decafAdd, dom.window);
+
     const stored = JSON.parse(localStorage.getItem("cafe-cart"));
     assert.deepEqual(stored.map((item) => item.id), [
       "granola-yogurt",
       "drip-coffee__size:16oz",
       "latte__milk:oat|size:20oz",
+      "decaf-coffee__flavour-shots:caramel|flavour-shots:vanilla:2|size:16oz|sugar:sugar:2",
     ]);
+    const decafCart = stored.find((item) => item.productId === "decaf-coffee");
+    assert.equal(decafCart.price, 4.65);
+    assert.deepEqual(decafCart.options.map(({ name, quantity }) => [name, quantity]), [
+      ["16oz", 1], ["Sugar", 2], ["Vanilla", 2], ["Caramel", 1],
+    ]);
+    assert.equal(decafCart.options.some((item) => item.name.startsWith("No ")), false);
     await click([...document.querySelectorAll("a")].find((link) => link.textContent === "View cart"), dom.window);
     await waitForText(document.body, "Your order");
     assert.match(document.body.textContent, /Size: 16oz/);
     assert.match(document.body.textContent, /Size: 20oz, Milk: Oat/);
+    assert.match(document.body.textContent, /Sugar x2/);
+    assert.match(document.body.textContent, /Vanilla x2/);
     assert.match(document.body.textContent, /\$6\.50/);
 
     await click([...document.querySelectorAll("a")].find((link) => link.textContent.trim() === "Home"), dom.window);

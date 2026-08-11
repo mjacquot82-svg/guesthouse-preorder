@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { isModifierDraftDirty } from "../../src/admin/modifierDraft.js";
+import { applySavedModifierGroup, isModifierDraftDirty } from "../../src/admin/modifierDraft.js";
 
 const saved = {
   backendId: 1, name: "Milk", description: "Choose milk", selectionType: "single",
@@ -57,12 +57,26 @@ test("untouched new Modifier category is clean and meaningful input is dirty", (
 test("Modifier editor retains dirty state through failure and clears it only after success", async () => {
   const page = await readFile(new URL("../../src/admin/ModifierManager.jsx", import.meta.url), "utf8");
   assert.match(page, /if \(busyRef\.current\) return/);
-  assert.match(page, /const authoritativeDraft = \{/);
+  assert.match(page, /const authoritativeDraft = applySavedModifierGroup\(/);
   assert.match(page, /setDraft\(authoritativeDraft\);\s*setSavedDraft\(authoritativeDraft\)/);
   assert.match(page, /catch \(error\) \{[\s\S]*?setDraft\(\(current\)/);
   assert.doesNotMatch(page, /catch \(error\) \{[\s\S]*?setSavedDraft/);
   assert.match(page, /disabled=\{busy \|\| !dirty\}/);
   assert.match(page, /dirty \? "Unsaved changes" : ""/);
+});
+
+test("successful Save uses the authoritative quantity setting as its clean baseline", () => {
+  const requested = changed({ selectionType: "multiple", maxSelections: 3, allowQuantity: true });
+  const response = {
+    id: "1", name: "Milk", description: "Choose milk", selection_type: "multiple",
+    required: false, min_selections: 0, max_selections: 3, allow_quantity: false,
+    active: true, sort_order: 0,
+  };
+  const authoritative = applySavedModifierGroup(requested, response, requested.choices);
+
+  assert.equal(authoritative.allowQuantity, false);
+  assert.equal(isModifierDraftDirty(authoritative, authoritative), false);
+  assert.equal(isModifierDraftDirty(requested, authoritative), true);
 });
 
 test("Modifier editor protects local, Owner, history, and browser-leave navigation", async () => {

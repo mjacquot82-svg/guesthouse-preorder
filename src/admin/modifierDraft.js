@@ -28,3 +28,20 @@ export function modifierDraftSignature(draft) {
 export function isModifierDraftDirty(draft, savedDraft) {
   return Boolean(draft && savedDraft && modifierDraftSignature(draft) !== modifierDraftSignature(savedDraft));
 }
+
+export function applySavedModifierGroup(draft, savedGroup, choices) {
+  return {
+    ...draft,
+    backendId: savedGroup.id,
+    name: savedGroup.name,
+    description: savedGroup.description || "",
+    selectionType: savedGroup.selection_type,
+    required: savedGroup.required,
+    minSelections: savedGroup.min_selections,
+    maxSelections: savedGroup.max_selections,
+    allowQuantity: savedGroup.allow_quantity === true,
+    active: savedGroup.active,
+    sortOrder: savedGroup.sort_order,
+    choices,
+  };
+}
