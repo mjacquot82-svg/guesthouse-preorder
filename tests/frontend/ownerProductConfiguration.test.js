@@ -61,8 +61,15 @@ test("modifier assignment is category-level with previews and an empty state", a
 
 test("product configuration remains readable across desktop and mobile", async () => {
   const css = await source("../../src/style.css");
-  assert.match(css, /\.admin-products-page \.admin-products-layout \{ grid-template-columns: minmax\(360px, \.85fr\) minmax\(520px, 1\.15fr\); \}/);
+  assert.match(css, /main:has\(> \.admin-products-page\), main:has\(> \.modifier-manager\) \{ width: min\(calc\(100% - 48px\), 1360px\); \}/);
+  assert.match(css, /\.admin-products-page \.admin-products-layout \{ grid-template-columns: minmax\(480px, \.82fr\) minmax\(620px, 1\.18fr\); gap: 16px; \}/);
+  assert.match(css, /\.product-row \{[\s\S]*?grid-template-columns: minmax\(190px, 1fr\) minmax\(170px, auto\);/);
+  assert.match(css, /\.product-row-actions \{[\s\S]*?grid-column: 1 \/ -1;[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\);/);
+  assert.match(css, /\.product-quick-tools \{[^}]*grid-template-columns: minmax\(320px, 1fr\) minmax\(180px, \.32fr\) minmax\(190px, \.34fr\);/);
+  assert.match(css, /\.modifier-manager \{[^}]*max-width: none;[^}]*width: 100%;/);
   assert.match(css, /\.product-variant-row \{[\s\S]*?grid-template-columns:/);
   assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.product-variant-row \{ grid-template-columns:/);
-  assert.match(css, /@media \(min-width: 761px\) and \(max-width: 1100px\)[\s\S]*?\.admin-products-page \.admin-products-layout \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(min-width: 761px\) and \(max-width: 1199px\)[\s\S]*?\.admin-products-page \.admin-products-layout \{ grid-template-columns: 1fr; \}/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.admin-products-layout,[\s\S]*?\.product-row \{[\s\S]*?grid-template-columns: 1fr;/);
+  assert.match(css, /@media \(max-width: 760px\)[\s\S]*?\.product-row-actions \{[\s\S]*?grid-template-columns: 1fr;[\s\S]*?width: 100%;/);
 });
