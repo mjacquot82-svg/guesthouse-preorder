@@ -5,7 +5,7 @@ import {fetchPushConfig,fetchPushStatus,pushSupport,revokeCurrentPushSubscriptio
 export default function NotificationSettings({csrfToken}){
  const [state,setState]=useState({loading:true,config:null,status:null,error:"",busy:false,currentDevice:false}); const support=pushSupport();
  const load=()=>Promise.all([fetchPushConfig(),fetchPushStatus(),support.supported?navigator.serviceWorker.ready.then(r=>r.pushManager.getSubscription()).catch(()=>null):null]).then(([config,status,local])=>setState(s=>({...s,loading:false,config,status,currentDevice:Boolean(local),error:""}))).catch(e=>setState(s=>({...s,loading:false,error:e.message})));
- useEffect(load,[]);
+ useEffect(()=>{load()},[]);
  async function enable(){setState(s=>({...s,busy:true,error:""}));let subscription;let saved;
   try{if(Notification.permission!=="granted"&&await Notification.requestPermission()!=="granted")throw new Error("Notifications weren’t allowed in this browser.");
    const registration=await navigator.serviceWorker.ready; subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKey(state.config.vapid_public_key)});

@@ -30,7 +30,8 @@ function formatPrice(price) {
 
 function getStoredCart() {
   try {
-    return JSON.parse(window.localStorage.getItem("cafe-cart")) || [];
+    const stored = JSON.parse(window.localStorage.getItem("cafe-cart"));
+    return Array.isArray(stored) ? stored : [];
   } catch {
     return [];
   }

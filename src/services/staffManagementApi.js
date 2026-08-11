@@ -13,7 +13,11 @@ async function request(path = "", { body, csrfToken, method = "GET" } = {}) {
   return payload;
 }
 
-export const fetchStaffAccounts = () => request();
+export const fetchStaffAccounts = async () => {
+  const accounts = await request();
+  if (!Array.isArray(accounts)) throw new Error("Staff access returned an invalid response.");
+  return accounts;
+};
 export const createStaffAccount = (displayName, pin, csrfToken) => request("", { body: { display_name: displayName, pin }, csrfToken, method: "POST" });
 export const resetStaffPin = (id, pin, csrfToken) => request(`/${id}/pin`, { body: { pin }, csrfToken, method: "PUT" });
 export const setStaffAccessStatus = (id, active, csrfToken) => request(`/${id}/status`, { body: { active }, csrfToken, method: "PUT" });
