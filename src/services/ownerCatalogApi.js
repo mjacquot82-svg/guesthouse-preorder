@@ -107,6 +107,30 @@ export function updateOwnerModifierOption(groupId, optionId, option, csrfToken, 
   });
 }
 
+export async function saveOwnerCustomization({ groupId, group, choices }, csrfToken, options = {}) {
+  let savedGroup = null;
+  const savedChoices = [];
+  try {
+    savedGroup = groupId
+      ? await updateOwnerModifierGroup(groupId, group, csrfToken, options)
+      : await createOwnerModifierGroup(group, csrfToken, options);
+    const savedGroupId = savedGroup?.id || groupId;
+    for (const [index, choice] of choices.entries()) {
+      const response = choice.optionId
+        ? await updateOwnerModifierOption(savedGroupId, choice.optionId, choice.payload, csrfToken, options)
+        : await createOwnerModifierOption(savedGroupId, choice.payload, csrfToken, options);
+      savedChoices.push({ clientId: choice.clientId, index, response });
+    }
+    return { group: savedGroup, choices: savedChoices };
+  } catch (error) {
+    error.partialCustomization = { group: savedGroup, choices: savedChoices };
+    if (savedGroup) {
+      error.message = `${group.name} was saved, but not every choice was saved. Review the choices below and try again.`;
+    }
+    throw error;
+  }
+}
+
 export function archiveOwnerProduct(productId, csrfToken, options = {}) {
   return request(`/products/${encodeURIComponent(productId)}`, {
     ...options, csrfToken, method: "DELETE",

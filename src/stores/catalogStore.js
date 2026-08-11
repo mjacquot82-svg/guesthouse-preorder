@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
+import { toOwnerCustomizationWrite } from "../services/modifierMoney.js";
 import {
   archiveOwnerProduct,
   clearOwnerCatalogCache,
-  createOwnerModifierGroup,
-  createOwnerModifierOption,
   createOwnerProduct,
   fetchOwnerCatalogCached,
+  saveOwnerCustomization,
   updateOwnerProduct,
-  updateOwnerModifierGroup,
-  updateOwnerModifierOption,
   updateOwnerProductAvailability,
   updateLunchSpecial,
 } from "../services/ownerCatalogApi.js";
@@ -151,31 +149,22 @@ export function useCatalogProducts({ enabled = true } = {}) {
     await reload({ force: true });
   }
 
-  async function saveModifierGroup(group) {
-    const payload = {
-      name: group.name.trim(), description: group.description?.trim() || "",
-      selection_type: group.selectionType, required: group.required,
-      min_selections: Number(group.minSelections), max_selections: Number(group.maxSelections),
-      active: group.active !== false, sort_order: Number(group.sortOrder) || 0,
-    };
-    if (group.backendId) await updateOwnerModifierGroup(group.backendId, payload, session.csrf_token);
-    else await createOwnerModifierGroup(payload, session.csrf_token);
-    clearOwnerCatalogCache();
-    await reload({ force: true });
+  async function saveCustomization(customization) {
+    let saveError = null;
+    try {
+      return await saveOwnerCustomization(
+        toOwnerCustomizationWrite(customization, catalog.modifierGroups.length),
+        session.csrf_token,
+      );
+    } catch (nextError) {
+      saveError = nextError;
+      throw nextError;
+    } finally {
+      clearOwnerCatalogCache();
+      try { await reload({ force: true }); }
+      catch (reloadError) { if (!saveError) throw reloadError; }
+    }
   }
 
-  async function saveModifierOption(groupId, option) {
-    const group = catalog.modifierGroups.find((item) => item.id === groupId);
-    if (!group) throw new Error("Modifier group not found.");
-    const payload = {
-      name: option.name.trim(), price_adjustment_cents: Number(option.priceAdjustmentCents),
-      active: option.active !== false, sort_order: Number(option.sortOrder) || 0,
-    };
-    if (option.backendId) await updateOwnerModifierOption(group.backendId, option.backendId, payload, session.csrf_token);
-    else await createOwnerModifierOption(group.backendId, payload, session.csrf_token);
-    clearOwnerCatalogCache();
-    await reload({ force: true });
-  }
-
-  return { ...catalog, addProduct, updateProduct, setProductAvailability, setLunchSpecial, removeProduct, saveModifierGroup, saveModifierOption, loading, error, reload };
+  return { ...catalog, addProduct, updateProduct, setProductAvailability, setLunchSpecial, removeProduct, saveCustomization, loading, error, reload };
 }

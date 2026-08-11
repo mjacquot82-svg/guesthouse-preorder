@@ -1,102 +1,149 @@
 import { useState } from "react";
 import { dollarsToCents } from "../services/modifierMoney.js";
 
-const emptyGroup = {
-  name: "", description: "", selectionType: "single", required: false,
-  minSelections: 0, maxSelections: 1, active: true, sortOrder: 0,
-};
-const emptyOption = { name: "", price: "0.00", active: true, sortOrder: 0 };
+let nextDraftId = 0;
+const choiceDraft = (choice = {}) => ({
+  draftId: choice.backendId || `new-choice-${nextDraftId += 1}`,
+  backendId: choice.backendId,
+  name: choice.name || "",
+  price: choice.priceAdjustmentCents === undefined ? "0.00" : (choice.priceAdjustmentCents / 100).toFixed(2),
+  active: choice.active !== false,
+});
 
-function groupDraft(group) {
-  return group ? { ...group } : { ...emptyGroup };
+function customizationDraft(group, naturalOrder = 0) {
+  if (group) return {
+    ...group,
+    choices: group.options.map(choiceDraft),
+  };
+  return {
+    name: "", description: "", selectionType: "single", required: false,
+    minSelections: 0, maxSelections: 1, active: true, sortOrder: naturalOrder,
+    choices: [choiceDraft(), choiceDraft()],
+  };
 }
 
-function optionDraft(option) {
-  return option ? {
-    ...option, price: (option.priceAdjustmentCents / 100).toFixed(2),
-  } : { ...emptyOption };
+function customerRuleSummary(group) {
+  if (group.selectionType === "single") return group.required ? "Customers must choose one" : "Customers can skip this";
+  if (!group.maxSelections) return group.minSelections ? `Choose at least ${group.minSelections}` : "Choose any number";
+  return group.minSelections ? `Choose ${group.minSelections}–${group.maxSelections}` : `Choose up to ${group.maxSelections}`;
 }
 
-function choiceSummary(group) {
-  const selection = group.selectionType === "single" ? "Choose one" : group.maxSelections ? `Choose up to ${group.maxSelections}` : "Choose multiple";
-  return `${group.required ? "Required" : "Optional"} · ${selection}`;
-}
-
-export default function ModifierManager({ groups, onClose, onSaveGroup, onSaveOption }) {
-  const [selectedId, setSelectedId] = useState("");
-  const [group, setGroup] = useState(groupDraft());
-  const [option, setOption] = useState(optionDraft());
-  const [editingOptionId, setEditingOptionId] = useState("");
+export default function ModifierManager({ groups, onClose, onSaveCustomization }) {
+  const [selectedBackendId, setSelectedBackendId] = useState("");
+  const [draft, setDraft] = useState(() => customizationDraft(null, groups.length));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const selected = groups.find((item) => item.id === selectedId);
+  const editing = Boolean(draft.backendId);
 
-  function selectGroup(item) {
-    setSelectedId(item?.id || "");
-    setGroup(groupDraft(item));
-    setEditingOptionId("");
-    setOption(optionDraft());
+  function selectCustomization(item) {
+    setSelectedBackendId(item?.backendId || "");
+    setDraft(customizationDraft(item, groups.length));
     setMessage("");
   }
 
-  function updateGroup(field, value) {
-    setGroup((current) => {
+  function updateDraft(field, value) {
+    setDraft((current) => {
       const next = { ...current, [field]: value };
-      if (field === "selectionType" && value === "single") next.maxSelections = 1;
-      if (field === "required") next.minSelections = value ? Math.max(1, Number(next.minSelections)) : 0;
+      if (field === "selectionType" && value === "single") {
+        next.minSelections = current.required ? 1 : 0;
+        next.maxSelections = 1;
+      }
+      if (field === "selectionType" && value === "multiple" && current.maxSelections === 1) {
+        next.maxSelections = 0;
+      }
+      if (field === "required") next.minSelections = value ? 1 : 0;
       return next;
     });
   }
 
-  async function submitGroup(event) {
-    event.preventDefault();
-    if (!group.name.trim()) return setMessage("Group name is required.");
-    if (Number(group.maxSelections) && Number(group.maxSelections) < Number(group.minSelections)) return setMessage("Maximum selections cannot be less than minimum selections.");
-    setBusy(true); setMessage("");
-    try {
-      await onSaveGroup({ ...group, backendId: selected?.backendId });
-      setMessage(`${group.name.trim()} saved.`);
-      if (!selected) selectGroup(null);
-    } catch (error) { setMessage(error.message); }
-    finally { setBusy(false); }
+  function updateChoice(draftId, field, value) {
+    setDraft((current) => ({
+      ...current,
+      choices: current.choices.map((choice) => choice.draftId === draftId ? { ...choice, [field]: value } : choice),
+    }));
   }
 
-  async function submitOption(event) {
+  function removeChoice(choice) {
+    if (choice.backendId) return updateChoice(choice.draftId, "active", false);
+    setDraft((current) => ({ ...current, choices: current.choices.filter((item) => item.draftId !== choice.draftId) }));
+  }
+
+  function moveChoice(index, direction) {
+    setDraft((current) => {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= current.choices.length) return current;
+      const choices = [...current.choices];
+      [choices[index], choices[nextIndex]] = [choices[nextIndex], choices[index]];
+      return { ...current, choices };
+    });
+  }
+
+  async function submit(event) {
     event.preventDefault();
-    const cents = dollarsToCents(option.price);
-    if (!option.name.trim()) return setMessage("Option name is required.");
-    if (cents === null) return setMessage("Price adjustment is invalid. Use dollars and cents, such as 0.75.");
+    if (busy) return;
+    const namedChoices = draft.choices.filter((choice) => choice.name.trim() || choice.backendId);
+    if (!draft.name.trim()) return setMessage("Give this customization a name, such as Milk or Toast choice.");
+    if (!namedChoices.some((choice) => choice.name.trim())) return setMessage("Add at least one customer choice before saving.");
+    const choices = [];
+    for (const choice of namedChoices) {
+      const cents = dollarsToCents(choice.price);
+      if (!choice.name.trim()) return setMessage("Each choice needs a name.");
+      if (cents === null) return setMessage(`Check the extra price for ${choice.name}. Use dollars and cents, such as 0.75.`);
+      choices.push({ ...choice, priceAdjustmentCents: cents });
+    }
+    if (draft.selectionType === "multiple" && Number(draft.maxSelections) && Number(draft.maxSelections) < Number(draft.minSelections)) {
+      return setMessage("Maximum choices cannot be less than minimum choices.");
+    }
     setBusy(true); setMessage("");
     try {
-      await onSaveOption(selected.id, { ...option, backendId: editingOptionId || undefined, priceAdjustmentCents: cents });
-      setMessage(`${option.name.trim()} saved.`);
-      setEditingOptionId(""); setOption(optionDraft());
-    } catch (error) { setMessage(error.message); }
-    finally { setBusy(false); }
+      const result = await onSaveCustomization({ ...draft, name: draft.name.trim(), choices });
+      const savedChoices = new Map(result.choices.map(({ clientId, response }) => [clientId, response]));
+      setDraft((current) => ({
+        ...current,
+        backendId: result.group?.id || current.backendId,
+        choices: choices.map((choice) => ({
+          ...choice,
+          backendId: savedChoices.get(choice.draftId)?.id || choice.backendId,
+        })),
+      }));
+      setSelectedBackendId(result.group?.id || draft.backendId || "");
+      setMessage("Changes saved.");
+    } catch (error) {
+      const partial = error.partialCustomization;
+      if (partial?.group) {
+        const savedChoices = new Map(partial.choices.map(({ clientId, response }) => [clientId, response]));
+        setDraft((current) => ({
+          ...current,
+          backendId: partial.group.id,
+          choices: current.choices.map((choice) => ({
+            ...choice,
+            backendId: savedChoices.get(choice.draftId)?.id || choice.backendId,
+          })),
+        }));
+        setSelectedBackendId(partial.group.id);
+      }
+      setMessage(error.message || "This customization could not be saved. Your entries are still here; try again.");
+    } finally { setBusy(false); }
   }
 
   return <section className="modifier-manager" aria-labelledby="modifier-manager-heading">
-    <header><div><p className="eyebrow">Products</p><h2 id="modifier-manager-heading">Modifier groups</h2><p>Modifier groups let customers customize products when ordering, such as milk choices or flavour shots.</p></div><button className="secondary-button" type="button" onClick={onClose}>Back to products</button></header>
+    <header><div><p className="eyebrow">Products</p><h2 id="modifier-manager-heading">Customer options</h2><p>Create the choices customers see when ordering, then attach them to products.</p></div><button className="secondary-button" type="button" onClick={onClose}>Back to products</button></header>
     {message ? <div className="product-notice" role="status" aria-live="polite">{message}</div> : null}
     <div className="modifier-manager-layout">
-      <aside aria-label="Modifier groups">
-        <button className="primary-button" type="button" onClick={() => selectGroup(null)}>Create modifier group</button>
-        {groups.length ? <div className="modifier-group-list">{groups.map((item) => <button className={selectedId === item.id ? "is-selected" : ""} key={item.backendId} type="button" onClick={() => selectGroup(item)}><strong>{item.name}</strong><span>{choiceSummary(item)}</span><small>{item.options.filter((value) => value.active).length} enabled options · {item.assignmentCount} products{item.active ? "" : " · Disabled"}</small></button>)}</div> : <div className="modifier-empty"><h3>No modifier groups yet</h3><p>Create a modifier group to add customer customization options.</p></div>}
+      <aside aria-label="Customer options">
+        <button className="primary-button" disabled={busy} type="button" onClick={() => selectCustomization(null)}>Create customization</button>
+        {groups.length ? <div className="modifier-group-list">{groups.map((item) => <button className={selectedBackendId === item.backendId ? "is-selected" : ""} key={item.backendId} type="button" onClick={() => selectCustomization(item)}><strong>{item.name}</strong><span>{customerRuleSummary(item)}</span><small>{item.options.filter((value) => value.active).length} available choices · Used on {item.assignmentCount} products{item.active ? "" : " · Unavailable"}</small></button>)}</div> : <div className="modifier-empty"><h3>No customer options yet</h3><p>Start with one customization, add the choices you offer, then attach it to a product.</p><ol><li>Name it, such as Milk.</li><li>Add choices and any extra prices.</li><li>Save, then return to a product.</li></ol></div>}
       </aside>
       <div className="modifier-editor">
-        <form onSubmit={submitGroup} aria-busy={busy}>
-          <h3>{selected ? `Edit ${selected.name}` : "Create a modifier group"}</h3>
-          <label><span>Customer-facing name</span><input required value={group.name} onChange={(event) => updateGroup("name", event.target.value)} /></label>
-          <label><span>Description <small>(optional)</small></span><textarea rows="2" value={group.description} onChange={(event) => updateGroup("description", event.target.value)} /></label>
-          <div className="form-grid"><label><span>Selection</span><select value={group.selectionType} onChange={(event) => updateGroup("selectionType", event.target.value)}><option value="single">Choose one</option><option value="multiple">Choose multiple</option></select></label><label><span>Requirement</span><select value={group.required ? "required" : "optional"} onChange={(event) => updateGroup("required", event.target.value === "required")}><option value="optional">Optional</option><option value="required">Required</option></select></label></div>
-          {group.selectionType === "multiple" ? <div className="form-grid"><label><span>Minimum selections</span><input disabled={!group.required} min="0" type="number" value={group.minSelections} onChange={(event) => updateGroup("minSelections", Number(event.target.value))} /></label><label><span>Maximum selections <small>(0 means no limit)</small></span><input min="0" type="number" value={group.maxSelections} onChange={(event) => updateGroup("maxSelections", Number(event.target.value))} /></label></div> : null}
-          <div className="form-grid"><label><span>Display order</span><input min="0" type="number" value={group.sortOrder} onChange={(event) => updateGroup("sortOrder", Number(event.target.value))} /></label><label className="modifier-enabled"><input checked={group.active} type="checkbox" onChange={(event) => updateGroup("active", event.target.checked)} /><span>Enabled for customer ordering</span></label></div>
-          <p className="field-help">Disabling keeps assignments and past order details, but hides this group from customers.</p>
-          <button className="primary-button" disabled={busy} type="submit">{busy ? "Saving…" : "Save group"}</button>
+        <form onSubmit={submit} aria-busy={busy}>
+          <div className="customization-form-heading"><div><p className="eyebrow">{editing ? "Edit customization" : "New customization"}</p><h3>{editing ? draft.name : "Create customization"}</h3></div><label className="modifier-enabled"><input checked={draft.active} type="checkbox" onChange={(event) => updateDraft("active", event.target.checked)} /><span><strong>Available to customers</strong><small>Turn off to hide it while keeping product assignments and past order details.</small></span></label></div>
+          <label><span>Name</span><input placeholder="For example, Milk" required value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
+          <fieldset className="customization-rules"><legend>Customers can</legend><div className="choice-card-row"><label className={draft.selectionType === "single" ? "is-selected" : ""}><input checked={draft.selectionType === "single"} name="selection-type" type="radio" onChange={() => updateDraft("selectionType", "single")} /><span><strong>Choose one</strong><small>Best for milk, bread, or another single choice.</small></span></label><label className={draft.selectionType === "multiple" ? "is-selected" : ""}><input checked={draft.selectionType === "multiple"} name="selection-type" type="radio" onChange={() => updateDraft("selectionType", "multiple")} /><span><strong>Choose more than one</strong><small>Best for add-ons customers can combine.</small></span></label></div></fieldset>
+          {draft.selectionType === "single" ? <fieldset className="customization-rules"><legend>Is a choice required?</legend><div className="choice-card-row"><label className={!draft.required ? "is-selected" : ""}><input checked={!draft.required} name="requirement" type="radio" onChange={() => updateDraft("required", false)} /><span><strong>Can skip this</strong><small>The customer may order without choosing.</small></span></label><label className={draft.required ? "is-selected" : ""}><input checked={draft.required} name="requirement" type="radio" onChange={() => updateDraft("required", true)} /><span><strong>Must choose one</strong><small>The customer must pick before adding to Cart.</small></span></label></div></fieldset> : <div className="customization-limits"><p><strong>Choice limits</strong><br /><small>Set only what this customization needs.</small></p><label><span>Minimum choices</span><input min="0" type="number" value={draft.minSelections} onChange={(event) => updateDraft("minSelections", Number(event.target.value))} /></label><label><span>Maximum choices <small>(0 means no limit)</small></span><input min="0" type="number" value={draft.maxSelections} onChange={(event) => updateDraft("maxSelections", Number(event.target.value))} /></label></div>}
+          <section className="customization-choices" aria-labelledby="customization-choices-heading"><div><h4 id="customization-choices-heading">Choices</h4><p>Enter the choices customers will see and any extra charge.</p></div><div className="customization-choice-list">{draft.choices.map((choice, index) => <div className={`customization-choice-row${choice.active ? "" : " is-unavailable"}`} key={choice.draftId}><label><span>Choice name</span><input placeholder="For example, Oat milk" value={choice.name} onChange={(event) => updateChoice(choice.draftId, "name", event.target.value)} /></label><label><span>Extra price</span><span className="money-input"><b>$</b><input inputMode="decimal" min="0" placeholder="0.00" value={choice.price} onChange={(event) => updateChoice(choice.draftId, "price", event.target.value)} /></span></label><div className="choice-row-actions"><button aria-label={`Move ${choice.name || "choice"} up`} className="secondary-button" disabled={index === 0 || busy} type="button" onClick={() => moveChoice(index, -1)}>Move up</button><button aria-label={`Move ${choice.name || "choice"} down`} className="secondary-button" disabled={index === draft.choices.length - 1 || busy} type="button" onClick={() => moveChoice(index, 1)}>Move down</button>{choice.backendId ? <button className="secondary-button" disabled={busy} type="button" onClick={() => updateChoice(choice.draftId, "active", !choice.active)}>{choice.active ? "Make unavailable" : "Make available"}</button> : <button className="secondary-button" disabled={busy} type="button" onClick={() => removeChoice(choice)}>Remove</button>}</div>{!choice.active ? <small className="choice-status">Unavailable to customers; retained for existing products and order history.</small> : null}</div>)}</div><button className="secondary-button add-choice-button" disabled={busy} type="button" onClick={() => setDraft((current) => ({ ...current, choices: [...current.choices, choiceDraft()] }))}>+ Add choice</button></section>
+          <details className="customization-note"><summary>Add a customer-facing note (optional)</summary><label><span>Note</span><textarea rows="2" value={draft.description} onChange={(event) => updateDraft("description", event.target.value)} /></label></details>
+          <div className="customization-save-bar"><p>{editing ? "Save changes to this customization and its choices." : "One save creates this customization and its starting choices."}</p><button className="primary-button" disabled={busy} type="submit">{busy ? "Saving…" : editing ? "Save changes" : "Save customization"}</button></div>
         </form>
-        {selected ? <section className="modifier-options-editor"><h3>Options</h3>{selected.options.length ? <div className="modifier-option-list">{selected.options.map((item) => <button key={item.backendId} type="button" onClick={() => { setEditingOptionId(item.backendId); setOption(optionDraft(item)); setMessage(""); }}><span><strong>{item.name}</strong><small>{item.active ? "Enabled" : "Disabled"}</small></span><b>{item.priceAdjustmentCents ? `+$${(item.priceAdjustmentCents / 100).toFixed(2)}` : "No extra charge"}</b></button>)}</div> : <p>No options yet. Add the choices customers can select.</p>}
-          <form onSubmit={submitOption} aria-busy={busy}><h4>{editingOptionId ? "Edit option" : "Add option"}</h4><div className="form-grid"><label><span>Option name</span><input required value={option.name} onChange={(event) => setOption((current) => ({ ...current, name: event.target.value }))} /></label><label><span>Extra price (CAD)</span><input inputMode="decimal" min="0" placeholder="0.00" value={option.price} onChange={(event) => setOption((current) => ({ ...current, price: event.target.value }))} /></label></div><div className="form-grid"><label><span>Display order</span><input min="0" type="number" value={option.sortOrder} onChange={(event) => setOption((current) => ({ ...current, sortOrder: Number(event.target.value) }))} /></label><label className="modifier-enabled"><input checked={option.active} type="checkbox" onChange={(event) => setOption((current) => ({ ...current, active: event.target.checked }))} /><span>Enabled</span></label></div><div className="form-actions"><button className="primary-button" disabled={busy} type="submit">{busy ? "Saving…" : editingOptionId ? "Save option" : "Add option"}</button>{editingOptionId ? <button className="secondary-button" type="button" onClick={() => { setEditingOptionId(""); setOption(optionDraft()); }}>Cancel</button> : null}</div></form>
-        </section> : <div className="modifier-guidance"><h3>Add options after saving</h3><p>Save this group first, then add its customer choices and prices.</p></div>}
       </div>
     </div>
   </section>;

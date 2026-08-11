@@ -28,7 +28,7 @@ test("Quick Edit exposes clear controls for existing catalog states", async () =
   assert.match(page, /Turn off to hide this product without archiving it/);
   assert.match(page, /<strong>Featured<\/strong>/);
   assert.match(page, /<strong>Lunch special<\/strong>/);
-  assert.match(page, /<summary>Customization<\/summary>/);
+  assert.match(page, /<summary>Customer options<\/summary>/);
   assert.match(page, /Hidden from menu/);
   assert.doesNotMatch(page, /Available on today’s menu|Unavailable today|Featured placement and options/);
 });

@@ -8,6 +8,7 @@ import {
   createOwnerModifierOption,
   fetchOwnerCatalog,
   fetchOwnerCatalogCached,
+  saveOwnerCustomization,
   updateOwnerProductAvailability,
   updateOwnerModifierGroup,
   updateOwnerModifierOption,
@@ -121,4 +122,54 @@ test("modifier group and option writes use real IDs and CSRF-protected endpoints
   ]);
   assert.ok(calls.every(([, request]) => request.headers["X-CSRF-Token"] === "csrf"));
   assert.equal(JSON.parse(calls[3][1].body).price_adjustment_cents, 75);
+});
+
+test("one customization save creates its group then all drafted choices", async () => {
+  const calls = [];
+  let optionId = 0;
+  const fetchImpl = async (url, request) => {
+    calls.push([url, request]);
+    if (url.endsWith("/modifier-groups")) return jsonResponse(201, { id: "42", key: "milk" });
+    optionId += 1;
+    return jsonResponse(201, { id: String(optionId), name: JSON.parse(request.body).name });
+  };
+  const result = await saveOwnerCustomization({
+    group: { name: "Milk", selection_type: "single", required: false, min_selections: 0, max_selections: 1 },
+    choices: [
+      { clientId: "regular", payload: { name: "Regular milk", price_adjustment_cents: 0, active: true, sort_order: 0 } },
+      { clientId: "oat", payload: { name: "Oat milk", price_adjustment_cents: 75, active: true, sort_order: 1 } },
+    ],
+  }, "csrf", { fetchImpl });
+  assert.deepEqual(calls.map(([url, request]) => [url, request.method]), [
+    ["/api/v1/owner/catalog/modifier-groups", "POST"],
+    ["/api/v1/owner/catalog/modifier-groups/42/options", "POST"],
+    ["/api/v1/owner/catalog/modifier-groups/42/options", "POST"],
+  ]);
+  assert.deepEqual(result.choices.map((item) => [item.clientId, item.response.id]), [["regular", "1"], ["oat", "2"]]);
+  assert.ok(calls.every(([, request]) => request.headers["X-CSRF-Token"] === "csrf"));
+});
+
+test("partial customization failure exposes saved IDs so retry cannot duplicate records", async () => {
+  let call = 0;
+  const fetchImpl = async (url) => {
+    call += 1;
+    if (call === 1) return jsonResponse(201, { id: "42", key: "milk", name: "Milk" });
+    if (call === 2) return jsonResponse(201, { id: "7", name: "Regular milk" });
+    return jsonResponse(503, { detail: "Temporary catalog failure." });
+  };
+  await assert.rejects(
+    saveOwnerCustomization({
+      group: { name: "Milk" },
+      choices: [
+        { clientId: "regular", payload: { name: "Regular milk" } },
+        { clientId: "oat", payload: { name: "Oat milk" } },
+      ],
+    }, "csrf", { fetchImpl }),
+    (error) => {
+      assert.match(error.message, /Milk was saved, but not every choice was saved/);
+      assert.equal(error.partialCustomization.group.id, "42");
+      assert.deepEqual(error.partialCustomization.choices.map((item) => [item.clientId, item.response.id]), [["regular", "7"]]);
+      return true;
+    },
+  );
 });
