@@ -2389,6 +2389,7 @@ main {
 .loyalty-program-form input, .loyalty-program-form textarea, .loyalty-program-form select, .loyalty-adjustment input { border: 1px solid #b7aa9b; border-radius: 9px; font: inherit; padding: 11px; }
 .loyalty-program-settings { display: grid; gap: 16px; }
 .loyalty-program-basics, .loyalty-program-reward { grid-template-columns: minmax(0, 1fr) minmax(280px, .55fr); gap: 16px; }
+.loyalty-program-reward { align-items: start; }
 .loyalty-program-settings input, .loyalty-program-settings select, .loyalty-program-settings textarea { box-sizing: border-box; min-width: 0; width: 100%; }
 .loyalty-program-settings input, .loyalty-program-settings select { min-height: 46px; }
 .loyalty-program-settings textarea { min-height: 76px; resize: vertical; }
