@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { dollarsToCents } from "../services/modifierMoney.js";
+import { isModifierDraftDirty } from "./modifierDraft.js";
 
 let nextDraftId = 0;
 const modifierDraft = (modifier = {}) => ({
@@ -22,17 +24,46 @@ function categoryDraft(category, naturalOrder = 0) {
 const priceLabel = (cents) => cents ? `+$${(cents / 100).toFixed(2)}` : "$0.00";
 
 export default function ModifierManager({ groups, onClose, onSaveCustomization }) {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [draft, setDraft] = useState(null);
+  const [savedDraft, setSavedDraft] = useState(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const dialogRef = useRef(null);
+  const pendingLeaveRef = useRef(null);
+  const allowNavigationRef = useRef(false);
+  const busyRef = useRef(false);
   const editing = Boolean(draft?.backendId);
+  const dirty = isModifierDraftDirty(draft, savedDraft);
 
-  function openCategory(category = null, addModifier = false) {
+  function loadCategory(category = null, addModifier = false) {
     const next = categoryDraft(category, groups.length);
     if (addModifier) next.choices = [...next.choices, modifierDraft()];
     setDraft(next);
+    setSavedDraft(categoryDraft(category, groups.length));
     setMessage("");
   }
+
+  const requestLeave = useCallback((action, navigation = false) => { pendingLeaveRef.current = { action, navigation }; setLeaveOpen(true); }, []);
+  const requestDraftAction = useCallback((action) => { if (dirty) requestLeave(action); else action(); }, [dirty, requestLeave]);
+  useEffect(() => { const dialog = dialogRef.current; if (leaveOpen && !dialog?.open) dialog?.showModal(); if (!leaveOpen && dialog?.open) dialog.close(); }, [leaveOpen]);
+  useEffect(() => { if (!dirty) return; const beforeUnload = (event) => { if (allowNavigationRef.current) return; event.preventDefault(); event.returnValue = ""; }; window.addEventListener("beforeunload", beforeUnload); return () => window.removeEventListener("beforeunload", beforeUnload); }, [dirty]);
+  useEffect(() => {
+    if (!dirty) return;
+    const currentPath = location.pathname;
+    const navigationApi = window.navigation;
+    if (navigationApi?.addEventListener) {
+      const onNavigate = (event) => { if (allowNavigationRef.current || !event.canIntercept || event.hashChange) return; const destination = new URL(event.destination.url); if (destination.origin !== window.location.origin || destination.pathname === currentPath) return; event.preventDefault(); const key = event.destination.key; requestLeave(() => key && navigationApi.entries().some((entry) => entry.key === key) ? navigationApi.traverseTo(key) : navigate(`${destination.pathname}${destination.search}${destination.hash}`), true); };
+      navigationApi.addEventListener("navigate", onNavigate); return () => navigationApi.removeEventListener("navigate", onNavigate);
+    }
+    const onClick = (event) => { if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; const anchor = event.target.closest?.("a[href]"); if (!anchor || anchor.target && anchor.target !== "_self" || anchor.hasAttribute("download")) return; const destination = new URL(anchor.href, window.location.href); if (destination.origin !== window.location.origin || destination.pathname === currentPath) return; event.preventDefault(); event.stopPropagation(); requestLeave(() => navigate(`${destination.pathname}${destination.search}${destination.hash}`), true); };
+    document.addEventListener("click", onClick, true); return () => document.removeEventListener("click", onClick, true);
+  }, [dirty, location.pathname, navigate, requestLeave]);
+  function stay(event) { event?.preventDefault(); pendingLeaveRef.current = null; setLeaveOpen(false); }
+  function leaveWithoutSaving() { const pending = pendingLeaveRef.current; if (pending?.navigation) allowNavigationRef.current = true; pendingLeaveRef.current = null; setLeaveOpen(false); pending?.action?.(); }
+  function closeDraft() { setDraft(null); setSavedDraft(null); setMessage(""); }
 
   function updateDraft(field, value) {
     setDraft((current) => {
@@ -57,6 +88,7 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
   async function submit(event) {
     event.preventDefault();
     if (busy) return;
+    if (busyRef.current) return;
     if (!draft.name.trim()) return setMessage("Enter a name for this modifier category.");
     const choices = [];
     for (const choice of draft.choices) {
@@ -68,15 +100,18 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
     if (draft.selectionType === "multiple" && Number(draft.maxSelections) && Number(draft.maxSelections) < Number(draft.minSelections)) {
       return setMessage("Maximum choices cannot be less than minimum choices.");
     }
-    setBusy(true); setMessage("");
+    busyRef.current = true; setBusy(true); setMessage("");
     try {
       const result = await onSaveCustomization({ ...draft, name: draft.name.trim(), choices });
       const savedChoices = new Map(result.choices.map(({ clientId, response }) => [clientId, response]));
-      setDraft((current) => ({
-        ...current,
-        backendId: result.group?.id || current.backendId,
+      const authoritativeDraft = {
+        ...draft,
+        name: draft.name.trim(),
+        backendId: result.group?.id || draft.backendId,
         choices: choices.map((choice) => ({ ...choice, backendId: savedChoices.get(choice.draftId)?.id || choice.backendId })),
-      }));
+      };
+      setDraft(authoritativeDraft);
+      setSavedDraft(authoritativeDraft);
       setMessage(editing ? "Modifier category saved." : "Modifier category created. You can add modifiers now.");
     } catch (error) {
       const partial = error.partialCustomization;
@@ -88,26 +123,26 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
         }));
       }
       setMessage(error.message || "This modifier category could not be saved. Your entries are still here; try again.");
-    } finally { setBusy(false); }
+    } finally { busyRef.current = false; setBusy(false); }
   }
 
   return <section className="modifier-manager" aria-labelledby="modifier-manager-heading">
     <header><div><p className="eyebrow">Product catalog</p><h1 id="modifier-manager-heading">Products</h1></div></header>
     <nav className="products-view-switch" aria-label="Products sections">
-      <button type="button" onClick={onClose}>Menu items</button>
+      <button type="button" onClick={() => requestDraftAction(onClose)}>Menu items</button>
       <button aria-current="page" className="is-active" type="button">Modifiers</button>
     </nav>
     {message ? <div className="product-notice" role="status" aria-live="polite">{message}</div> : null}
 
     {!draft ? <div className="modifier-catalog">
-      <div className="modifier-catalog-heading"><div><p className="eyebrow">Modifiers</p><h2>Modifier catalog</h2></div>{groups.length ? <button className="primary-button" type="button" onClick={() => openCategory()}>+ Add modifier category</button> : null}</div>
+      <div className="modifier-catalog-heading"><div><p className="eyebrow">Modifiers</p><h2>Modifier catalog</h2></div>{groups.length ? <button className="primary-button" type="button" onClick={() => requestDraftAction(() => loadCategory())}>+ Add modifier category</button> : null}</div>
       {groups.length ? <div className="modifier-category-list">{groups.map((category) => <article className={`modifier-category${category.active ? "" : " is-unavailable"}`} key={category.backendId}>
-        <header><div><h3>{category.name}</h3>{!category.active ? <span className="modifier-status">Unavailable</span> : null}</div><button className="secondary-button" type="button" onClick={() => openCategory(category)}>Edit</button></header>
+        <header><div><h3>{category.name}</h3>{!category.active ? <span className="modifier-status">Unavailable</span> : null}</div><button className="secondary-button" type="button" onClick={() => requestDraftAction(() => loadCategory(category))}>Edit</button></header>
         {category.options.length ? <ul>{category.options.map((modifier) => <li className={modifier.active ? "" : "is-unavailable"} key={modifier.backendId}><span>{modifier.name}{!modifier.active ? <small>Unavailable</small> : null}</span><strong>{priceLabel(modifier.priceAdjustmentCents)}</strong></li>)}</ul> : <p className="modifier-category-empty">No modifiers in this category yet.</p>}
-        <footer><small>Used on {category.assignmentCount} {category.assignmentCount === 1 ? "product" : "products"}</small><button type="button" onClick={() => openCategory(category, true)}>+ Add modifier</button></footer>
-      </article>)}</div> : <div className="modifier-empty"><h2>No modifiers yet.</h2><p>Create modifier categories for things customers can add or choose when ordering, such as milk choices or flavour shots.</p><button className="primary-button" type="button" onClick={() => openCategory()}>Add modifier category</button></div>}
+        <footer><small>Used on {category.assignmentCount} {category.assignmentCount === 1 ? "product" : "products"}</small><button type="button" onClick={() => requestDraftAction(() => loadCategory(category, true))}>+ Add modifier</button></footer>
+      </article>)}</div> : <div className="modifier-empty"><h2>No modifiers yet.</h2><p>Create modifier categories for things customers can add or choose when ordering, such as milk choices or flavour shots.</p><button className="primary-button" type="button" onClick={() => requestDraftAction(() => loadCategory())}>Add modifier category</button></div>}
     </div> : <form className="modifier-editor" aria-busy={busy} onSubmit={submit}>
-      <div className="modifier-editor-heading"><div><p className="eyebrow">{editing ? "Edit modifier category" : "Add modifier category"}</p><h2>{editing ? draft.name : "New modifier category"}</h2></div><button className="secondary-button" type="button" onClick={() => { setDraft(null); setMessage(""); }}>Back to modifiers</button></div>
+      <div className="modifier-editor-heading"><div><p className="eyebrow">{editing ? "Edit modifier category" : "Add modifier category"}</p><h2>{editing ? draft.name : "New modifier category"}</h2></div><button className="secondary-button" type="button" onClick={() => requestDraftAction(closeDraft)}>Back to modifiers</button></div>
       <label><span>Name</span><input autoFocus placeholder="For example, Milk" required value={draft.name} onChange={(event) => updateDraft("name", event.target.value)} /></label>
       {editing ? <label className="modifier-enabled"><input checked={draft.active} type="checkbox" onChange={(event) => updateDraft("active", event.target.checked)} /><span><strong>Available to customers</strong><small>Turn off safely while keeping product assignments and past order details.</small></span></label> : null}
 
@@ -121,7 +156,8 @@ export default function ModifierManager({ groups, onClose, onSaveCustomization }
         <div>{draft.choices.map((modifier) => <div className={`modifier-edit-row${modifier.active ? "" : " is-unavailable"}`} key={modifier.draftId}><label><span>Name</span><input placeholder="For example, Oat Milk" value={modifier.name} onChange={(event) => updateModifier(modifier.draftId, "name", event.target.value)} /></label><label><span>Extra price</span><span className="money-input"><b>$</b><input inputMode="decimal" min="0" placeholder="0.00" value={modifier.price} onChange={(event) => updateModifier(modifier.draftId, "price", event.target.value)} /></span></label><button className="secondary-button" type="button" onClick={() => modifier.backendId ? updateModifier(modifier.draftId, "active", !modifier.active) : setDraft((current) => ({ ...current, choices: current.choices.filter((item) => item.draftId !== modifier.draftId) }))}>{modifier.backendId ? modifier.active ? "Make unavailable" : "Make available" : "Remove"}</button>{!modifier.active ? <small>Unavailable to customers; retained for order history.</small> : null}</div>)}</div>
         <button className="secondary-button" type="button" onClick={() => setDraft((current) => ({ ...current, choices: [...current.choices, modifierDraft()] }))}>+ Add modifier</button>
       </section> : null}
-      <div className="modifier-save-actions"><button className="primary-button" disabled={busy} type="submit">{busy ? "Saving…" : editing ? "Save changes" : "Save modifier category"}</button><button className="secondary-button" type="button" onClick={() => setDraft(null)}>Cancel</button></div>
+      <div className="modifier-save-actions"><span aria-live="polite" className={`loyalty-save-status${dirty ? " is-unsaved" : ""}`}>{dirty ? "Unsaved changes" : ""}</span><button className="primary-button" disabled={busy || !dirty} type="submit">{busy ? "Saving…" : editing ? "Save changes" : "Save modifier category"}</button><button className="secondary-button" type="button" onClick={() => requestDraftAction(closeDraft)}>Cancel</button></div>
     </form>}
+    <dialog aria-describedby="unsaved-modifier-message" aria-labelledby="unsaved-modifier-title" className="owner-confirm-dialog loyalty-unsaved-dialog" onCancel={stay} ref={dialogRef}><h2 id="unsaved-modifier-title">Unsaved modifier changes</h2><p id="unsaved-modifier-message">You have unsaved changes. Leave without saving?</p><div className="form-actions"><button autoFocus className="secondary-button" type="button" onClick={stay}>Stay</button><button className="primary-button" type="button" onClick={leaveWithoutSaving}>Leave without saving</button></div></dialog>
   </section>;
 }
