@@ -6174,20 +6174,23 @@ body {
 }
 
 .drink-card button.is-added {
-  border: 2px solid #315d3d;
-  background: #dcefd9;
-  color: #173c24;
+  border: 2px solid #173c24;
+  background: #245b35;
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
+  opacity: 1;
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.42),
-    0 8px 18px rgba(49, 93, 61, 0.14);
+    0 8px 18px rgba(23, 60, 36, 0.22);
   transform: translateY(1px);
 }
 
 .drink-card button.is-added:hover,
 .drink-card button.is-added:focus-visible {
-  border-color: #214b2f;
-  background: #cce5c8;
-  color: #102f1b;
+  border-color: #102f1b;
+  background: #194527;
+  color: #ffffff;
+  -webkit-text-fill-color: #ffffff;
 }
 
 .drink-card .product-add-button:disabled {
@@ -6201,7 +6204,9 @@ body {
 }
 
 .drink-card button.is-added span {
-  animation: added-button-settle 480ms ease both;
+  animation: none;
+  opacity: 1;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.24);
 }
 
 @keyframes added-button-settle {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
+import { readFileSync } from "node:fs";
 
 import { JSDOM } from "jsdom";
 import React, { act } from "react";
@@ -73,6 +74,9 @@ test("customer configures real choice shapes, gets readable success feedback, an
   globalThis.localStorage = dom.window.localStorage;
   Object.defineProperty(globalThis, "navigator", { configurable: true, value: dom.window.navigator });
   globalThis.requestAnimationFrame = (callback) => callback();
+  const style = document.createElement("style");
+  style.textContent = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
+  document.head.append(style);
   globalThis.fetch = async (url) => {
     const path = new URL(String(url), "https://cafe.test").pathname;
     if (path === "/api/v1/catalog") return response(200, catalog);
@@ -102,6 +106,14 @@ test("customer configures real choice shapes, gets readable success feedback, an
     await click(dripAdd, dom.window);
     assert.equal(dripAdd.textContent, "Added — Add another");
     assert.equal(dripAdd.classList.contains("is-added"), true);
+    assert.equal(dripAdd.disabled, false);
+    const addedStyle = dom.window.getComputedStyle(dripAdd);
+    const addedTextStyle = dom.window.getComputedStyle(dripAdd.querySelector("span"));
+    assert.equal(addedStyle.backgroundColor, "rgb(25, 69, 39)");
+    assert.equal(addedStyle.color, "rgb(255, 255, 255)");
+    assert.equal(addedStyle.opacity, "1");
+    assert.equal(addedTextStyle.opacity, "1");
+    assert.equal(addedTextStyle.webkitTextFillColor, "rgb(255, 255, 255)");
     assert.match(drip.textContent, /1 in cart/);
 
     const latte = card("Latte");
