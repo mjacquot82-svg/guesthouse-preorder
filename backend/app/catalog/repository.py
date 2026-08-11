@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 
 from sqlalchemy import delete, func, select, text, update
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.catalog.models import (
     Category,
@@ -50,7 +50,7 @@ class CatalogRepository:
         return self._session.scalars(
             select(Product)
             .options(
-                selectinload(Product.availability),
+                joinedload(Product.availability),
                 selectinload(Product.variants),
                 selectinload(Product.modifier_group_assignments),
             )
@@ -61,10 +61,46 @@ class CatalogRepository:
 
     def list_modifier_groups(self) -> Sequence[ModifierGroup]:
         return self._session.scalars(
-            select(ModifierGroup).order_by(
+            select(ModifierGroup)
+            .options(
+                joinedload(ModifierGroup.options),
+                selectinload(ModifierGroup.product_assignments),
+            )
+            .order_by(
                 ModifierGroup.sort_order, ModifierGroup.name, ModifierGroup.id
             )
-        ).all()
+        ).unique().all()
+
+    def get_modifier_group(self, group_id: int) -> ModifierGroup | None:
+        return self._session.scalar(
+            select(ModifierGroup)
+            .options(
+                selectinload(ModifierGroup.options),
+                selectinload(ModifierGroup.product_assignments),
+            )
+            .where(ModifierGroup.id == group_id)
+        )
+
+    def get_modifier_option(self, group_id: int, option_id: int) -> ModifierOption | None:
+        return self._session.scalar(
+            select(ModifierOption).where(
+                ModifierOption.id == option_id,
+                ModifierOption.modifier_group_id == group_id,
+            )
+        )
+
+    def modifier_group_key_exists(self, key: str) -> bool:
+        return self._session.scalar(
+            select(func.count()).select_from(ModifierGroup).where(ModifierGroup.key == key)
+        ) > 0
+
+    def modifier_option_key_exists(self, group_id: int, key: str) -> bool:
+        return self._session.scalar(
+            select(func.count()).select_from(ModifierOption).where(
+                ModifierOption.modifier_group_id == group_id,
+                ModifierOption.key == key,
+            )
+        ) > 0
 
     def replace_modifier_assignments(
         self, product_id: int, modifier_group_ids: Sequence[int]

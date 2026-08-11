@@ -4,6 +4,7 @@ import { createProductId, useCatalogProducts } from "../stores/catalogStore.js";
 import { visibleProducts } from "../services/ownerProductFilters.js";
 import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
 import { canEditProducts, canManageLunchSpecial, canManageProductAvailability } from "../auth/ownerProductPermissions.js";
+import ModifierManager from "./ModifierManager.jsx";
 
 const emptyProduct = { id: "", name: "", description: "", price: "", category: "", image: "", available: true, published: true, featured: false, lunchSpecial: false, modifierGroupIds: [] };
 const money = (price) => new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(price);
@@ -14,7 +15,8 @@ export default function ProductsPage() {
   const canEdit = canEditProducts(session);
   const canManageAvailability = canManageProductAvailability(session);
   const canManageSpecial = canManageLunchSpecial(session);
-  const { products, categories, modifierGroups, addProduct, updateProduct, setProductAvailability, setLunchSpecial, loading, error } = useCatalogProducts();
+  const { products, categories, modifierGroups, addProduct, updateProduct, setProductAvailability, setLunchSpecial, saveModifierGroup, saveModifierOption, loading, error } = useCatalogProducts();
+  const [managingModifiers, setManagingModifiers] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [formProduct, setFormProduct] = useState(emptyProduct);
   const [query, setQuery] = useState("");
@@ -67,8 +69,10 @@ export default function ProductsPage() {
     finally { setSaving(false); }
   }
 
+  if (canEdit && managingModifiers) return <ModifierManager groups={modifierGroups} onClose={() => setManagingModifiers(false)} onSaveGroup={saveModifierGroup} onSaveOption={saveModifierOption} />;
+
   return <section className="page-section admin-products-page">
-    <div className="page-heading admin-page-heading"><div><p className="eyebrow">Today’s menu</p><h1>Products</h1><p>{canEdit ? "Find an item, mark it sold out, or make a quick change." : "Find an item, update availability, or set today’s Lunch Special."}</p></div>{canEdit ? <button className="secondary-button admin-reset-button" type="button" onClick={resetForm}>Add product</button> : null}</div>
+    <div className="page-heading admin-page-heading"><div><p className="eyebrow">Today’s menu</p><h1>Products</h1><p>{canEdit ? "Find an item, mark it sold out, or make a quick change." : "Find an item, update availability, or set today’s Lunch Special."}</p></div>{canEdit ? <div className="admin-heading-actions"><button className="secondary-button" type="button" onClick={() => setManagingModifiers(true)}>Manage modifiers</button><button className="secondary-button admin-reset-button" type="button" onClick={resetForm}>Add product</button></div> : null}</div>
     {notice ? <div className="product-notice" role="status" aria-live="polite"><Check size={18} />{notice}</div> : null}
     {error ? <div className="product-notice error" role="alert">{error.message}</div> : null}
 
@@ -101,7 +105,7 @@ export default function ProductsPage() {
           <label className={formProduct.featured ? "product-state-toggle is-on" : "product-state-toggle"}><input checked={formProduct.featured} type="checkbox" onChange={(event) => updateField("featured", event.target.checked)} /><span aria-hidden="true" className="product-toggle-track" /><span><strong>Featured</strong><small>Highlight this product in customer recommendations.</small></span></label>
           <label className={formProduct.lunchSpecial ? "product-state-toggle is-on" : "product-state-toggle"}><input checked={formProduct.lunchSpecial} type="checkbox" onChange={(event) => updateField("lunchSpecial", event.target.checked)} /><span aria-hidden="true" className="product-toggle-track" /><span><strong>Lunch special</strong><small>Select as the current lunch special; choosing another product replaces it.</small></span></label>
         </div>
-        {modifierGroups.length ? <details className="product-advanced"><summary>Product options</summary><fieldset className="admin-modifier-picker"><legend>Available option groups</legend>{modifierGroups.map((group) => <label key={group.id}><input checked={formProduct.modifierGroupIds.includes(group.id)} type="checkbox" onChange={() => toggleModifierGroup(group.id)} /><span>{group.name}</span></label>)}</fieldset></details> : null}
+        <details className="product-advanced" open={Boolean(selectedProduct)}><summary>Customization</summary>{modifierGroups.some((group) => group.active) ? <fieldset className="admin-modifier-picker"><legend>This product allows these customizations</legend>{modifierGroups.filter((group) => group.active || formProduct.modifierGroupIds.includes(group.id)).map((group) => { const assigned = formProduct.modifierGroupIds.includes(group.id); return <label key={group.id}><input checked={assigned} disabled={!group.active && !assigned} type="checkbox" onChange={() => toggleModifierGroup(group.id)} /><span><strong>{group.name}</strong><small>{group.required ? "Required" : "Optional"} · {group.selectionType === "single" ? "Choose one" : group.maxSelections ? `Choose up to ${group.maxSelections}` : "Choose multiple"} · {group.options.filter((item) => item.active).length} options{group.active ? "" : " · Disabled"}</small></span></label>; })}</fieldset> : <div className="modifier-assignment-empty"><strong>No modifier groups yet.</strong><p>Create a modifier group to add customer customization options.</p></div>}<button className="secondary-button" type="button" onClick={() => setManagingModifiers(true)}>Manage modifier groups</button></details>
         <div className="form-actions"><button className="primary-button" disabled={saving} type="submit">{saving ? "Saving…" : selectedProduct ? "Save changes" : "Add product"}</button>{selectedProduct ? <button className="secondary-button" type="button" onClick={resetForm}>Cancel</button> : null}</div>
       </form></section> : null}
     </div>

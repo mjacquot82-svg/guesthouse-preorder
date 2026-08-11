@@ -85,6 +85,28 @@ export function updateOwnerProduct(productId, product, csrfToken, options = {}) 
   });
 }
 
+export function createOwnerModifierGroup(group, csrfToken, options = {}) {
+  return request("/modifier-groups", { ...options, body: group, csrfToken, method: "POST" });
+}
+
+export function updateOwnerModifierGroup(groupId, group, csrfToken, options = {}) {
+  return request(`/modifier-groups/${encodeURIComponent(groupId)}`, {
+    ...options, body: group, csrfToken, method: "PUT",
+  });
+}
+
+export function createOwnerModifierOption(groupId, option, csrfToken, options = {}) {
+  return request(`/modifier-groups/${encodeURIComponent(groupId)}/options`, {
+    ...options, body: option, csrfToken, method: "POST",
+  });
+}
+
+export function updateOwnerModifierOption(groupId, optionId, option, csrfToken, options = {}) {
+  return request(`/modifier-groups/${encodeURIComponent(groupId)}/options/${encodeURIComponent(optionId)}`, {
+    ...options, body: option, csrfToken, method: "PUT",
+  });
+}
+
 export function archiveOwnerProduct(productId, csrfToken, options = {}) {
   return request(`/products/${encodeURIComponent(productId)}`, {
     ...options, csrfToken, method: "DELETE",

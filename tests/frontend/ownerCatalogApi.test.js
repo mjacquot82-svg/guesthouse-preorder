@@ -4,9 +4,13 @@ import test from "node:test";
 import {
   archiveOwnerProduct,
   clearOwnerCatalogCache,
+  createOwnerModifierGroup,
+  createOwnerModifierOption,
   fetchOwnerCatalog,
   fetchOwnerCatalogCached,
   updateOwnerProductAvailability,
+  updateOwnerModifierGroup,
+  updateOwnerModifierOption,
   updateLunchSpecial,
   updateOwnerProduct,
 } from "../../src/services/ownerCatalogApi.js";
@@ -98,4 +102,23 @@ test("owner availability writes use the narrow CSRF-protected endpoint", async (
   assert.equal(request[1].credentials, "include");
   assert.equal(request[1].headers["X-CSRF-Token"], "csrf");
   assert.deepEqual(JSON.parse(request[1].body), { available: false });
+});
+
+test("modifier group and option writes use real IDs and CSRF-protected endpoints", async () => {
+  const calls = [];
+  const fetchImpl = async (...args) => { calls.push(args); return jsonResponse(200, { id: "9" }); };
+  const group = { name: "Test group", selection_type: "single" };
+  const option = { name: "Test option", price_adjustment_cents: 75 };
+  await createOwnerModifierGroup(group, "csrf", { fetchImpl });
+  await updateOwnerModifierGroup("42", group, "csrf", { fetchImpl });
+  await createOwnerModifierOption("42", option, "csrf", { fetchImpl });
+  await updateOwnerModifierOption("42", "9", option, "csrf", { fetchImpl });
+  assert.deepEqual(calls.map(([url, request]) => [url, request.method]), [
+    ["/api/v1/owner/catalog/modifier-groups", "POST"],
+    ["/api/v1/owner/catalog/modifier-groups/42", "PUT"],
+    ["/api/v1/owner/catalog/modifier-groups/42/options", "POST"],
+    ["/api/v1/owner/catalog/modifier-groups/42/options/9", "PUT"],
+  ]);
+  assert.ok(calls.every(([, request]) => request.headers["X-CSRF-Token"] === "csrf"));
+  assert.equal(JSON.parse(calls[3][1].body).price_adjustment_cents, 75);
 });

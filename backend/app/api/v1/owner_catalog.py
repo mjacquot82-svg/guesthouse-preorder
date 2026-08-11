@@ -2,20 +2,42 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.catalog import get_catalog_session
-from app.api.v1.owner_auth import csrf_principal, current_principal, require_permission
+from app.api.v1.owner_auth import csrf_principal, current_principal, get_auth_service, get_auth_settings, require_permission
 from app.catalog.repository import CatalogRepository
-from app.catalog.schemas import LunchSpecialSelectionWrite, OwnerCatalogResponse, OwnerProductAvailabilityWrite, OwnerProductResponse, OwnerProductWrite
+from app.catalog.schemas import LunchSpecialSelectionWrite, OwnerCatalogResponse, OwnerModifierGroupResponse, OwnerModifierGroupWrite, OwnerModifierOptionResponse, OwnerModifierOptionWrite, OwnerProductAvailabilityWrite, OwnerProductResponse, OwnerProductWrite
 from app.catalog.service import CatalogService
 from app.jds_auth.service import AuthPrincipal
+from app.jds_auth.service import AuthenticationService
+from app.jds_auth.config import AuthSettings
+from app.jds_auth.models import Organization
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 
 router = APIRouter(prefix="/owner/catalog", tags=["owner-catalog"])
 
 
+def require_catalog_organization(
+    principal: AuthPrincipal,
+    service: AuthenticationService,
+    settings: AuthSettings,
+) -> None:
+    organization_id = service._session.scalar(
+        select(Organization.id).where(Organization.slug == settings.organization_slug)
+    )
+    if organization_id is None or principal.organization_id != organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "organization_denied", "message": "This catalog belongs to another organization."},
+        )
+
+
 def require_catalog_reader(
     principal: AuthPrincipal = Depends(current_principal),
+    service: AuthenticationService = Depends(get_auth_service),
+    settings: AuthSettings = Depends(get_auth_settings),
 ) -> AuthPrincipal:
+    require_catalog_organization(principal, service, settings)
     if "catalog.read" not in principal.permissions:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -24,7 +46,7 @@ def require_catalog_reader(
     return principal
 
 
-def require_catalog_editor(
+def require_full_catalog_manager(
     principal: AuthPrincipal = Depends(csrf_principal),
 ) -> AuthPrincipal:
     required = {"catalog.write", "catalog.publish", "availability.manage", "modifiers.manage"}
@@ -33,6 +55,37 @@ def require_catalog_editor(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "permission_denied", "message": "Catalog editing permissions are required."},
         )
+    return principal
+
+
+def require_catalog_editor(
+    principal: AuthPrincipal = Depends(require_full_catalog_manager),
+    service: AuthenticationService = Depends(get_auth_service),
+    settings: AuthSettings = Depends(get_auth_settings),
+) -> AuthPrincipal:
+    require_full_catalog_manager(principal)
+    require_catalog_organization(principal, service, settings)
+    return principal
+
+
+def require_modifier_capability(
+    principal: AuthPrincipal = Depends(csrf_principal),
+) -> AuthPrincipal:
+    if "modifiers.manage" not in principal.permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "permission_denied", "message": "Modifier management permission is required."},
+        )
+    return principal
+
+
+def require_modifier_manager(
+    principal: AuthPrincipal = Depends(require_modifier_capability),
+    service: AuthenticationService = Depends(get_auth_service),
+    settings: AuthSettings = Depends(get_auth_settings),
+) -> AuthPrincipal:
+    require_modifier_capability(principal)
+    require_catalog_organization(principal, service, settings)
     return principal
 
 
@@ -56,6 +109,58 @@ def read_owner_catalog(
     try:
         return service.build_owner_catalog()
     except SQLAlchemyError as error:
+        mutation_error(error)
+
+
+@router.post("/modifier-groups", response_model=OwnerModifierGroupResponse, status_code=201)
+def create_modifier_group(
+    payload: OwnerModifierGroupWrite,
+    _: AuthPrincipal = Depends(require_modifier_manager),
+    service: CatalogService = Depends(catalog_service),
+) -> OwnerModifierGroupResponse:
+    try:
+        return service.create_modifier_group(payload)
+    except (SQLAlchemyError, ValueError) as error:
+        mutation_error(error)
+
+
+@router.put("/modifier-groups/{group_id}", response_model=OwnerModifierGroupResponse)
+def update_modifier_group(
+    group_id: int,
+    payload: OwnerModifierGroupWrite,
+    _: AuthPrincipal = Depends(require_modifier_manager),
+    service: CatalogService = Depends(catalog_service),
+) -> OwnerModifierGroupResponse:
+    try:
+        return service.update_modifier_group(group_id, payload)
+    except (SQLAlchemyError, ValueError, LookupError) as error:
+        mutation_error(error)
+
+
+@router.post("/modifier-groups/{group_id}/options", response_model=OwnerModifierOptionResponse, status_code=201)
+def create_modifier_option(
+    group_id: int,
+    payload: OwnerModifierOptionWrite,
+    _: AuthPrincipal = Depends(require_modifier_manager),
+    service: CatalogService = Depends(catalog_service),
+) -> OwnerModifierOptionResponse:
+    try:
+        return service.create_modifier_option(group_id, payload)
+    except (SQLAlchemyError, ValueError, LookupError) as error:
+        mutation_error(error)
+
+
+@router.put("/modifier-groups/{group_id}/options/{option_id}", response_model=OwnerModifierOptionResponse)
+def update_modifier_option(
+    group_id: int,
+    option_id: int,
+    payload: OwnerModifierOptionWrite,
+    _: AuthPrincipal = Depends(require_modifier_manager),
+    service: CatalogService = Depends(catalog_service),
+) -> OwnerModifierOptionResponse:
+    try:
+        return service.update_modifier_option(group_id, option_id, payload)
+    except (SQLAlchemyError, ValueError, LookupError) as error:
         mutation_error(error)
 
 

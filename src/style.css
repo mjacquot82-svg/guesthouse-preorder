@@ -7379,3 +7379,36 @@ body {
 @media (max-width: 430px) {
   .login-action-row { grid-template-columns: 1fr; }
 }
+
+/* Owner product modifier management */
+.admin-heading-actions, .modifier-manager header, .modifier-enabled { align-items: center; display: flex; gap: .75rem; }
+.admin-heading-actions { flex-wrap: wrap; }
+.modifier-manager { margin: 0 auto; max-width: 1280px; padding: clamp(1rem, 3vw, 2.5rem); }
+.modifier-manager > header { align-items: flex-start; justify-content: space-between; margin-bottom: 1.5rem; }
+.modifier-manager > header h2 { margin: 0; }
+.modifier-manager > header p:last-child { max-width: 46rem; }
+.modifier-manager-layout { display: grid; gap: 1.25rem; grid-template-columns: minmax(15rem, .7fr) minmax(0, 1.5fr); }
+.modifier-manager-layout > aside, .modifier-editor > form, .modifier-options-editor, .modifier-guidance { background: #fff; border: 1px solid #ded5c8; border-radius: 16px; padding: 1.1rem; }
+.modifier-manager-layout > aside { align-self: start; display: grid; gap: 1rem; }
+.modifier-group-list, .modifier-option-list { display: grid; gap: .65rem; }
+.modifier-group-list button, .modifier-option-list button { background: #fffdf8; border: 1px solid #cfc4b6; border-radius: 10px; color: inherit; display: grid; font: inherit; gap: .2rem; padding: .8rem; text-align: left; }
+.modifier-group-list button.is-selected { border-color: #704c34; box-shadow: 0 0 0 2px #704c34; }
+.modifier-group-list span, .modifier-group-list small, .modifier-option-list small, .field-help { color: #665b52; }
+.modifier-editor { display: grid; gap: 1rem; }
+.modifier-editor form { display: grid; gap: 1rem; }
+.modifier-options-editor { display: grid; gap: 1rem; }
+.modifier-option-list button { align-items: center; grid-template-columns: 1fr auto; }
+.modifier-option-list button span { display: grid; }
+.modifier-enabled { align-self: end; min-height: 48px; }
+.modifier-enabled input { height: 1.3rem; width: 1.3rem; }
+.modifier-assignment-empty, .modifier-empty, .modifier-guidance { padding: 1rem; }
+.modifier-assignment-empty p, .modifier-empty p, .modifier-guidance p { margin-bottom: 0; }
+.admin-modifier-picker label > span { display: grid; gap: .15rem; }
+.admin-modifier-picker label small { color: #665b52; font-weight: 500; }
+
+@media (max-width: 760px) {
+  .modifier-manager > header { align-items: stretch; flex-direction: column; }
+  .modifier-manager-layout { grid-template-columns: 1fr; }
+  .admin-heading-actions, .admin-heading-actions button { width: 100%; }
+  .admin-heading-actions button { justify-content: center; }
+}

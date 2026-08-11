@@ -85,7 +85,42 @@ class OwnerModifierGroupResponse(CatalogSchema):
     id: str
     key: str
     name: str
+    description: str
+    selection_type: Literal["single", "multiple"]
+    required: bool
+    min_selections: int
+    max_selections: int
     active: bool
+    sort_order: int
+    assignment_count: int
+    options: list["OwnerModifierOptionResponse"]
+
+
+class OwnerModifierOptionResponse(CatalogSchema):
+    id: str
+    key: str
+    name: str
+    price_adjustment_cents: int
+    active: bool
+    sort_order: int
+
+
+class OwnerModifierGroupWrite(CatalogSchema):
+    name: str = Field(min_length=1, max_length=200)
+    description: str = Field(default="", max_length=10_000)
+    selection_type: Literal["single", "multiple"] = "single"
+    required: bool = False
+    min_selections: int = Field(default=0, ge=0)
+    max_selections: int = Field(default=1, ge=0)
+    active: bool = True
+    sort_order: int = Field(default=0, ge=0)
+
+
+class OwnerModifierOptionWrite(CatalogSchema):
+    name: str = Field(min_length=1, max_length=200)
+    price_adjustment_cents: int = Field(default=0, ge=0)
+    active: bool = True
+    sort_order: int = Field(default=0, ge=0)
 
 
 class OwnerVariantResponse(ProductVariantResponse):

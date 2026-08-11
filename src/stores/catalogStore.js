@@ -3,9 +3,13 @@ import { useOwnerAuth } from "../auth/OwnerAuthContext.jsx";
 import {
   archiveOwnerProduct,
   clearOwnerCatalogCache,
+  createOwnerModifierGroup,
+  createOwnerModifierOption,
   createOwnerProduct,
   fetchOwnerCatalogCached,
   updateOwnerProduct,
+  updateOwnerModifierGroup,
+  updateOwnerModifierOption,
   updateOwnerProductAvailability,
   updateLunchSpecial,
 } from "../services/ownerCatalogApi.js";
@@ -19,8 +23,16 @@ function adaptOwnerCatalog(payload) {
   const categories = (payload.categories || []).map((item) => ({
     id: item.slug, backendId: item.id, name: item.name, note: item.note, published: item.published,
   }));
-  const modifierGroups = (payload.modifier_groups || []).filter((item) => item.active).map((item) => ({
-    id: item.key, backendId: item.id, name: item.name,
+  const modifierGroups = (payload.modifier_groups || []).map((item) => ({
+    id: item.key, backendId: item.id, name: item.name, description: item.description || "",
+    selectionType: item.selection_type, required: item.required,
+    minSelections: item.min_selections, maxSelections: item.max_selections,
+    active: item.active, sortOrder: item.sort_order, assignmentCount: item.assignment_count,
+    options: (item.options || []).map((option) => ({
+      id: option.key, backendId: option.id, name: option.name,
+      priceAdjustmentCents: option.price_adjustment_cents,
+      active: option.active, sortOrder: option.sort_order,
+    })),
   }));
   const categoryByBackendId = new Map(categories.map((item) => [item.backendId, item.id]));
   const groupByBackendId = new Map(modifierGroups.map((item) => [item.backendId, item.id]));
@@ -139,5 +151,31 @@ export function useCatalogProducts({ enabled = true } = {}) {
     await reload({ force: true });
   }
 
-  return { ...catalog, addProduct, updateProduct, setProductAvailability, setLunchSpecial, removeProduct, loading, error, reload };
+  async function saveModifierGroup(group) {
+    const payload = {
+      name: group.name.trim(), description: group.description?.trim() || "",
+      selection_type: group.selectionType, required: group.required,
+      min_selections: Number(group.minSelections), max_selections: Number(group.maxSelections),
+      active: group.active !== false, sort_order: Number(group.sortOrder) || 0,
+    };
+    if (group.backendId) await updateOwnerModifierGroup(group.backendId, payload, session.csrf_token);
+    else await createOwnerModifierGroup(payload, session.csrf_token);
+    clearOwnerCatalogCache();
+    await reload({ force: true });
+  }
+
+  async function saveModifierOption(groupId, option) {
+    const group = catalog.modifierGroups.find((item) => item.id === groupId);
+    if (!group) throw new Error("Modifier group not found.");
+    const payload = {
+      name: option.name.trim(), price_adjustment_cents: Number(option.priceAdjustmentCents),
+      active: option.active !== false, sort_order: Number(option.sortOrder) || 0,
+    };
+    if (option.backendId) await updateOwnerModifierOption(group.backendId, option.backendId, payload, session.csrf_token);
+    else await createOwnerModifierOption(group.backendId, payload, session.csrf_token);
+    clearOwnerCatalogCache();
+    await reload({ force: true });
+  }
+
+  return { ...catalog, addProduct, updateProduct, setProductAvailability, setLunchSpecial, removeProduct, saveModifierGroup, saveModifierOption, loading, error, reload };
 }
