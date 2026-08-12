@@ -43,7 +43,7 @@ test("customer forms default persistence and expose guarded pending states", () 
   assert.match(cartPageSource, /aria-busy=\{isPlacingOrder\}/);
   assert.match(cartPageSource, /Placing order…/);
   assert.match(cartPageSource, /Your order is already being submitted\. Please wait\./);
-  assert.match(cartPageSource, /Add a name, email, and phone number before placing your order\./);
+  assert.match(cartPageSource, /Add your first and last name, email, and phone number before placing your order\./);
 });
 
 test("customer registration and recovery require 10-character passwords", () => {

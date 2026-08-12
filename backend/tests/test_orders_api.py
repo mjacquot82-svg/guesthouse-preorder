@@ -143,7 +143,7 @@ def test_create_order_returns_public_pending_snapshot(
 
 
 @pytest.mark.postgresql
-def test_authenticated_order_uses_authoritative_profile_name(
+def test_authenticated_order_uses_authoritative_checkout_contact(
     orders_api: tuple[TestClient, Engine, dict[str, int]],
 ) -> None:
     client, engine, ids = orders_api
@@ -164,21 +164,22 @@ def test_authenticated_order_uses_authoritative_profile_name(
         session.commit()
     client.app.dependency_overrides[optional_customer] = lambda: customer
     payload = order_payload(ids, customer={
-        "name": "mjacquot82",
-        "email": "wrong@example.com",
+        "name": "Checkout Customer",
+        "email": "checkout@example.com",
         "phone": "+15551234567",
     })
 
     response = client.post("/api/v1/orders", json=payload)
 
     assert response.status_code == 201
-    assert response.json()["customer"]["name"] == "Marc Jacquot"
-    assert response.json()["customer"]["email"] == customer_email
+    assert response.json()["customer"]["name"] == "Checkout Customer"
+    assert response.json()["customer"]["email"] == "checkout@example.com"
     with Session(engine) as session:
         order = session.scalar(select(Order))
         assert order is not None
-        assert order.guest_name == "Marc Jacquot"
-        assert order.guest_email == customer_email
+        assert order.guest_name == "Checkout Customer"
+        assert order.guest_email == "checkout@example.com"
+        assert order.customer_user_id == customer.user_id
 
 
 @pytest.mark.postgresql

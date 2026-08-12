@@ -131,13 +131,6 @@ def create_pending_order(
 ) -> PendingOrderResponse:
     try:
         domain_request = request.to_domain()
-        if customer is not None:
-            domain_request = domain_request.model_copy(update={
-                "customer": domain_request.customer.model_copy(update={
-                    "name": customer.display_name,
-                    "email": customer.email,
-                }),
-            })
         order = OrderCreationService(session).create_pending_order(
             domain_request,
             now=now,

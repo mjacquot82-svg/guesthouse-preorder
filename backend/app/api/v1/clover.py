@@ -1,5 +1,6 @@
 import json
 import logging
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
@@ -337,25 +338,40 @@ def _checkout_payload(order: Order, settings: CloverSettings) -> dict:
         f"{settings.frontend_url.rstrip('/')}/confirmation"
         f"?order={order.public_access_token}"
     )
-    line_items = [
-        {
+    line_items = []
+    for item in order.items:
+        base_name = (
+            f"{item.variant_name} {item.product_name}"
+            if item.variant_name
+            else item.product_name
+        )
+        grouped_modifiers: OrderedDict[str, list[str]] = OrderedDict()
+        for modifier in item.modifiers:
+            option = modifier.modifier_option_name
+            if modifier.quantity > 1:
+                option = f"{option} x{modifier.quantity}"
+            grouped_modifiers.setdefault(
+                modifier.modifier_group_name, []
+            ).append(option)
+        configuration = " · ".join(
+            f"{group_name}: {', '.join(options)}"
+            for group_name, options in grouped_modifiers.items()
+        )
+        # `note` is Clover's documented line-item description field, but its
+        # Hosted Checkout theme does not always render notes. Keep the concise
+        # configuration in the supported name as well so it remains visible.
+        line_item = {
             "name": (
-                f"{item.variant_name} {item.product_name}"
-                if item.variant_name
-                else item.product_name
+                f"{base_name} — {configuration}" if configuration else base_name
             ),
-            "note": ", ".join(
-                f"{modifier.modifier_group_name}: {modifier.modifier_option_name}"
-                for modifier in item.modifiers
-            ),
+            "note": configuration,
             "price": item.unit_price_cents,
             "unitQty": item.quantity,
             "taxRates": [
                 {"name": order.tax_name, "rate": order.tax_rate_millionths}
             ] if order.tax_rate_millionths else [],
         }
-        for item in order.items
-    ]
+        line_items.append(line_item)
     subtotal_cents = sum(
         line_item["price"] * line_item["unitQty"] for line_item in line_items
     )

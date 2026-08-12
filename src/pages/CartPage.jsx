@@ -255,7 +255,7 @@ export default function CartPage() {
     }
     if (!isCheckoutContactComplete(canonicalContact)) {
       setCheckoutError(
-        "Add a name, email, and phone number before placing your order."
+        "Add your first and last name, email, and phone number before placing your order."
       );
       submissionGate.current.end();
       return;

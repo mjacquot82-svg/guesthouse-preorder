@@ -34,7 +34,10 @@ class GuestCustomerInput(BaseModel):
     @classmethod
     def normalize_name(cls, value: object) -> object:
         if isinstance(value, str):
-            return " ".join(value.strip().split())
+            normalized = " ".join(value.strip().split())
+            if len(normalized.split()) < 2:
+                raise ValueError("name must include first and last name.")
+            return normalized
         return value
 
     @field_validator("email", mode="before")

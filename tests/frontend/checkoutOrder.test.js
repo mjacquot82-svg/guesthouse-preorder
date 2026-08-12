@@ -95,6 +95,17 @@ test("profile defaults and formatted phones share one canonical checkout contact
   });
 });
 
+test("checkout contact requires an actual first and last name", () => {
+  const contact = {
+    name: "mjacquot82",
+    email: "marc@example.com",
+    phone: "(519) 881-6869",
+  };
+
+  assert.equal(isCheckoutContactComplete(contact), false);
+  assert.equal(isCheckoutContactComplete({ ...contact, name: "Marc Jacquot" }), true);
+});
+
 test("resolved pickup times populate the native time control in the business timezone", () => {
   assert.equal(
     formatPickupTimeInput("2026-08-05T17:25:00.000Z", "America/Toronto"),

@@ -23,7 +23,7 @@ from app.clover.security import (
     verify_oauth_state,
     verify_webhook_signature,
 )
-from app.orders.models import Order, OrderItem
+from app.orders.models import Order, OrderItem, OrderItemModifier
 
 
 def settings(**overrides: str) -> CloverSettings:
@@ -419,7 +419,7 @@ def test_checkout_payload_matches_authoritative_total_with_tax() -> None:
         guest_phone="+15551234567",
         requested_pickup_at=now,
         business_timezone="America/New_York",
-        currency="USD",
+        currency="CAD",
         subtotal_cents=500,
         tax_cents=65,
         tax_name="HST",
@@ -446,7 +446,116 @@ def test_checkout_payload_matches_authoritative_total_with_tax() -> None:
         {"name": "HST", "rate": 1_300_000}
     ]
     assert payload["customer"]["lastName"] == "Guest"
+    assert "currency" not in payload
+    assert "currency" not in payload["shoppingCart"]
 
     order.total_cents = 564
     with pytest.raises(ValueError, match="does not match"):
         _checkout_payload(order, settings())
+
+
+def _modifier(group: str, option: str, quantity: int, sort_order: int) -> OrderItemModifier:
+    return OrderItemModifier(
+        modifier_group_key=group.lower().replace(" ", "-"),
+        modifier_group_name=group,
+        modifier_option_key=option.lower().replace(" ", "-"),
+        modifier_option_name=option,
+        price_adjustment_cents=0,
+        quantity=quantity,
+        sort_order=sort_order,
+    )
+
+
+def _configured_coffee_order(
+    *, variant: str, modifiers: list[OrderItemModifier], price_cents: int = 205
+) -> Order:
+    now = datetime.now(timezone.utc)
+    tax_cents = round(price_cents * 0.13)
+    order = Order(
+        idempotency_key=f"configured-{variant}",
+        request_fingerprint="b" * 64,
+        public_access_token=f"configured-{variant}-token",
+        guest_name="Actual Checkout Name",
+        guest_email="checkout@example.com",
+        guest_phone="+15198816869",
+        requested_pickup_at=now,
+        business_timezone="America/Toronto",
+        currency="CAD",
+        subtotal_cents=price_cents,
+        tax_cents=tax_cents,
+        tax_name="HST",
+        tax_rate_millionths=1_300_000,
+        total_cents=price_cents + tax_cents,
+        expires_at=now,
+    )
+    order.items.append(OrderItem(
+        product_slug="drip-coffee",
+        product_name="Drip Coffee",
+        variant_key=variant.lower(),
+        variant_name=variant,
+        base_unit_price_cents=price_cents,
+        unit_price_cents=price_cents,
+        quantity=1,
+        line_subtotal_cents=price_cents,
+        sort_order=0,
+        modifiers=modifiers,
+    ))
+    return order
+
+
+def test_checkout_payload_exposes_complete_grouped_drip_coffee_configuration() -> None:
+    order = _configured_coffee_order(
+        variant="12oz",
+        modifiers=[
+            _modifier("Milk", "Whole milk", 1, 0),
+            _modifier("Sugar", "Sugar", 2, 1),
+        ],
+    )
+
+    payload = _checkout_payload(order, settings())
+    line_item = payload["shoppingCart"]["lineItems"][0]
+
+    assert line_item["name"] == (
+        "12oz Drip Coffee — Milk: Whole milk · Sugar: Sugar x2"
+    )
+    assert line_item["note"] == "Milk: Whole milk · Sugar: Sugar x2"
+    assert line_item["price"] == 205
+    assert payload["customer"] == {
+        "firstName": "Actual",
+        "lastName": "Checkout Name",
+        "email": "checkout@example.com",
+        "phoneNumber": "+15198816869",
+    }
+    assert "currency" not in payload
+
+
+def test_checkout_payload_groups_multiple_flavour_shots_once() -> None:
+    order = _configured_coffee_order(
+        variant="20oz",
+        price_cents=275,
+        modifiers=[
+            _modifier("Milk", "Oat", 1, 0),
+            _modifier("Flavour shots", "Vanilla", 2, 1),
+            _modifier("Flavour shots", "Caramel", 1, 2),
+        ],
+    )
+
+    line_item = _checkout_payload(order, settings())["shoppingCart"]["lineItems"][0]
+
+    assert line_item["note"] == (
+        "Milk: Oat · Flavour shots: Vanilla x2, Caramel"
+    )
+    assert line_item["name"] == (
+        "20oz Drip Coffee — Milk: Oat · Flavour shots: Vanilla x2, Caramel"
+    )
+    assert line_item["price"] == 275
+
+
+def test_checkout_payload_does_not_manufacture_a_last_name() -> None:
+    order = _configured_coffee_order(variant="12oz", modifiers=[])
+    order.guest_name = "Prince"
+
+    payload = _checkout_payload(order, settings())
+
+    assert payload["customer"]["firstName"] == "Prince"
+    assert "lastName" not in payload["customer"]

@@ -24,6 +24,7 @@ def test_guest_customer_normalizes_contact_information() -> None:
     ("field", "value"),
     [
         ("name", " "),
+        ("name", "mjacquot82"),
         ("email", "not-an-email"),
         ("email", "guest@example"),
         ("phone", "123"),

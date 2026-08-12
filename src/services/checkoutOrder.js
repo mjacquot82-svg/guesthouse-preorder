@@ -97,7 +97,11 @@ export function resolveVisibleCheckoutContact(stateContact = {}, inputContact = 
 
 export function isCheckoutContactComplete(contact) {
   const canonical = canonicalizeCheckoutContact(contact);
-  return Boolean(canonical.name && canonical.email && canonical.phone);
+  return Boolean(
+    canonical.name.split(/\s+/).filter(Boolean).length >= 2
+    && canonical.email
+    && canonical.phone
+  );
 }
 
 export function formatPickupTimeInput(requestedPickupAt, timeZone) {
