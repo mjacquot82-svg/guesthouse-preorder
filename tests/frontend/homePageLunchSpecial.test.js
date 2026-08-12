@@ -53,13 +53,15 @@ test("Quick Order makes generic cards configuration links and reserves direct Ad
   assert.match(home, /Quick Order/);
   assert.match(home, /quick-product-rail/);
   assert.match(home, /quick-product-card/);
-  assert.match(home, /Add this exact/);
+  assert.match(home, /Order your usual/);
   assert.match(home, /addQuickItem/);
   assert.match(home, /storeCart/);
   assert.match(home, /const QuickOrderCard = item\.quickConfiguration \? "article" : Link/);
   assert.match(home, /"aria-label": `Customize \$\{item\.name\}`/);
-  assert.match(home, /Add this exact \$\{item\.name\} configuration to cart/);
-  assert.match(home, /title="Add this exact configuration"/);
+  assert.match(home, /Order your usual \$\{item\.name\}/);
+  assert.match(home, /title="Order this exact configuration"/);
+  assert.match(home, /<span>Order<\/span>/);
+  assert.doesNotMatch(home, /<span>Add<\/span>/);
   assert.match(home, /\{item\.quickConfiguration \? <button/);
   assert.doesNotMatch(home, />Customize<\/Link>/);
   assert.match(home, /getProductSpecificImageUrl\(item\)/);

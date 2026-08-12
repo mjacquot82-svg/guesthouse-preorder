@@ -218,12 +218,13 @@ test("Home direct Add preserves an exact paid configuration with current catalog
     assert.match(exactCard.textContent, /Size: 12oz · Milk: Whole milk · Sugar: Sugar x2/);
     assert.match(exactCard.textContent, /\$2\.05/);
     assert.doesNotMatch(exactCard.textContent, /\$9\.99/);
-    const add = exactCard.querySelector('button[aria-label="Add this exact Drip Coffee configuration to cart"]');
-    assert.ok(add);
-    assert.match(add.textContent, /Add/);
-    assert.equal(add.getAttribute("title"), "Add this exact configuration");
+    const order = exactCard.querySelector('button[aria-label="Order your usual Drip Coffee"]');
+    assert.ok(order);
+    assert.equal(order.textContent.trim(), "Order");
+    assert.doesNotMatch(order.textContent, /\+ Add/);
+    assert.equal(order.getAttribute("title"), "Order this exact configuration");
     assert.equal(exactCard.querySelector('a[aria-label="Customize Drip Coffee"]'), null);
-    await act(async () => add.dispatchEvent(new app.dom.window.MouseEvent("click", { bubbles: true })));
+    await act(async () => order.dispatchEvent(new app.dom.window.MouseEvent("click", { bubbles: true })));
     const stored = JSON.parse(app.dom.window.localStorage.getItem("cafe-cart"));
     assert.equal(stored.length, 1);
     assert.equal(stored[0].price, 2.05);
@@ -280,6 +281,7 @@ test("Home rejects stale exact configurations and keeps required choices behind 
       const generic = app.container.querySelector('a[aria-label="Customize Drip Coffee"]');
       assert.ok(generic);
       assert.equal(generic.querySelector("button"), null);
+      assert.doesNotMatch(generic.textContent, /Order/);
       assert.doesNotMatch(generic.textContent, /Your usual/);
       assert.match(generic.textContent, /Customize on the menu/);
     } finally {

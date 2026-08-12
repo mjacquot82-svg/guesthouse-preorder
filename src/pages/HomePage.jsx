@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, ShoppingBag } from "lucide-react";
+import { ShoppingBag } from "lucide-react";
 import {
   createQuickOrderItems,
   createHomeCatalogView,
@@ -314,8 +314,8 @@ export default function HomePage() {
                   ]) || "Standard"}</small> : <small>Customize on the menu</small>}
                   <strong>{formatPrice(item.quickConfiguration ? getConfiguredPrice(item, item.quickSelections) : getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
                 </div>
-                {item.quickConfiguration ? <button type="button" aria-label={`Add this exact ${item.name} configuration to cart`} title="Add this exact configuration" onClick={() => addQuickItem(item)}>
-                  <Plus aria-hidden="true" size={16} strokeWidth={2.8} /><span>Add</span>
+                {item.quickConfiguration ? <button type="button" aria-label={`Order your usual ${item.name}`} title="Order this exact configuration" onClick={() => addQuickItem(item)}>
+                  <span>Order</span>
                 </button> : null}
               </QuickOrderCard>
             );
