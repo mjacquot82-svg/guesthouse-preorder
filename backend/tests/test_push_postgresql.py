@@ -16,7 +16,7 @@ from app.jds_auth.models import JdsUser, Organization
 from app.push.config import PushSettings
 from app.push.dispatcher import PushDispatcher
 from app.push.models import CustomerNotificationPreference, PushAnnouncement, PushDeliveryAttempt, WebPushSubscription
-from app.push.provider import classify_status
+from app.push.provider import ProviderResult, classify_status
 from app.push.security import SubscriptionProtector, endpoint_fingerprint
 from tests.test_owner_orders import owner_orders_api, principal
 
@@ -151,3 +151,23 @@ def test_device_revoke_and_expired_general_suppress_unsent_work(owner_orders_api
         assert (revoked.status,revoked.error_code)==("suppressed","subscription_inactive")
         assert (expired.status,expired.error_code)==("expired","announcement_expired")
     assert provider.sent==[]
+
+
+@pytest.mark.postgresql
+def test_dispatcher_persists_safe_pre_http_category_and_retries(owner_orders_api):
+    _,engine=owner_orders_api;settings=active_settings()
+    class PreHttpFailureProvider:
+        def send(self,*_):
+            return ProviderResult(False,permanent=False,error_code="vapid_error")
+    with Session(engine) as session:
+        _,_,announcement_id,delivery_id=queued_general(session,settings,suffix="pre-http")
+    PushDispatcher(sessionmaker(bind=engine),settings,PreHttpFailureProvider()).run_batch()
+    with Session(engine) as session:
+        delivery=session.get(PushDeliveryAttempt,delivery_id);announcement=session.get(PushAnnouncement,announcement_id)
+        assert delivery.status=="retry"
+        assert delivery.attempt_count==1
+        assert delivery.provider_http_status is None
+        assert delivery.error_code=="vapid_error"
+        assert delivery.next_attempt_at>delivery.last_attempt_at
+        assert announcement.status=="attempting"
+        assert announcement.attempted_count==1
