@@ -1,6 +1,6 @@
 import {useEffect,useState} from "react";
 import {Bell, BellOff} from "lucide-react";
-import {fetchPushConfig,fetchPushStatus,pushSupport,revokeCurrentPushSubscription,savePushSubscription,setLunchPreference,vapidKey} from "../services/customerPushApi.js";
+import {fetchPushConfig,fetchPushStatus,pushSubscriptionPayload,pushSupport,revokeCurrentPushSubscription,savePushSubscription,setLunchPreference,vapidKey} from "../services/customerPushApi.js";
 
 export default function NotificationSettings({csrfToken}){
  const [state,setState]=useState({loading:true,config:null,status:null,error:"",busy:false,currentDevice:false}); const support=pushSupport();
@@ -9,7 +9,7 @@ export default function NotificationSettings({csrfToken}){
  async function enable(){setState(s=>({...s,busy:true,error:""}));let subscription;let saved;
   try{if(Notification.permission!=="granted"&&await Notification.requestPermission()!=="granted")throw new Error("Notifications weren’t allowed in this browser.");
    const registration=await navigator.serviceWorker.ready; subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKey(state.config.vapid_public_key)});
-   saved=await savePushSubscription({...subscription.toJSON(),device_label:navigator.userAgentData?.platform||navigator.platform||"This device"},csrfToken); localStorage.setItem("ladelsPushSubscriptionId",saved.id);
+   saved=await savePushSubscription(pushSubscriptionPayload(subscription,navigator.userAgentData?.platform||navigator.platform||"This device"),csrfToken); localStorage.setItem("ladelsPushSubscriptionId",saved.id);
    await setLunchPreference(true,csrfToken); await load();
   }catch(e){try{if(saved)await revokeCurrentPushSubscription(subscription.endpoint,csrfToken);await subscription?.unsubscribe();localStorage.removeItem("ladelsPushSubscriptionId")}catch{};setState(s=>({...s,error:e.message}))}finally{setState(s=>({...s,busy:false}))}}
  async function disableAccount(){setState(s=>({...s,busy:true,error:""}));try{await setLunchPreference(false,csrfToken);await load()}catch(e){setState(s=>({...s,error:e.message}))}finally{setState(s=>({...s,busy:false}))}}

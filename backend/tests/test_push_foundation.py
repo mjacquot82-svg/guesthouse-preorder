@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
 from cryptography.fernet import Fernet
+from pydantic import ValidationError
+from app.api.v1.customer_push import SubscriptionInput
 from app.communications.service import lunch_special_message
 from app.push.config import PushSettings
 from app.push.dispatcher import PushDispatcher
@@ -21,6 +23,16 @@ def test_enrollment_can_be_enabled_without_enabling_sends():
     settings=PushSettings(vapid_private_key="private",vapid_public_key=public,vapid_subject="mailto:test@example.com",encryption_key=key,enrollment_enabled=True)
     assert settings.can_enroll is True
     assert settings.active is False
+
+def test_subscription_request_schema_accepts_allowlisted_payload_and_remains_strict():
+    payload={"endpoint":"https://push.example.test/device","keys":{"p256dh":"B"+"A"*86,"auth":"A"*22},"content_encoding":"aes128gcm","device_label":"Android"}
+    assert SubscriptionInput.model_validate(payload).endpoint==payload["endpoint"]
+    try:
+        SubscriptionInput.model_validate({**payload,"expirationTime":None})
+    except ValidationError as error:
+        assert error.errors()[0]["type"]=="extra_forbidden"
+    else:
+        raise AssertionError("browser-only fields must remain forbidden")
 
 def test_subscription_capabilities_are_encrypted_and_fingerprinted():
     crypt=SubscriptionProtector(Fernet.generate_key().decode()); endpoint="https://push.example.test/private-capability"

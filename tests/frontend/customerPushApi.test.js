@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { revokeCurrentPushSubscription, savePushSubscription, setLunchPreference, vapidKey } from "../../src/services/customerPushApi.js";
+import { pushSubscriptionPayload, revokeCurrentPushSubscription, savePushSubscription, setLunchPreference, vapidKey } from "../../src/services/customerPushApi.js";
 
 test("vapidKey decodes an unpadded URL-safe application server key", () => {
   globalThis.atob ||= (value) => Buffer.from(value, "base64").toString("binary");
@@ -20,6 +20,32 @@ test("subscription persistence uses authenticated CSRF mutation without customer
   assert.equal(request[1].headers["X-CSRF-Token"],"csrf");
   assert.deepEqual(JSON.parse(request[1].body),subscription);
   assert.equal("customer_user_id" in JSON.parse(request[1].body),false);
+});
+
+test("Android PushSubscription serialization is allowlisted to the strict backend schema",async()=>{
+  const browserSubscription={toJSON:()=>({endpoint:"https://push.example/android",expirationTime:null,keys:{p256dh:"p256dh-value",auth:"auth-value"},futureBrowserField:"ignored"})};
+  const payload=pushSubscriptionPayload(browserSubscription,"Android");
+  assert.deepEqual(payload,{endpoint:"https://push.example/android",keys:{p256dh:"p256dh-value",auth:"auth-value"},content_encoding:"aes128gcm",device_label:"Android"});
+  assert.equal("expirationTime" in payload,false);
+  assert.equal("futureBrowserField" in payload,false);
+  let request;
+  const saved=await savePushSubscription(payload,"csrf",{apiBaseUrl:"https://api.example",fetchImpl:async(...args)=>{request=args;return response(201,{id:"android-device"})}});
+  assert.deepEqual(saved,{id:"android-device"});
+  assert.deepEqual(Object.keys(JSON.parse(request[1].body)).sort(),["content_encoding","device_label","endpoint","keys"]);
+});
+
+test("browser subscriptions without expirationTime remain compatible",()=>{
+  const payload=pushSubscriptionPayload({toJSON:()=>({endpoint:"https://push.example/browser",keys:{p256dh:"p256dh-value",auth:"auth-value"}})},"Browser");
+  assert.equal(payload.endpoint,"https://push.example/browser");
+  assert.equal("expirationTime" in payload,false);
+});
+
+test("incomplete browser subscription data fails before an HTTP request",async()=>{
+  assert.throws(()=>pushSubscriptionPayload({toJSON:()=>({endpoint:"https://push.example/incomplete",keys:{auth:"auth-value"}})},"Android"),/subscription is incomplete/);
+});
+
+test("FastAPI validation arrays produce a safe customer-facing message",async()=>{
+  await assert.rejects(()=>savePushSubscription({endpoint:"bad"},"csrf",{fetchImpl:async()=>response(422,{detail:[{loc:["body","endpoint"],msg:"sensitive input rejected",input:"do-not-display"}]})}),/Notification details were rejected\. Please try again\./);
 });
 
 test("current-device revocation identifies the browser endpoint and account preference is separate",async()=>{
