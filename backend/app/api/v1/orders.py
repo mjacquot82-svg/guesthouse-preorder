@@ -22,7 +22,7 @@ from app.orders.service import (
     OrderCreationErrorCode,
     OrderCreationService,
 )
-from app.api.v1.customer_auth import optional_customer
+from app.api.v1.customer_auth import current_ordering_customer
 from app.jds_auth.service import AuthPrincipal
 
 class OrderApiRoute(APIRoute):
@@ -127,14 +127,14 @@ def create_pending_order(
     request: CreateOrderRequest,
     session: Session = Depends(get_order_session),
     now: datetime = Depends(get_current_time),
-    customer: AuthPrincipal | None = Depends(optional_customer),
+    customer: AuthPrincipal = Depends(current_ordering_customer),
 ) -> PendingOrderResponse:
     try:
         domain_request = request.to_domain()
         order = OrderCreationService(session).create_pending_order(
             domain_request,
             now=now,
-            customer_user_id=customer.user_id if customer else None,
+            customer_user_id=customer.user_id,
         )
         return PendingOrderResponse.from_model(order)
     except OrderCreationError as error:
@@ -179,6 +179,7 @@ def get_pending_order(
             description="Opaque public order-access token.",
         ),
     ],
+    customer: AuthPrincipal = Depends(current_ordering_customer),
     session: Session = Depends(get_order_session),
 ) -> PendingOrderResponse:
     try:
@@ -187,7 +188,10 @@ def get_pending_order(
             .options(
                 selectinload(Order.items).selectinload(OrderItem.modifiers),
             )
-            .where(Order.public_access_token == public_token)
+            .where(
+                Order.public_access_token == public_token,
+                Order.customer_user_id == customer.user_id,
+            )
         )
         if order is None:
             raise_order_http_error(

@@ -101,6 +101,8 @@ export default function CartPage() {
   const [checkoutError, setCheckoutError] = useState("");
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [savedOrder, setSavedOrder] = useState(null);
+  const [showAuthRequirement, setShowAuthRequirement] = useState(false);
+  const authRequirementRef = useRef(null);
   const submissionGate = useRef(createSubmissionGate());
   useEffect(() => {
     if (!session) return;
@@ -239,6 +241,11 @@ export default function CartPage() {
   }
 
   async function placeOrder() {
+    if (!session) {
+      setShowAuthRequirement(true);
+      window.requestAnimationFrame(() => authRequirementRef.current?.focus());
+      return;
+    }
     const visibleContact = Object.fromEntries(
       Object.entries(checkoutContactInputsRef.current).map(([field, input]) => [
         field,
@@ -542,7 +549,7 @@ export default function CartPage() {
               <h2>How should we contact you?</h2>
             </div>
           </div>
-          {!session ? <div className="form-actions"><span>Continue as Guest</span><Link className="secondary-button" to="/login">Sign In</Link></div> : null}
+          {!session && showAuthRequirement ? <div className="checkout-auth-required" role="status" aria-live="polite"><h2 ref={authRequirementRef} tabIndex="-1">Sign in to place your order</h2><p>Your café bag is saved. Sign in or create an account to continue.</p><div className="form-actions"><Link className="primary-button" to="/account/sign-in?returnTo=%2Fcart">Sign In</Link><Link className="secondary-button" to="/account/create?returnTo=%2Fcart">Create Account</Link></div></div> : null}
           <div className="checkout-contact-grid">
             <label>
               <span>Name</span>

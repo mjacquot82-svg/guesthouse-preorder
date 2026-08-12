@@ -39,7 +39,9 @@ from app.catalog.seed import seed_catalog
 from app.availability.models import BusinessClosure, BusinessHour, BusinessSettings, ProductAvailability
 from app.orders.models import Order, OrderItem, OrderItemModifier
 from app.customers.models import CustomerProfile
+from app.clover.client import CloverClient
 from tests.test_migrations import make_alembic_config
+from tests.test_order_service import local_datetime, seed_order_dependencies
 
 
 class FakeIdentityProvider:
@@ -1302,6 +1304,16 @@ async def test_active_owner_can_use_customer_experience_without_duplicate_identi
     assert customer_orders.status_code == 200
     assert customer_orders.json() == []
 
+    ordering_payload = {
+        "idempotency_key": "owner-cannot-order",
+        "customer": {"name": "Owner User", "email": "owner@example.com", "phone": "+15198816869"},
+        "requested_pickup_at": local_datetime(8, 30).isoformat(),
+        "lines": [{"product_id": 1, "quantity": 1}],
+    }
+    owner_order = await auth_client.post("/api/v1/orders", json=ordering_payload)
+    assert owner_order.status_code == 403
+    assert owner_order.json()["detail"]["code"] == "customer_required"
+
     owner_login_response = await auth_client.post(
         "/api/v1/owner/auth/login",
         headers={"Origin": "http://test"},
@@ -1322,6 +1334,50 @@ async def test_active_owner_can_use_customer_experience_without_duplicate_identi
         assert membership.status == "active"
         assert membership.application_id == application_id
         assert membership.organization_id == organization_id
+
+
+@pytest.mark.anyio
+@pytest.mark.postgresql
+async def test_anonymous_order_and_clover_checkout_are_rejected_before_side_effects(
+    auth_client: AsyncClient,
+    auth_engine: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with auth_engine.begin() as connection:
+        connection.execute(text(
+            "TRUNCATE order_item_modifiers, order_items, orders, "
+            "product_availability_overrides, product_availability, "
+            "business_closures, business_hours, business_settings, "
+            "product_modifier_groups, modifier_options, product_variants, "
+            "products, modifier_groups, categories RESTART IDENTITY CASCADE"
+        ))
+    with Session(auth_engine) as session:
+        ids = seed_order_dependencies(session)
+    clover_calls = 0
+
+    def forbidden_clover_call(*_: object, **__: object) -> dict:
+        nonlocal clover_calls
+        clover_calls += 1
+        return {}
+
+    monkeypatch.setattr(CloverClient, "create_checkout", forbidden_clover_call)
+    payload = {
+        "idempotency_key": "anonymous-order-blocked",
+        "customer": {"name": "Anonymous Person", "email": "person@example.com", "phone": "+15198816869"},
+        "requested_pickup_at": local_datetime(8, 30).isoformat(),
+        "lines": [{"product_id": ids["product"], "variant_id": ids["large"], "quantity": 1}],
+    }
+
+    order_response = await auth_client.post("/api/v1/orders", json=payload)
+    checkout_response = await auth_client.post(
+        "/api/v1/clover/orders/not-an-order/checkout"
+    )
+
+    assert order_response.status_code == 401
+    assert checkout_response.status_code == 401
+    assert clover_calls == 0
+    with Session(auth_engine) as session:
+        assert session.scalar(select(text("count(*)")).select_from(Order)) == 0
 
 
 @pytest.mark.anyio

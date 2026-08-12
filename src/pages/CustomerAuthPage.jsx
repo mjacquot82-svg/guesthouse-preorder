@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { registerCustomer, resendCustomerVerification } from "../services/customerAuthApi.js";
 import { getCustomerErrorMessage } from "../services/customerMessages.js";
 import { formatCustomerPhone, isCompleteCustomerPhone, normalizeCustomerPhone } from "../services/customerPhone.js";
+import { clearCustomerReturn, customerAuthHref, customerReturnFrom } from "../services/customerAuthReturn.js";
 
 export default function CustomerAuthPage({ mode }) {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const returnTo = customerReturnFrom(params);
   const { login } = useCustomerAuth();
   const [form, setForm] = useState({ name: "", email: "", password: "", phone: "" });
   const [keepSignedIn, setKeepSignedIn] = useState(true);
@@ -31,7 +34,8 @@ export default function CustomerAuthPage({ mode }) {
         setStatus(result.message);
       } else {
         await login(form.email, form.password, keepSignedIn);
-        navigate("/account", { replace: true });
+        clearCustomerReturn();
+        navigate(returnTo, { replace: true });
       }
     } catch (error) {
       if (!creating && error.code === "email_verification_required") {
@@ -74,7 +78,7 @@ export default function CustomerAuthPage({ mode }) {
           {verificationRequired ? <button className="secondary-button" disabled={isSubmitting || isResending} type="button" onClick={resendVerification}>{isResending ? "Sending…" : "Resend verification email"}</button> : null}
         </form>
         <div className="form-actions">
-          <Link className="secondary-button" to={creating ? "/account/sign-in" : "/account/create"}>{creating ? "Sign In" : "Create Account"}</Link>
+          <Link className="secondary-button" to={customerAuthHref(creating ? "/account/sign-in" : "/account/create", returnTo)}>{creating ? "Sign In" : "Create Account"}</Link>
           {!creating ? <Link to="/account/reset-password">Forgot password?</Link> : null}
         </div>
       </div>

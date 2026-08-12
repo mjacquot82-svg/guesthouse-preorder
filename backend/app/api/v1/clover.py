@@ -24,9 +24,11 @@ from app.clover.security import (
     verify_webhook_signature,
 )
 from app.api.v1.owner_auth import require_read_permission
+from app.api.v1.customer_auth import current_ordering_customer
 from app.db.session import get_db_session
 from app.orders.constants import OrderStatus
 from app.orders.models import Order, OrderItem
+from app.jds_auth.service import AuthPrincipal
 from app.orders.pricing import calculate_tax_cents
 
 router = APIRouter(prefix="/clover", tags=["clover"])
@@ -534,6 +536,7 @@ def debug_clover_tax_rates(
 def create_hosted_checkout(
     public_token: str,
     response: Response,
+    customer: AuthPrincipal = Depends(current_ordering_customer),
     session: Session = Depends(get_db_session),
     settings: CloverSettings = Depends(get_settings),
 ) -> CloverCheckoutResponse:
@@ -544,7 +547,10 @@ def create_hosted_checkout(
         order = session.scalar(
             select(Order)
             .options(selectinload(Order.items).selectinload(OrderItem.modifiers))
-            .where(Order.public_access_token == public_token)
+            .where(
+                Order.public_access_token == public_token,
+                Order.customer_user_id == customer.user_id,
+            )
             .with_for_update()
         )
     except SQLAlchemyError as error:

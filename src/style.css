@@ -1452,6 +1452,29 @@ h3 {
   color: var(--cafe-red);
 }
 
+.checkout-auth-required {
+  background: var(--surface, #fffdf8);
+  border: 1px solid #cfc4b7;
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.checkout-auth-required h2,
+.checkout-auth-required p {
+  margin: 0;
+}
+
+.checkout-auth-required h2:focus-visible {
+  outline: 3px solid #9ac7a0;
+  outline-offset: 4px;
+}
+
+.checkout-auth-required .form-actions {
+  margin: 2px 0 0;
+}
+
 .saved-order-status {
   display: grid;
   gap: 16px;

@@ -76,6 +76,15 @@ def current_customer(
         auth_error(401, "session_expired", "The customer session is invalid or expired.")
 
 
+def current_ordering_customer(
+    principal: AuthPrincipal = Depends(current_customer),
+) -> AuthPrincipal:
+    """Require the dedicated customer role for order and payment mutations."""
+    if principal.role != "customer":
+        auth_error(403, "customer_required", "A customer account is required.")
+    return principal
+
+
 def optional_customer(
     request: Request,
     session: Session = Depends(get_db_session),

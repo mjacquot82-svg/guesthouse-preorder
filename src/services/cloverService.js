@@ -56,6 +56,7 @@ export async function createCloverCheckout(
         apiBaseUrl
       ),
       {
+        credentials: "include",
         headers: { Accept: "application/json" },
         method: "POST",
       }

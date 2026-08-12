@@ -107,6 +107,7 @@ export function fetchPendingOrder(
   return requestOrder(
     `${getOrdersUrl(apiBaseUrl)}/${encodeURIComponent(publicToken)}`,
     {
+      credentials: "include",
       headers: { Accept: "application/json" },
       method: "GET",
       signal,

@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.availability.models import ProductAvailabilityOverride
 from app.api.v1.clover import create_hosted_checkout, get_settings
-from app.api.v1.customer_auth import optional_customer
+from app.api.v1.customer_auth import current_ordering_customer
 from app.api.v1.orders import get_current_time
 from app.clover.client import CloverApiError, CloverClient
 from app.clover.config import CloverSettings
@@ -48,11 +48,23 @@ def orders_api(
                 "RESTART IDENTITY CASCADE"
             )
         )
+    customer = AuthPrincipal(
+        user_id=uuid4(), membership_id=uuid4(), organization_id=uuid4(),
+        application_id=uuid4(), session_id=uuid4(), email=f"ordering-{uuid4()}@example.com",
+        display_name="Ordering Customer", role="customer", permissions=frozenset(),
+        assurance_level="aal1",
+    )
     with Session(engine, expire_on_commit=False) as session:
         ids = seed_order_dependencies(session)
+        session.add(JdsUser(
+            id=customer.user_id, primary_email=customer.email,
+            display_name=customer.display_name, status="active",
+        ))
+        session.commit()
 
     application = create_app(postgresql_url)
     application.dependency_overrides[get_current_time] = lambda: local_datetime(8)
+    application.dependency_overrides[current_ordering_customer] = lambda: customer
     with TestClient(application) as client:
         yield client, engine, ids
 
@@ -162,7 +174,7 @@ def test_authenticated_order_uses_authoritative_checkout_contact(
             status="active",
         ))
         session.commit()
-    client.app.dependency_overrides[optional_customer] = lambda: customer
+    client.app.dependency_overrides[current_ordering_customer] = lambda: customer
     payload = order_payload(ids, customer={
         "name": "Checkout Customer",
         "email": "checkout@example.com",
@@ -180,6 +192,51 @@ def test_authenticated_order_uses_authoritative_checkout_contact(
         assert order.guest_name == "Checkout Customer"
         assert order.guest_email == "checkout@example.com"
         assert order.customer_user_id == customer.user_id
+
+
+@pytest.mark.postgresql
+def test_customer_cannot_read_or_checkout_another_customers_order(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, ids = orders_api
+    created = client.post("/api/v1/orders", json=order_payload(ids)).json()
+    other = AuthPrincipal(
+        user_id=uuid4(), membership_id=uuid4(), organization_id=uuid4(),
+        application_id=uuid4(), session_id=uuid4(), email="other@example.com",
+        display_name="Other Customer", role="customer", permissions=frozenset(),
+        assurance_level="aal1",
+    )
+    with Session(engine) as session:
+        session.add(JdsUser(
+            id=other.user_id, primary_email=other.email,
+            display_name=other.display_name, status="active",
+        ))
+        session.commit()
+    client.app.dependency_overrides[current_ordering_customer] = lambda: other
+    settings = CloverSettings(
+        app_id="app-id", app_secret="app-secret",
+        token_encryption_key=Fernet.generate_key().decode(),
+        state_secret="s" * 48, webhook_secret="w" * 48,
+        public_app_url="https://api.example.test",
+        frontend_url="https://shop.example.test", merchant_id="merchant-id",
+        ecommerce_private_token="private-token",
+    )
+    client.app.dependency_overrides[get_settings] = lambda: settings
+    calls = 0
+
+    def external_checkout(*_: object, **__: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return {}
+
+    monkeypatch.setattr(CloverClient, "create_checkout", external_checkout)
+    assert client.get(f"/api/v1/orders/{created['public_token']}").status_code == 404
+    assert client.post(
+        f"/api/v1/clover/orders/{created['public_token']}/checkout"
+    ).status_code == 404
+    assert calls == 0
+    client.app.dependency_overrides.pop(get_settings, None)
 
 
 @pytest.mark.postgresql
@@ -600,6 +657,7 @@ def test_concurrent_clover_checkout_requests_create_one_external_session(
             result = create_hosted_checkout(
                 created["public_token"],
                 Response(),
+                client.app.dependency_overrides[current_ordering_customer](),
                 session,
                 settings,
             )

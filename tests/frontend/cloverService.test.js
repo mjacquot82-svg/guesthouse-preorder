@@ -88,6 +88,7 @@ test("createCloverCheckout requests the server-owned checkout endpoint", async (
     "https://api.example.test/api/v1/clover/orders/token%2Fwith%20spaces/checkout"
   );
   assert.equal(request[1].method, "POST");
+  assert.equal(request[1].credentials, "include");
   assert.equal(checkout.checkout_session_id, "session-id");
 });
 

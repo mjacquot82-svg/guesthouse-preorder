@@ -77,6 +77,7 @@ test("fetchPendingOrder encodes the public token and supports abort", async () =
     "https://api.example.test/api/v1/orders/token%2Fwith%20spaces"
   );
   assert.equal(request[1].signal, signal);
+  assert.equal(request[1].credentials, "include");
 });
 
 test("order API errors preserve safe status and domain error codes", async () => {
