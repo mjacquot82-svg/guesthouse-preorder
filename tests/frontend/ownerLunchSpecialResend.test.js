@@ -21,6 +21,16 @@ after(() => vite.close());
 const response = (status, payload) => ({ json: async () => payload, ok: status >= 200 && status < 300, status });
 const today = "2026-08-12T15:00:00.000Z";
 const ordinaryActivity = { accepted: 0, attempted: 4, expired: 0, failed: 1, id: "original", kind: "lunch_special", message: "Lunch", occurred_at: today, sent_by: "Staff", status: "completed", suppressed: 0, title: "Today’s Lunch Special" };
+const productionOwnerSession = {
+  authenticated: true,
+  csrf_token: "owner-csrf",
+  display_name: "Owner",
+  email: "owner@example.com",
+  organization_id: "production-organization-id",
+  permissions: ["communications.announce", "communications.general_announce"],
+  role: "Owner",
+  user_id: "production-owner-id",
+};
 const snapshot = ({ activity = [], attemptingToday = false, queuedToday = false } = {}) => ({
   activity,
   health: [{ actionable: false, detail: "Ready", key: "push", name: "Push notifications", status: "ready" }],
@@ -36,7 +46,7 @@ async function waitForText(container, text) {
   assert.fail(`Expected UI text: ${text}\nActual: ${container.textContent}`);
 }
 
-async function renderCommunications({ activity = [], attemptingToday = false, confirm = () => true, queuedToday = false, role = "owner" } = {}) {
+async function renderCommunications({ activity = [], attemptingToday = false, confirm = () => true, queuedToday = false, session = productionOwnerSession } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><div id="root"></div></body></html>', { url: "https://cafe.test/admin/communications" });
   const previous = { document: globalThis.document, fetch: globalThis.fetch, navigator: globalThis.navigator, window: globalThis.window };
   globalThis.window = dom.window;
@@ -44,7 +54,6 @@ async function renderCommunications({ activity = [], attemptingToday = false, co
   Object.defineProperty(globalThis, "navigator", { configurable: true, value: dom.window.navigator });
   dom.window.confirm = confirm;
   const requests = [];
-  const session = { csrf_token: `${role}-csrf`, display_name: role, permissions: ["communications.announce"], role };
   globalThis.fetch = async (url, options = {}) => {
     const path = new URL(String(url), "https://cafe.test").pathname;
     if (path === "/api/v1/owner/auth/session") return response(200, session);
@@ -108,10 +117,10 @@ test("previous-day activity does not override the authoritative no-send-today st
 
 for (const [name, activity, queuedToday] of [["today's activity",[ordinaryActivity],true],["no activity",[],false]]) {
   test(`Staff with ${name} never sees resend and retains ordinary send`, { concurrency: false }, async () => {
-    const app=await renderCommunications({activity,queuedToday,role:"staff"});try{assert.equal(button(app.container,"Resend Lunch Special notification"),undefined);await click(button(app.container,"Send Lunch Special notification"),app.dom);assert.deepEqual(app.requests,[{kind:"lunch_special",override:false,confirm_override:false}]);}finally{await app.cleanup();}
+    const session={...productionOwnerSession,csrf_token:"staff-csrf",display_name:"Staff",permissions:["communications.announce"],role:"staff"};const app=await renderCommunications({activity,queuedToday,session});try{assert.equal(button(app.container,"Resend Lunch Special notification"),undefined);await click(button(app.container,"Send Lunch Special notification"),app.dom);assert.deepEqual(app.requests,[{kind:"lunch_special",override:false,confirm_override:false}]);}finally{await app.cleanup();}
   });
 }
 
-test("production-shaped completed failure uses authoritative summary despite a non-matching display timestamp", { concurrency: false }, async () => {
-  const productionActivity={...ordinaryActivity,occurred_at:"2026-08-11T23:59:59"};const app=await renderCommunications({activity:[productionActivity],queuedToday:true});try{assert.ok(button(app.container,"Resend Lunch Special notification"));assert.match(app.container.textContent,/Attempted 4 · Accepted 0 · Failed 1/);}finally{await app.cleanup();}
+test("production Owner session and completed failed activity render resend from authoritative summary", { concurrency: false }, async () => {
+  const app=await renderCommunications({activity:[ordinaryActivity],attemptingToday:false,queuedToday:true,session:productionOwnerSession});try{assert.ok(button(app.container,"Resend Lunch Special notification"));assert.equal(button(app.container,"Send Lunch Special notification"),undefined);assert.match(app.container.textContent,/completed/);assert.match(app.container.textContent,/Attempted 4 · Accepted 0 · Failed 1/);}finally{await app.cleanup();}
 });

@@ -43,7 +43,7 @@ function LunchSpecialPreview({ disabled, message, onResend, onSend, resendAttemp
 
 export default function CommunicationsPage() {
   const { session } = useOwnerAuth();
-  const owner = session?.role === "owner";
+  const owner = session?.role?.trim().toLowerCase() === "owner";
   const canOpenProducts = canAccessOwnerPath(session, "/admin/products");
   const [state, setState] = useState({ status: "loading", data: null, message: "" });
   const [generalTitle, setGeneralTitle] = useState("");
