@@ -11,6 +11,7 @@ test("homepage keeps lunch promotion distinct from restored quick ordering", () 
   assert.match(home, /Order Today’s Special/);
   assert.match(home, /recommendation\.description/);
   assert.match(home, /getConfiguredPrice\(recommendation/);
+  assert.match(home, /`\/menu\?product=\$\{encodeURIComponent\(recommendation\.id\)\}`/);
 });
 
 test("homepage removes compact favorites and renders a complete fallback", () => {

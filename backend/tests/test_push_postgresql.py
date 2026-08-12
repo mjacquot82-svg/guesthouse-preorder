@@ -45,7 +45,7 @@ def test_lunch_send_rereads_and_freezes_authoritative_product_price_and_recipien
         organization=Organization(slug=f"push-{uuid4()}",name="Push Test");session.add(organization)
         actor=add_user(session,f"actor-{uuid4()}@example.com");enabled=add_user(session,f"enabled-{uuid4()}@example.com");disabled=add_user(session,f"disabled-{uuid4()}@example.com")
         product=session.scalar(select(Product).order_by(Product.id));category=session.get(Category,product.category_id)
-        product.is_lunch_special=True;product.name="Authoritative Bowl";product.base_price_cents=1375;product.is_published=True;category.is_published=True;product.availability.default_available=True
+        product.is_lunch_special=True;product.slug="buffalo-chickpea-bowl";product.name="Authoritative Bowl";product.base_price_cents=1375;product.is_published=True;category.is_published=True;product.availability.default_available=True
         session.add_all([CustomerNotificationPreference(customer_user_id=enabled.id,notification_kind="lunch_special",enabled=True),CustomerNotificationPreference(customer_user_id=disabled.id,notification_kind="lunch_special",enabled=False)])
         for user,suffix in ((enabled,"one"),(enabled,"two"),(disabled,"disabled")):
             endpoint=f"https://push.example/{suffix}-{uuid4()}"
@@ -53,10 +53,25 @@ def test_lunch_send_rereads_and_freezes_authoritative_product_price_and_recipien
         session.commit()
         item=CommunicationCenterService(session,settings).create_lunch_special(organization_id=organization.id,actor_user_id=actor.id,actor_name=actor.display_name,idempotency_key=f"lunch-{uuid4()}",override=False)
         assert item.product_name_snapshot=="Authoritative Bowl";assert item.price_cents_snapshot==1375
-        assert "$13.75" in item.frozen_message;assert item.target_route=="/menu"
+        assert "$13.75" in item.frozen_message;assert item.target_route=="/menu?product=buffalo-chickpea-bowl"
         assert session.scalar(select(func.count()).select_from(PushDeliveryAttempt).where(PushDeliveryAttempt.announcement_id==item.id))==2
         with pytest.raises(ValueError,match="duplicate_lunch_special"):
             CommunicationCenterService(session,settings).create_lunch_special(organization_id=organization.id,actor_user_id=actor.id,actor_name=actor.display_name,idempotency_key=f"duplicate-{uuid4()}",override=False)
+
+
+@pytest.mark.postgresql
+def test_lunch_send_url_encodes_the_authoritative_product_slug(owner_orders_api):
+    _,engine=owner_orders_api;settings=active_settings()
+    with Session(engine) as session:
+        organization=Organization(slug=f"push-encoded-{uuid4()}",name="Push Encoding Test");session.add(organization)
+        actor=add_user(session,f"actor-encoded-{uuid4()}@example.com")
+        product=session.scalar(select(Product).order_by(Product.id));category=session.get(Category,product.category_id)
+        product.is_lunch_special=True;product.slug="chef's bowl/été";product.is_published=True;category.is_published=True;product.availability.default_available=True
+        session.commit()
+        item=CommunicationCenterService(session,settings).create_lunch_special(organization_id=organization.id,actor_user_id=actor.id,actor_name=actor.display_name,idempotency_key=f"lunch-encoded-{uuid4()}",override=False)
+
+        assert item.source_product_id==product.id
+        assert item.target_route=="/menu?product=chef%27s%20bowl%2F%C3%A9t%C3%A9"
 
 
 @pytest.mark.postgresql

@@ -32,3 +32,14 @@ test("push worker replaces external destinations and opens only same-origin rout
   harness.listeners.notificationclick({notification:{data:harness.shown[0][1].data,close:()=>{closed=true}},waitUntil:value=>{clicked=value}});
   await clicked;assert.equal(closed,true);assert.deepEqual(harness.opened,["https://ladels.example/"]);
 });
+
+test("push worker preserves an encoded product query on the allowlisted menu route",async()=>{
+  const harness=workerHarness();let pending;
+  harness.listeners.push({data:{json:()=>({version:1,title:"Lunch",body:"Today",destination:"/menu?product=chef%27s%20bowl%2F%C3%A9t%C3%A9",announcementId:"lunch"})},waitUntil:value=>{pending=value}});
+  await pending;
+  assert.equal(harness.shown[0][1].data.destination,"https://ladels.example/menu?product=chef%27s%20bowl%2F%C3%A9t%C3%A9");
+  let clicked;
+  harness.listeners.notificationclick({notification:{data:harness.shown[0][1].data,close:()=>{}},waitUntil:value=>{clicked=value}});
+  await clicked;
+  assert.deepEqual(harness.opened,["https://ladels.example/menu?product=chef%27s%20bowl%2F%C3%A9t%C3%A9"]);
+});

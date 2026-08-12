@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 from uuid import UUID
 
@@ -108,7 +109,7 @@ class CommunicationCenterService:
         cafe_day=datetime.now(CAFE_TZ).date()
         existing=self._session.scalar(select(PushAnnouncement).where(PushAnnouncement.organization_id==organization_id,PushAnnouncement.kind=="lunch_special",PushAnnouncement.cafe_day==cafe_day,PushAnnouncement.is_override.is_(False)))
         if existing and not override: raise ValueError("duplicate_lunch_special")
-        announcement=PushAnnouncement(organization_id=organization_id,kind="lunch_special",title="Today’s Lunch Special",frozen_message=lunch_special_message(product.name,product.base_price_cents),target_route="/menu",source_product_id=product.id,product_name_snapshot=product.name,price_cents_snapshot=product.base_price_cents,actor_user_id=actor_user_id,actor_name_snapshot=actor_name,status="queued",idempotency_key=idempotency_key,cafe_day=cafe_day,is_override=override)
+        announcement=PushAnnouncement(organization_id=organization_id,kind="lunch_special",title="Today’s Lunch Special",frozen_message=lunch_special_message(product.name,product.base_price_cents),target_route=f"/menu?product={quote(product.slug, safe='')}",source_product_id=product.id,product_name_snapshot=product.name,price_cents_snapshot=product.base_price_cents,actor_user_id=actor_user_id,actor_name_snapshot=actor_name,status="queued",idempotency_key=idempotency_key,cafe_day=cafe_day,is_override=override)
         return self._queue(announcement, require_lunch_preference=True)
 
     def create_general(self, *, organization_id: UUID, actor_user_id: UUID, actor_name: str, idempotency_key: str, title: str, body: str, route: str) -> PushAnnouncement:

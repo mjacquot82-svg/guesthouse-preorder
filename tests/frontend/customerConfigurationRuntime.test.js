@@ -92,13 +92,15 @@ async function click(element, window) {
 }
 
 test("customer configures real choice shapes, gets readable success feedback, and reviews selections in Cart", { concurrency: false }, async () => {
-  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://cafe.test/menu?category=coffee" });
+  const dom = new JSDOM("<div id=\"root\"></div>", { url: "https://cafe.test/menu?product=decaf-coffee" });
   const previous = { document: globalThis.document, fetch: globalThis.fetch, localStorage: globalThis.localStorage, navigator: globalThis.navigator, requestAnimationFrame: globalThis.requestAnimationFrame, window: globalThis.window };
   globalThis.window = dom.window;
   globalThis.document = dom.window.document;
   globalThis.localStorage = dom.window.localStorage;
   Object.defineProperty(globalThis, "navigator", { configurable: true, value: dom.window.navigator });
   globalThis.requestAnimationFrame = (callback) => callback();
+  let scrolledProductId = "";
+  dom.window.HTMLElement.prototype.scrollIntoView = function scrollIntoView() { scrolledProductId = this.id; };
   const style = document.createElement("style");
   style.textContent = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
   document.head.append(style);
@@ -112,10 +114,20 @@ test("customer configures real choice shapes, gets readable success feedback, an
 
   const root = createRoot(document.getElementById("root"));
   try {
-    await act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ["/menu?category=coffee"] }, React.createElement(CustomerAuthProvider, null, React.createElement(App)))));
+    await act(async () => root.render(React.createElement(MemoryRouter, { initialEntries: ["/menu?product=decaf-coffee"] }, React.createElement(CustomerAuthProvider, null, React.createElement(App)))));
     await waitForText(document.body, "House Coffee");
 
     const card = (name) => [...document.querySelectorAll(".app-product-card")].find((item) => item.textContent.includes(name));
+    const deepLinked = document.getElementById("product-decaf-coffee");
+    assert.equal(document.querySelector(".menu-category-rail button.active").textContent, "Coffee");
+    assert.equal(deepLinked.classList.contains("is-expanded"), true);
+    assert.equal(deepLinked.classList.contains("is-spotlighted"), true);
+    assert.equal(deepLinked.querySelector('.product-customize-toggle').getAttribute("aria-expanded"), "true");
+    assert.equal(scrolledProductId, "product-decaf-coffee");
+    assert.equal(document.activeElement, deepLinked);
+    assert.equal(deepLinked.querySelector(".product-add-button").disabled, true);
+    assert.match(deepLinked.textContent, /\$2\.05/);
+    assert.equal(localStorage.getItem("cafe-cart"), null);
     const direct = card("Granola Yogurt");
     assert.equal(direct.querySelector(".product-customization"), null);
     await click(direct.querySelector(".product-add-button"), dom.window);
@@ -166,7 +178,6 @@ test("customer configures real choice shapes, gets readable success feedback, an
     await click(latte.querySelector(".product-add-button"), dom.window);
 
     const decaf = card("Drip Coffee");
-    await click(decaf.querySelector(".product-customize-toggle"), dom.window);
     const sugarOutput = decaf.querySelector('[aria-label="Sugar quantity"] output');
     const sugarPlus = decaf.querySelector('button[aria-label="Add one Sugar"]');
     const sugarMinus = decaf.querySelector('button[aria-label="Remove one Sugar"]');
