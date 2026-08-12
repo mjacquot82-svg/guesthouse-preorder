@@ -5,10 +5,18 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
 
 from app.availability.models import ProductAvailability
-from app.catalog.models import Category, Product
+from app.catalog.models import (
+    Category,
+    ModifierGroup,
+    ModifierOption,
+    Product,
+    ProductModifierGroup,
+    ProductVariant,
+    SelectionType,
+)
 from app.customers.repository import CustomerRepository
 from app.db.base import Base
-from app.orders.models import Order, OrderItem
+from app.orders.models import Order, OrderItem, OrderItemModifier
 
 
 def _engine():
@@ -119,3 +127,90 @@ def test_quick_order_is_capped_at_six_with_a_deterministic_product_id_tie_break(
 
     with Session(engine) as session:
         assert CustomerRepository(session).quick_order_product_ids(customer_id) == [1, 2, 3, 4, 5, 6]
+
+
+def test_exact_quick_order_preserves_quantity_and_uses_only_current_valid_catalog_price():
+    engine = _engine()
+    customer_id = uuid4()
+    now = datetime.now(timezone.utc)
+
+    with Session(engine) as session, session.begin():
+        category = Category(id=1, slug="coffee", name="Coffee", is_published=True)
+        product = Product(
+            id=1, category=category, slug="drip-coffee", name="Drip Coffee",
+            base_price_cents=190, is_published=True,
+        )
+        variant = ProductVariant(
+            id=20, product=product, key="12oz", name="12oz",
+            price_cents=205, is_active=True,
+        )
+        milk = ModifierGroup(
+            id=30, key="milk", name="Milk", selection_type=SelectionType.SINGLE,
+            is_required=True, minimum_selections=1, maximum_selections=1,
+            allow_quantity=False, is_active=True,
+        )
+        whole = ModifierOption(
+            id=31, modifier_group=milk, key="whole-milk", name="Whole milk",
+            price_adjustment_cents=0, is_active=True,
+        )
+        sugar = ModifierGroup(
+            id=40, key="sugar", name="Sugar", selection_type=SelectionType.SINGLE,
+            is_required=True, minimum_selections=1, maximum_selections=5,
+            allow_quantity=True, is_active=True,
+        )
+        sugar_option = ModifierOption(
+            id=41, modifier_group=sugar, key="sugar", name="Sugar",
+            price_adjustment_cents=5, is_active=True,
+        )
+        product.modifier_group_assignments = [
+            ProductModifierGroup(modifier_group=milk, is_active=True, sort_order=0),
+            ProductModifierGroup(modifier_group=sugar, is_active=True, sort_order=1),
+        ]
+        order = Order(
+            id=1, customer_user_id=customer_id, idempotency_key="exact-quick-order",
+            request_fingerprint="1" * 64, public_access_token="exact-quick-token",
+            status="paid", fulfillment_status="completed", guest_name="Quick Customer",
+            guest_email="quick@example.com", guest_phone="+15195550123",
+            requested_pickup_at=now, business_timezone="America/Toronto", currency="CAD",
+            subtotal_cents=999, tax_cents=0, total_cents=999, version=1,
+            expires_at=now + timedelta(hours=1), created_at=now, updated_at=now,
+        )
+        order.items.append(OrderItem(
+            id=1, source_product_id=1, source_variant_id=20,
+            product_slug="drip-coffee", product_name="Drip Coffee",
+            variant_key="12oz", variant_name="12oz", base_unit_price_cents=999,
+            unit_price_cents=999, quantity=1, line_subtotal_cents=999, sort_order=0,
+            modifiers=[
+                OrderItemModifier(
+                    id=1,
+                    source_modifier_group_id=30, source_modifier_option_id=31,
+                    modifier_group_key="milk", modifier_group_name="Milk",
+                    modifier_option_key="whole-milk", modifier_option_name="Whole milk",
+                    price_adjustment_cents=0, quantity=1, sort_order=0,
+                ),
+                OrderItemModifier(
+                    id=2,
+                    source_modifier_group_id=40, source_modifier_option_id=41,
+                    modifier_group_key="sugar", modifier_group_name="Sugar",
+                    modifier_option_key="sugar", modifier_option_name="Sugar",
+                    price_adjustment_cents=0, quantity=2, sort_order=1,
+                ),
+            ],
+        ))
+        session.add_all([product, variant, whole, sugar_option, order])
+
+    with Session(engine) as session:
+        assert CustomerRepository(session).quick_order_configurations(customer_id) == [{
+            "product_id": "1",
+            "variant_id": "20",
+            "modifiers": [
+                {"option_id": "31", "option_name": "Whole milk", "quantity": 1},
+                {"option_id": "41", "option_name": "Sugar", "quantity": 2},
+            ],
+            "unit_price_cents": 215,
+        }]
+        session.get(ModifierOption, 41).is_active = False
+        session.commit()
+
+    with Session(engine) as session:
+        assert CustomerRepository(session).quick_order_configurations(customer_id) == []

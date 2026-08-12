@@ -27,6 +27,19 @@ class CustomerProfileUpdate(CustomerSchema):
         return normalize_phone_to_e164(value)
 
 
+class CustomerOrderSummaryModifier(CustomerSchema):
+    group_name: str
+    option_name: str
+    quantity: int
+
+
+class CustomerOrderSummaryItem(CustomerSchema):
+    product_name: str
+    variant_name: str | None
+    quantity: int
+    modifiers: list[CustomerOrderSummaryModifier]
+
+
 class CustomerOrderSummary(CustomerSchema):
     id: int
     status: str
@@ -34,6 +47,9 @@ class CustomerOrderSummary(CustomerSchema):
     total_cents: int
     created_at: str
     item_count: int
+    fulfillment_status: str
+    business_timezone: str
+    first_item: CustomerOrderSummaryItem
 
 
 class CustomerQuickOrderModifier(CustomerSchema):

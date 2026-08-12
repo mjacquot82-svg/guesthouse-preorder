@@ -67,6 +67,78 @@ export function getMissingRequiredChoice(product, selections) {
   });
 }
 
+export function resolveQuickConfigurationSelections(product, configuration) {
+  if (!product?.available || !configuration || !Array.isArray(configuration.modifiers)) {
+    return null;
+  }
+
+  const groups = getModifierGroupsForProduct(product);
+  const sizeGroup = groups.find((group) => group.id === "size");
+  const selections = {};
+  if (sizeGroup) {
+    const variant = sizeGroup.options.find(
+      (option) => option.backendId === configuration.variant_id
+    );
+    if (!variant) return null;
+    selections[sizeGroup.id] = variant.id;
+  } else if (configuration.variant_id != null) {
+    return null;
+  }
+
+  const configuredByGroup = new Map();
+  const seenOptionIds = new Set();
+  for (const modifier of configuration.modifiers) {
+    if (
+      !modifier
+      || seenOptionIds.has(modifier.option_id)
+      || !Number.isInteger(modifier.quantity)
+      || modifier.quantity < 1
+    ) {
+      return null;
+    }
+    const matchingGroups = groups.filter(
+      (group) => group.id !== "size"
+        && group.options.some((option) => option.backendId === modifier.option_id)
+    );
+    if (matchingGroups.length !== 1) return null;
+    const group = matchingGroups[0];
+    const option = group.options.find(
+      (candidate) => candidate.backendId === modifier.option_id
+    );
+    seenOptionIds.add(modifier.option_id);
+    configuredByGroup.set(group.id, [
+      ...(configuredByGroup.get(group.id) || []),
+      { option, quantity: modifier.quantity },
+    ]);
+  }
+
+  for (const group of groups.filter((candidate) => candidate.id !== "size")) {
+    const configured = configuredByGroup.get(group.id) || [];
+    const selectedCount = configured.reduce(
+      (total, selection) => total + selection.quantity,
+      0
+    );
+    const minimum = group.required
+      ? Math.max(1, group.minSelections || 0)
+      : group.minSelections || 0;
+    if (
+      (group.type === "single" && configured.length > 1)
+      || (!group.allowQuantity && configured.some((selection) => selection.quantity !== 1))
+      || selectedCount < minimum
+      || (group.maxSelections > 0 && selectedCount > group.maxSelections)
+    ) {
+      return null;
+    }
+    selections[group.id] = group.allowQuantity
+      ? Object.fromEntries(configured.map(({ option, quantity }) => [option.id, quantity]))
+      : group.type === "multiple"
+        ? configured.map(({ option }) => option.id)
+        : configured[0]?.option.id || "__none__";
+  }
+
+  return selections;
+}
+
 export function getSelectedOptions(product, selections) {
   return getModifierGroupsForProduct(product).flatMap((group) => {
     const selectedValue = selections[group.id];

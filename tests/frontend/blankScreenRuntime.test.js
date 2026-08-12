@@ -57,10 +57,21 @@ const catalog = {
       image: "coffee",
       featured: true,
       lunch_special: false,
-      base_price_cents: 375,
+      base_price_cents: 190,
       sort_order: 0,
-      variants: [],
-      modifier_groups: [],
+      variants: [{ id: "201", key: "12oz", name: "12oz", price_cents: 205, sort_order: 0 }],
+      modifier_groups: [
+        {
+          id: "300", key: "milk", name: "Milk", description: "", selection_type: "single",
+          required: true, min_selections: 1, max_selections: 1, allow_quantity: false, sort_order: 0,
+          options: [{ id: "301", key: "whole-milk", name: "Whole milk", price_adjustment_cents: 0, sort_order: 0 }],
+        },
+        {
+          id: "400", key: "sugar", name: "Sugar", description: "", selection_type: "single",
+          required: true, min_selections: 1, max_selections: 5, allow_quantity: true, sort_order: 1,
+          options: [{ id: "401", key: "sugar", name: "Sugar", price_adjustment_cents: 0, sort_order: 0 }],
+        },
+      ],
     }],
   }],
 };
@@ -79,7 +90,7 @@ async function waitForText(container, text) {
   assert.fail(`Expected rendered application to contain: ${text}\nActual: ${container.textContent}`);
 }
 
-async function renderApp({ initialPath, owner = ownerSession, session = customerSession, quickOrder = { product_ids: [] }, staff = [] }) {
+async function renderApp({ initialPath, loyalty = { programs: [] }, orderDetail = null, orders = [], owner = ownerSession, session = customerSession, quickOrder = { product_ids: [] }, staff = [] }) {
   const dom = new JSDOM("<!doctype html><html><body><div id=\"root\"></div></body></html>", { url: `https://cafe.test${initialPath}` });
   const previous = {
     document: globalThis.document,
@@ -103,7 +114,9 @@ async function renderApp({ initialPath, owner = ownerSession, session = customer
       if (quickOrder instanceof Error) throw quickOrder;
       return response(200, quickOrder);
     }
-    if (path === "/api/v1/customer/loyalty") return response(200, { programs: [] });
+    if (path === "/api/v1/customer/loyalty") return response(200, loyalty);
+    if (path === "/api/v1/customer/orders") return response(200, orders);
+    if (path.startsWith("/api/v1/customer/orders/")) return response(orderDetail ? 200 : 404, orderDetail || { detail: "Order not found." });
     if (path === "/api/v1/customer/push/config") return response(200, { enrollment_enabled: false });
     if (path === "/api/v1/customer/push/status") return response(200, { active_device_count: 0, lunch_special_enabled: false });
     if (path === "/api/v1/owner/auth/session") return response(200, owner);
@@ -181,24 +194,211 @@ for (const [name, session, quickOrder] of [
   });
 }
 
-test("Home keeps direct Add only on personalized exact-configuration Quick Order cards", { concurrency: false }, async () => {
+test("Home direct Add preserves an exact paid configuration with current catalog pricing", { concurrency: false }, async () => {
   const app = await renderApp({
     initialPath: "/",
     quickOrder: {
-      configurations: [{ modifiers: [], product_id: "100", unit_price_cents: 375, variant_id: null }],
+      configurations: [{
+        modifiers: [
+          { option_id: "301", option_name: "Whole milk", quantity: 1 },
+          { option_id: "401", option_name: "Sugar", quantity: 2 },
+        ],
+        product_id: "100",
+        unit_price_cents: 999,
+        variant_id: "201",
+      }],
       product_ids: ["100"],
     },
   });
   try {
-    await waitForText(app.container, "Quick Order");
+    await waitForText(app.container, "Sugar x2");
     const exactCard = app.container.querySelector("article.quick-product-card");
     assert.ok(exactCard);
-    assert.ok(exactCard.querySelector('button[aria-label="Quick add Drip Coffee"]'));
+    assert.match(exactCard.textContent, /Your usual/);
+    assert.match(exactCard.textContent, /Size: 12oz · Milk: Whole milk · Sugar: Sugar x2/);
+    assert.match(exactCard.textContent, /\$2\.05/);
+    assert.doesNotMatch(exactCard.textContent, /\$9\.99/);
+    const add = exactCard.querySelector('button[aria-label="Add this exact Drip Coffee configuration to cart"]');
+    assert.ok(add);
+    assert.match(add.textContent, /Add/);
+    assert.equal(add.getAttribute("title"), "Add this exact configuration");
     assert.equal(exactCard.querySelector('a[aria-label="Customize Drip Coffee"]'), null);
+    await act(async () => add.dispatchEvent(new app.dom.window.MouseEvent("click", { bubbles: true })));
+    const stored = JSON.parse(app.dom.window.localStorage.getItem("cafe-cart"));
+    assert.equal(stored.length, 1);
+    assert.equal(stored[0].price, 2.05);
+    assert.deepEqual(stored[0].options.map(({ name, quantity }) => [name, quantity]), [
+      ["12oz", 1], ["Whole milk", 1], ["Sugar", 2],
+    ]);
   } finally {
     await app.cleanup();
   }
 });
+
+test("Home rejects stale exact configurations and keeps required choices behind Customize", { concurrency: false }, async () => {
+  for (const configuration of [
+    {
+      modifiers: [
+        { option_id: "301", option_name: "Whole milk", quantity: 1 },
+        { option_id: "401", option_name: "Sugar", quantity: 2 },
+      ],
+      product_id: "stale-product", unit_price_cents: 205, variant_id: "201",
+    },
+    {
+      modifiers: [{ option_id: "301", option_name: "Whole milk", quantity: 1 }],
+      product_id: "100", unit_price_cents: 205, variant_id: "201",
+    },
+    {
+      modifiers: [
+        { option_id: "301", option_name: "Whole milk", quantity: 1 },
+        { option_id: "401", option_name: "Sugar", quantity: 6 },
+      ],
+      product_id: "100", unit_price_cents: 205, variant_id: "201",
+    },
+    {
+      modifiers: [
+        { option_id: "301", option_name: "Whole milk", quantity: 1 },
+        { option_id: "401", option_name: "Sugar", quantity: 2 },
+      ],
+      product_id: "100", unit_price_cents: 205, variant_id: "disabled-variant",
+    },
+    {
+      modifiers: [
+        { option_id: "disabled-milk", option_name: "Old milk", quantity: 1 },
+        { option_id: "401", option_name: "Sugar", quantity: 2 },
+      ],
+      product_id: "100", unit_price_cents: 205, variant_id: "201",
+    },
+  ]) {
+    const app = await renderApp({
+      initialPath: "/",
+      quickOrder: { configurations: [configuration], product_ids: ["100"] },
+    });
+    try {
+      await waitForText(app.container, "Quick Order");
+      assert.equal(app.container.querySelector("article.quick-product-card"), null);
+      const generic = app.container.querySelector('a[aria-label="Customize Drip Coffee"]');
+      assert.ok(generic);
+      assert.equal(generic.querySelector("button"), null);
+      assert.doesNotMatch(generic.textContent, /Your usual/);
+      assert.match(generic.textContent, /Customize on the menu/);
+    } finally {
+      await app.cleanup();
+    }
+  }
+});
+
+const completedOrderDetail = {
+  public_token: "29htz8cmcustomer",
+  status: "paid",
+  fulfillment_status: "completed",
+  customer: { name: "Jessie Guest", email: "guest@example.test", phone: "+15198816869" },
+  notes: null,
+  requested_pickup_at: "2026-08-12T01:05:00Z",
+  business_timezone: "America/Toronto",
+  currency: "CAD",
+  subtotal_cents: 205,
+  tax_cents: 27,
+  tax_name: "HST",
+  total_cents: 232,
+  expires_at: "2026-08-12T02:00:00Z",
+  created_at: "2026-08-12T00:55:00Z",
+  updated_at: "2026-08-12T01:10:00Z",
+  items: [{
+    product_slug: "drip-coffee", product_name: "Drip Coffee",
+    variant_key: "12oz", variant_name: "12oz", base_unit_price_cents: 205,
+    unit_price_cents: 205, quantity: 1, line_subtotal_cents: 205,
+    modifiers: [
+      { group_key: "milk", group_name: "Milk", option_key: "whole-milk", option_name: "Whole milk", price_adjustment_cents: 0, quantity: 1 },
+      { group_key: "sugar", group_name: "Sugar", option_key: "sugar", option_name: "Sugar", price_adjustment_cents: 0, quantity: 2 },
+    ],
+  }],
+};
+
+const completedOrderSummary = {
+  id: 16, status: "paid", fulfillment_status: "completed",
+  requested_pickup_at: completedOrderDetail.requested_pickup_at,
+  business_timezone: "America/Toronto", total_cents: 232,
+  created_at: completedOrderDetail.created_at, item_count: 1,
+  first_item: {
+    product_name: "Drip Coffee", variant_name: "12oz", quantity: 1,
+    modifiers: [
+      { group_name: "Milk", option_name: "Whole milk", quantity: 1 },
+      { group_name: "Sugar", option_name: "Sugar", quantity: 2 },
+    ],
+  },
+};
+
+test("Order History identifies collapsed orders and expands complete historical details", { concurrency: false }, async () => {
+  const multi = {
+    ...completedOrderSummary, id: 17, item_count: 3, total_cents: 1200,
+    first_item: { ...completedOrderSummary.first_item, quantity: 1 },
+  };
+  const app = await renderApp({ initialPath: "/orders", orders: [completedOrderSummary, multi], orderDetail: completedOrderDetail });
+  try {
+    await waitForText(app.container, "Sugar: Sugar x2");
+    assert.match(app.container.textContent, /Drip Coffee/);
+    assert.match(app.container.textContent, /Size: 12oz · Milk: Whole milk · Sugar: Sugar x2/);
+    assert.match(app.container.textContent, /Aug 11, 2026/);
+    assert.match(app.container.textContent, /Completed/);
+    assert.match(app.container.textContent, /\$2\.32/);
+    assert.match(app.container.textContent, /Drip Coffee \+ 2 more items/);
+    const firstOrder = app.container.querySelector(".order-history-row");
+    await act(async () => firstOrder.dispatchEvent(new app.dom.window.MouseEvent("click", { bubbles: true })));
+    await waitForText(app.container, "Pickup 9:05 p.m.");
+    assert.match(app.container.textContent, /29HTZ8CM/);
+    assert.match(app.container.textContent, /CompletedPaid/);
+    assert.match(app.container.textContent, /1 × Drip Coffee/);
+    assert.match(app.container.textContent, /Size12oz/);
+    assert.match(app.container.textContent, /MilkWhole milk/);
+    assert.match(app.container.textContent, /SugarSugar x2/);
+    assert.match(app.container.textContent, /Subtotal\$2\.05/);
+    assert.match(app.container.textContent, /HST\$0\.27/);
+    assert.match(app.container.textContent, /Total\$2\.32/);
+    const reorder = [...app.container.querySelectorAll("button")].find((button) => button.textContent === "Reorder");
+    await act(async () => reorder.dispatchEvent(new app.dom.window.MouseEvent("click", { bubbles: true })));
+    const stored = JSON.parse(app.dom.window.localStorage.getItem("cafe-cart"));
+    assert.deepEqual(stored[0].options.map(({ name, quantity }) => [name, quantity]), [["12oz", 1], ["Whole milk", 1], ["Sugar", 2]]);
+    assert.equal(stored[0].price, 2.05);
+  } finally {
+    await app.cleanup();
+  }
+});
+
+test("Reorder rejects the whole historical order when any exact item is stale", { concurrency: false }, async () => {
+  const staleDetail = { ...completedOrderDetail, items: [...completedOrderDetail.items, { ...completedOrderDetail.items[0], product_slug: "retired-drink", product_name: "Retired Drink" }] };
+  const app = await renderApp({ initialPath: "/orders", orders: [completedOrderSummary], orderDetail: staleDetail });
+  try {
+    await waitForText(app.container, "Drip Coffee");
+    await act(async () => app.container.querySelector(".order-history-row").dispatchEvent(new app.dom.window.MouseEvent("click", { bubbles: true })));
+    await waitForText(app.container, "Retired Drink");
+    const reorder = [...app.container.querySelectorAll("button")].find((button) => button.textContent === "Reorder");
+    await act(async () => reorder.dispatchEvent(new app.dom.window.MouseEvent("click", { bubbles: true })));
+    await waitForText(app.container, "exact configuration is no longer available");
+    assert.deepEqual(JSON.parse(app.dom.window.localStorage.getItem("cafe-cart")), { legacy: true });
+  } finally {
+    await app.cleanup();
+  }
+});
+
+for (const stamps of [0, 1, 3, 6]) {
+  test(`Loyalty makes ${stamps} of 6 earned stamps unmistakable and accessible`, { concurrency: false }, async () => {
+    const app = await renderApp({
+      initialPath: "/",
+      loyalty: { programs: [{ id: "loyalty", name: "Coffee & Tea Loyalty", enabled: true, stamps, stamps_required: 6, remaining: Math.max(0, 6 - stamps), rewards_available: stamps === 6 ? 1 : 0 }] },
+    });
+    try {
+      await waitForText(app.container, `${stamps} of 6 stamps`);
+      assert.equal(app.container.querySelectorAll(".stamp-row span.filled").length, stamps);
+      assert.equal(app.container.querySelectorAll(".stamp-row span.unearned").length, 6 - stamps);
+      [...app.container.querySelectorAll(".stamp-row span")].forEach((stamp, index) => {
+        assert.equal(stamp.getAttribute("aria-label"), `Stamp ${index + 1}: ${index < stamps ? "earned" : "not earned"}`);
+      });
+    } finally {
+      await app.cleanup();
+    }
+  });
+}
 
 test("Owner Operations to Staff renders loading and API success without an effect cleanup crash", { concurrency: false }, async () => {
   const app = await renderApp({ initialPath: "/admin", staff: [{ id: "staff-1", display_name: "Morning Barista", active: true }] });

@@ -7493,6 +7493,80 @@ body {
 .modifier-advanced fieldset { border: 0; display: flex; flex-wrap: wrap; gap: 1.25rem; margin: 0; padding: 0; }
 .modifier-advanced legend { font-weight: 800; margin-bottom: .55rem; }
 .modifier-advanced fieldset label { align-items: center; display: flex; gap: .4rem; }
+
+/* Customer post-purchase history, loyalty, and exact Quick Order */
+.order-history-row {
+  min-height: 86px;
+  padding: 12px 14px;
+  text-align: left;
+}
+.order-history-summary { display: grid; gap: 3px; min-width: 0; }
+.order-history-summary > strong { color: var(--app-coffee-dark); font-size: .94rem; }
+.order-history-summary small { color: var(--muted); font-size: .76rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.order-history-summary > span { align-items: center; display: flex; flex-wrap: wrap; gap: 7px; }
+.order-history-summary time { color: var(--muted); font-size: .74rem; font-weight: 700; }
+.order-history-summary em, .order-statuses span {
+  background: var(--app-sage-soft);
+  border-radius: 999px;
+  color: var(--sage-ink);
+  font-size: .68rem;
+  font-style: normal;
+  font-weight: 900;
+  padding: 3px 7px;
+}
+.order-detail-card { display: grid; gap: 18px; padding: clamp(18px, 4vw, 26px); }
+.order-detail-heading { align-items: center; display: flex; gap: 16px; justify-content: space-between; }
+.order-detail-heading h2, .order-detail-heading p { margin: 0; }
+.order-statuses { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.order-detail-timing { color: var(--muted); display: flex; flex-wrap: wrap; font-size: .84rem; font-weight: 750; gap: 7px 16px; }
+.order-history-items { border-block: 1px solid var(--border); display: grid; }
+.order-history-items > section { display: grid; gap: 9px; padding: 16px 0; }
+.order-history-items > section + section { border-top: 1px solid var(--border); }
+.order-history-items section > div:first-child { align-items: baseline; display: flex; gap: 14px; justify-content: space-between; }
+.order-history-items h3 { font-size: 1rem; margin: 0; }
+.order-history-items dl, .order-history-totals { display: grid; gap: 6px; margin: 0; }
+.order-history-items dl > div, .order-history-totals > div { display: grid; gap: 12px; grid-template-columns: minmax(80px, auto) minmax(0, 1fr); }
+.order-history-items dt { color: var(--muted); font-size: .8rem; font-weight: 800; }
+.order-history-items dd, .order-history-totals dd { margin: 0; }
+.order-history-totals > div { grid-template-columns: 1fr auto; }
+.order-history-totals dd { font-weight: 800; }
+.order-history-total { border-top: 1px solid var(--border); font-size: 1.05rem; margin-top: 3px; padding-top: 9px; }
+
+.stamp-row span.filled {
+  align-items: center;
+  background: var(--premium-sage);
+  border: 2px solid var(--sage-ink);
+  box-shadow: 0 2px 5px rgba(47, 37, 29, .2);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+}
+.stamp-row span.filled::after { content: "✓"; font-size: clamp(.58rem, 2vw, .78rem); font-weight: 1000; line-height: 1; }
+.stamp-row span.unearned { background: #fff; border: 2px solid rgba(79, 56, 40, .25); box-shadow: none; }
+
+.home-page .quick-product-card.is-exact .quick-product-copy { padding-right: 76px; }
+.home-page .quick-product-copy .quick-usual-label {
+  background: #fffaf0;
+  color: var(--app-coffee-dark);
+  text-shadow: none;
+}
+.home-page .quick-product-card.is-exact button {
+  align-items: center;
+  border-radius: 999px;
+  display: flex;
+  gap: 3px;
+  height: 36px;
+  justify-content: center;
+  padding: 0 10px;
+  width: auto;
+}
+.home-page .quick-product-card.is-exact button span { font-size: .7rem; font-weight: 900; }
+
+@media (max-width: 420px) {
+  .order-history-row { grid-template-columns: auto minmax(0, 1fr); }
+  .order-history-row > strong { grid-column: 2; justify-self: start; }
+  .order-detail-heading { align-items: flex-start; }
+}
 .modifier-limits { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 14rem)); }
 .modifier-list-editor { border-top: 1px solid #ded5c8; display: grid; gap: 1rem; padding-top: 1rem; }
 .modifier-list-editor h3 { margin: 0; }

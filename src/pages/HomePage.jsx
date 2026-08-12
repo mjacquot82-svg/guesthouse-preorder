@@ -12,6 +12,7 @@ import {
   getDefaultSelections,
   getMissingRequiredChoice,
   getProductSpecificImageUrl,
+  resolveQuickConfigurationSelections,
   getSelectedOptions,
 } from "../services/menuCatalog.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
@@ -101,7 +102,8 @@ export default function HomePage() {
   const productsByBackendId = new Map((catalog?.products || []).map((product) => [product.backendId, product]));
   const exactQuickOrderItems = (quickOrderPersonalization.configurations || []).map((configuration) => {
     const product = productsByBackendId.get(configuration.product_id);
-    return product ? { ...product, quickConfiguration: configuration, quickKey: `${configuration.product_id}:${configuration.variant_id || "standard"}:${configuration.modifiers.map((modifier) => `${modifier.option_id}x${modifier.quantity}`).join("|")}` } : null;
+    const quickSelections = resolveQuickConfigurationSelections(product, configuration);
+    return product && quickSelections ? { ...product, quickConfiguration: configuration, quickSelections, quickKey: `${configuration.product_id}:${configuration.variant_id || "standard"}:${configuration.modifiers.map((modifier) => `${modifier.option_id}x${modifier.quantity}`).join("|")}` } : null;
   }).filter(Boolean);
   const fallbackQuickOrderItems = createQuickOrderItems(catalog?.products || [], {
     personalizedProductIds: exactQuickOrderItems.length ? [] : personalizedProductIds,
@@ -126,22 +128,7 @@ export default function HomePage() {
   const recommendationImageUrl = getProductSpecificImageUrl(recommendation);
 
   function addQuickItem(product) {
-    const configuration = product.quickConfiguration;
-    const selections = configuration ? product.modifierGroups.reduce((result, group) => {
-      if (group.id === "size") {
-        const variant = group.options.find((option) => option.backendId === configuration.variant_id);
-        result[group.id] = variant?.id || "";
-      } else if (group.allowQuantity) {
-        result[group.id] = Object.fromEntries(configuration.modifiers.map((modifier) => {
-          const option = group.options.find((candidate) => candidate.backendId === modifier.option_id);
-          return option ? [option.id, modifier.quantity] : null;
-        }).filter(Boolean));
-      } else {
-        const ids = configuration.modifiers.map((modifier) => group.options.find((candidate) => candidate.backendId === modifier.option_id)?.id).filter(Boolean);
-        result[group.id] = group.type === "multiple" ? ids : ids[0] || "__none__";
-      }
-      return result;
-    }, {}) : getDefaultSelections(product);
+    const selections = product.quickSelections || getDefaultSelections(product);
     const selectedOptions = getSelectedOptions(product, selections);
     const configuredPrice = getConfiguredPrice(product, selections);
     const cartLineId = getCartLineId(product, selectedOptions);
@@ -307,11 +294,12 @@ export default function HomePage() {
             };
 
             return (
-              <QuickOrderCard {...quickOrderCardProps} className={`quick-product-card${productImageUrl ? " has-product-image" : " is-image-free"}`} key={item.quickKey}>
+              <QuickOrderCard {...quickOrderCardProps} className={`quick-product-card${item.quickConfiguration ? " is-exact" : ""}${productImageUrl ? " has-product-image" : " is-image-free"}`} key={item.quickKey}>
                 {productImageUrl ? (
                   <div className="quick-product-image" style={{ backgroundImage: `url(${productImageUrl})` }} aria-hidden="true" />
                 ) : null}
                 <div className="quick-product-copy">
+                  {item.quickConfiguration ? <span className="quick-usual-label">Your usual</span> : null}
                   <h3>{item.name}</h3>
                   {item.quickConfiguration ? <small>{formatConfigurationDescription([
                     ...(() => {
@@ -321,15 +309,13 @@ export default function HomePage() {
                     })(),
                     ...item.modifierGroups.filter((group) => group.id !== "size").flatMap((group) => {
                       const selected = item.quickConfiguration.modifiers.filter((modifier) => group.options.some((option) => option.backendId === modifier.option_id));
-                      return selected.length
-                        ? selected.map((modifier) => ({ groupName: group.name, name: modifier.option_name, quantity: modifier.quantity }))
-                        : [{ groupName: group.name, name: `No ${group.name.toLowerCase()}` }];
+                      return selected.map((modifier) => ({ groupName: group.name, name: modifier.option_name, quantity: modifier.quantity }));
                     }),
                   ]) || "Standard"}</small> : <small>Customize on the menu</small>}
-                  <strong>{formatPrice(item.quickConfiguration ? item.quickConfiguration.unit_price_cents / 100 : getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
+                  <strong>{formatPrice(item.quickConfiguration ? getConfiguredPrice(item, item.quickSelections) : getConfiguredPrice(item, getDefaultSelections(item)))}</strong>
                 </div>
-                {item.quickConfiguration ? <button type="button" aria-label={`Quick add ${item.name}`} onClick={() => addQuickItem(item)}>
-                  <Plus size={18} strokeWidth={2.8} />
+                {item.quickConfiguration ? <button type="button" aria-label={`Add this exact ${item.name} configuration to cart`} title="Add this exact configuration" onClick={() => addQuickItem(item)}>
+                  <Plus aria-hidden="true" size={16} strokeWidth={2.8} /><span>Add</span>
                 </button> : null}
               </QuickOrderCard>
             );

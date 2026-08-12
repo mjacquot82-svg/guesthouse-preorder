@@ -37,7 +37,7 @@ from app.main import create_app
 from app.catalog.models import Product
 from app.catalog.seed import seed_catalog
 from app.availability.models import BusinessClosure, BusinessHour, BusinessSettings, ProductAvailability
-from app.orders.models import Order
+from app.orders.models import Order, OrderItem, OrderItemModifier
 from app.customers.models import CustomerProfile
 from tests.test_migrations import make_alembic_config
 
@@ -1508,6 +1508,7 @@ async def test_customer_registration_verification_profile_and_role_isolation(
             request_fingerprint="b" * 64,
             public_access_token="customer-public-token",
             status="paid",
+            fulfillment_status="completed",
             guest_name="Returning Customer",
             guest_email="customer@example.com",
             guest_phone="+15555550123",
@@ -1521,16 +1522,66 @@ async def test_customer_registration_verification_profile_and_role_isolation(
             expires_at=now + timedelta(hours=1),
             created_at=now,
             updated_at=now,
+            completed_at=now,
         )
+        order.items.append(OrderItem(
+            source_product_id=None,
+            source_variant_id=None,
+            product_slug="drip-coffee",
+            product_name="Drip Coffee",
+            variant_key="12oz",
+            variant_name="12oz",
+            base_unit_price_cents=500,
+            unit_price_cents=500,
+            quantity=1,
+            line_subtotal_cents=500,
+            sort_order=0,
+            modifiers=[
+                OrderItemModifier(
+                    source_modifier_group_id=None,
+                    source_modifier_option_id=None,
+                    modifier_group_key="milk",
+                    modifier_group_name="Milk",
+                    modifier_option_key="whole-milk",
+                    modifier_option_name="Whole milk",
+                    price_adjustment_cents=0,
+                    quantity=1,
+                    sort_order=0,
+                ),
+                OrderItemModifier(
+                    source_modifier_group_id=None,
+                    source_modifier_option_id=None,
+                    modifier_group_key="sugar",
+                    modifier_group_name="Sugar",
+                    modifier_option_key="sugar",
+                    modifier_option_name="Sugar",
+                    price_adjustment_cents=0,
+                    quantity=2,
+                    sort_order=1,
+                ),
+            ],
+        ))
         session.add(order)
         session.flush()
         order_id = order.id
     history = await auth_client.get("/api/v1/customer/orders")
     assert history.status_code == 200
     assert history.json()[0]["id"] == order_id
+    assert history.json()[0]["fulfillment_status"] == "completed"
+    assert history.json()[0]["first_item"] == {
+        "product_name": "Drip Coffee",
+        "variant_name": "12oz",
+        "quantity": 1,
+        "modifiers": [
+            {"group_name": "Milk", "option_name": "Whole milk", "quantity": 1},
+            {"group_name": "Sugar", "option_name": "Sugar", "quantity": 2},
+        ],
+    }
     detail = await auth_client.get(f"/api/v1/customer/orders/{order_id}")
     assert detail.status_code == 200
     assert detail.json()["public_token"] == "customer-public-token"
+    assert detail.json()["fulfillment_status"] == "completed"
+    assert detail.json()["tax_name"] == "HST"
 
     logout = await auth_client.post(
         "/api/v1/customer/auth/logout",
