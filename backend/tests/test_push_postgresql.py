@@ -77,8 +77,18 @@ def test_staff_general_api_is_403_and_release_disabled_lunch_is_blocked(owner_or
     client.app.state.push_settings=active_settings();monkeypatch.setattr("app.api.v1.owner_communications.drain_push_outbox",lambda *_:0)
     allowed=client.post("/api/v1/owner/communications/lunch-special",headers={"Idempotency-Key":f"allowed-{uuid4()}"},json={"kind":"lunch_special"})
     assert allowed.status_code==202
+    original_id=allowed.json()["id"]
+    denied_override=client.post("/api/v1/owner/communications/lunch-special",headers={"Idempotency-Key":f"staff-override-{uuid4()}"},json={"kind":"lunch_special","override":True,"confirm_override":True})
+    assert denied_override.status_code==403;assert denied_override.json()["detail"]["code"]=="override_forbidden"
     owner=replace(staff,role="owner",permissions=frozenset({"communications.announce","communications.general_announce"}))
     client.app.dependency_overrides[current_principal]=lambda:owner;client.app.dependency_overrides[csrf_principal]=lambda:owner
+    override=client.post("/api/v1/owner/communications/lunch-special",headers={"Idempotency-Key":f"owner-override-{uuid4()}"},json={"kind":"lunch_special","override":True,"confirm_override":True})
+    assert override.status_code==202;assert override.json()["id"]!=original_id
+    with Session(engine) as session:
+        original=session.get(PushAnnouncement,original_id);resend=session.get(PushAnnouncement,override.json()["id"])
+        assert original is not None;assert original.is_override is False
+        assert resend is not None;assert resend.is_override is True
+        assert resend.cafe_day==original.cafe_day
     general=client.post("/api/v1/owner/communications/general",headers={"Idempotency-Key":f"general-{uuid4()}"},json={"title":"Café update","body":"Open today.","target_route":"/"})
     assert general.status_code==202
 
