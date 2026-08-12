@@ -7751,3 +7751,205 @@ body {
 .modifier-selection-limits { border-left: 3px solid #ded5c8; padding-left: 1rem; }
 .modifier-selection-limits summary { min-height: 32px; }
 .modifier-selection-limits > small { color: #655e54; display: block; margin-top: .55rem; }
+
+/* Ladel's Owner and Staff form-control system */
+:is(
+  .owner-login-form,
+  .admin-products-page,
+  .modifier-manager,
+  .communication-page,
+  .loyalty-admin-page,
+  .owner-scheduling-page
+) :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  select,
+  textarea
+) {
+  background: var(--surface-warm);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .62);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.35;
+  min-height: 48px;
+  min-width: 0;
+  padding: 11px 13px;
+  transition: background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+  width: 100%;
+}
+
+:is(
+  .owner-login-form,
+  .admin-products-page,
+  .modifier-manager,
+  .communication-page,
+  .loyalty-admin-page,
+  .owner-scheduling-page
+) textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+:is(
+  .owner-login-form,
+  .admin-products-page,
+  .modifier-manager,
+  .communication-page,
+  .loyalty-admin-page,
+  .owner-scheduling-page
+) select {
+  cursor: pointer;
+}
+
+:is(
+  .owner-login-form,
+  .admin-products-page,
+  .modifier-manager,
+  .communication-page,
+  .loyalty-admin-page,
+  .owner-scheduling-page
+) :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  select,
+  textarea
+):focus-visible {
+  background: var(--surface);
+  border-color: var(--sage-ink);
+  box-shadow: 0 0 0 4px rgba(95, 109, 84, .17);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
+}
+
+@media (hover: hover) {
+  :is(
+    .owner-login-form,
+    .admin-products-page,
+    .modifier-manager,
+    .communication-page,
+    .loyalty-admin-page,
+    .owner-scheduling-page
+  ) :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+    select,
+    textarea
+  ):not(:disabled):not([readonly]):hover {
+    background: var(--surface);
+    border-color: var(--sage);
+  }
+}
+
+:is(
+  .owner-login-form,
+  .admin-products-page,
+  .modifier-manager,
+  .communication-page,
+  .loyalty-admin-page,
+  .owner-scheduling-page
+) :is(input, select, textarea):disabled {
+  background: var(--surface-soft);
+  border-color: var(--border);
+  color: #655e54;
+  cursor: not-allowed;
+  opacity: .78;
+}
+
+:is(
+  .owner-login-form,
+  .admin-products-page,
+  .modifier-manager,
+  .communication-page,
+  .loyalty-admin-page,
+  .owner-scheduling-page
+) :is(input, textarea)[readonly] {
+  background: var(--sage-wash);
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: default;
+}
+
+:is(
+  .owner-login-form,
+  .admin-products-page,
+  .modifier-manager,
+  .communication-page,
+  .loyalty-admin-page,
+  .owner-scheduling-page
+) :is(input, select, textarea):is([aria-invalid="true"], :user-invalid) {
+  border-color: #9a3028;
+}
+
+:is(
+  .owner-login-form,
+  .admin-products-page,
+  .modifier-manager,
+  .communication-page,
+  .loyalty-admin-page,
+  .owner-scheduling-page
+) :is(input, select, textarea):is([aria-invalid="true"], :user-invalid):focus-visible {
+  box-shadow: 0 0 0 4px rgba(154, 48, 40, .16);
+}
+
+.modifier-editor > label,
+.modifier-edit-row label,
+.modifier-limits label {
+  color: var(--muted);
+  display: grid;
+  font-size: .84rem;
+  font-weight: 800;
+  gap: 7px;
+}
+
+.modifier-manager .money-input {
+  border-radius: 12px;
+}
+
+.modifier-manager .money-input b {
+  align-items: center;
+  background: var(--surface-soft);
+  border-color: var(--border);
+  border-radius: 12px 0 0 12px;
+  color: var(--coffee-dark);
+  display: flex;
+  min-height: 48px;
+}
+
+.modifier-manager .money-input input {
+  border-radius: 0 12px 12px 0;
+}
+
+.modifier-manager .money-input:focus-within {
+  box-shadow: 0 0 0 4px rgba(95, 109, 84, .17);
+}
+
+.modifier-manager .money-input:focus-within input {
+  box-shadow: none;
+}
+
+/* Search/filter fields keep their intentionally integrated container treatment. */
+.product-quick-tools :is(input, select),
+.loyalty-program-form .loyalty-product-filters :is(input, select) {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 48px;
+  padding: 0;
+}
+
+@media (max-width: 760px) {
+  :is(
+    .owner-login-form,
+    .admin-products-page,
+    .modifier-manager,
+    .communication-page,
+    .loyalty-admin-page,
+    .owner-scheduling-page
+  ) :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+    select,
+    textarea
+  ) {
+    max-width: 100%;
+  }
+}
