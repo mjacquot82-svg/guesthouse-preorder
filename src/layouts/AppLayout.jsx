@@ -1,7 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { Home, Search, ShoppingBag, UserRound } from "lucide-react";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
-import guestHouseLogo from "../../inspiration/610636354_18297756187278697_828168607581072468_n.jpg";
 
 const customerLinks = [
   { to: "/", label: "Home", icon: Home, end: true },
@@ -23,21 +22,7 @@ export default function AppLayout() {
   return (
     <div className="app-shell">
       <header className="site-header">
-        <div className="nav-container">
-          <NavLink to="/" className="brand" aria-label="The Guest House home">
-            <span className="brand-mark" aria-hidden="true">
-              <img src={guestHouseLogo} alt="" />
-            </span>
-            <span>
-              <strong>The Guest House</strong>
-              <small>Café & Pantry</small>
-            </span>
-          </NavLink>
-
-          <NavLink to="/cart" className="header-cart-link" aria-label="Open cart">
-            <ShoppingBag size={18} strokeWidth={2.4} />
-          </NavLink>
-
+        <div className="nav-container customer-nav-container">
           <nav className="desktop-nav" aria-label="Desktop ordering navigation">
             {primaryLinks.map((link) => {
               const Icon = link.icon;

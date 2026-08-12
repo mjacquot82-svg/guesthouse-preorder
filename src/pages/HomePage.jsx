@@ -165,7 +165,7 @@ export default function HomePage() {
   return (
     <section className="home-page ordering-page">
       <div className="welcome-panel app-welcome-panel">
-        <img className="ladels-hero-logo" src="/ladels.png" alt="Ladel's Wellness Café" />
+        <img className="ladels-hero-logo" src="/cafe.png" alt="Ladel's Wellness Café" />
       </div>
 
       <div className="home-order-status" aria-live="polite">

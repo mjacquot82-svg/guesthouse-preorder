@@ -7494,6 +7494,75 @@ body {
 .modifier-advanced legend { font-weight: 800; margin-bottom: .55rem; }
 .modifier-advanced fieldset label { align-items: center; display: flex; gap: .4rem; }
 
+/* Ladel's customer hero and navigation branding */
+.customer-nav-container {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.home-page .app-welcome-panel {
+  aspect-ratio: 3 / 1;
+  min-height: 0;
+  padding: 0;
+}
+
+.home-page .ladels-hero-logo {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  object-fit: cover;
+  object-position: 50% 53%;
+  transform: scale(1.04);
+}
+
+@media (min-width: 761px) {
+  .customer-nav-container {
+    min-height: 74px;
+  }
+
+  .customer-nav-container .desktop-nav {
+    justify-self: auto;
+  }
+
+  .home-page .app-welcome-panel {
+    min-height: 0;
+    padding: 0;
+  }
+
+  .home-page .ladels-hero-logo {
+    width: 100%;
+    max-height: none;
+    object-position: 50% 53%;
+    transform: scale(1.04);
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header {
+    display: none;
+  }
+
+  .home-page,
+  .page-section {
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+
+  .home-page .app-welcome-panel {
+    aspect-ratio: 2.55 / 1;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .home-page .ladels-hero-logo {
+    width: 100%;
+    max-height: none;
+    object-position: 48% 54%;
+    transform: scale(1.1);
+  }
+}
+
 /* Customer post-purchase history, loyalty, and exact Quick Order */
 .order-history-row {
   min-height: 86px;
