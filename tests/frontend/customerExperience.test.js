@@ -44,12 +44,14 @@ test("customer forms default persistence and expose guarded pending states", () 
   assert.match(cartPageSource, /Placing order…/);
   assert.match(cartPageSource, /Your order is already being submitted\. Please wait\./);
   assert.match(cartPageSource, /Add your first and last name, email, and phone number before placing your order\./);
-  assert.match(cartPageSource, /if \(!session\) \{/);
+  assert.match(cartPageSource, /if \(!orderingCustomer\) \{/);
   assert.match(cartPageSource, /Sign in to place your order/);
   assert.match(cartPageSource, /Your café bag is saved/);
   assert.match(cartPageSource, /\/account\/sign-in\?returnTo=%2Fcart/);
   assert.match(cartPageSource, /\/account\/create\?returnTo=%2Fcart/);
   assert.doesNotMatch(cartPageSource, /Continue as Guest/);
+  assert.match(cartPageSource, /isOrderingCustomerSession\(session\)/);
+  assert.match(authPageSource, /Ordering requires a customer account/);
 });
 
 test("customer registration and recovery require 10-character passwords", () => {

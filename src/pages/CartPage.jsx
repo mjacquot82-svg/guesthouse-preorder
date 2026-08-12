@@ -15,7 +15,7 @@ import {
 import { createPendingOrder } from "../services/orderApi.js";
 import { createCloverCheckout } from "../services/cloverService.js";
 import { useCustomerCatalog } from "../stores/customerCatalogStore.js";
-import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
+import { isOrderingCustomerSession, useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { fetchCustomerProfile } from "../services/customerAccountApi.js";
 import { formatCustomerPhone } from "../services/customerPhone.js";
 import { formatTaxLabel, getOrderPricing } from "../services/orderPricing.js";
@@ -83,6 +83,7 @@ function formatReadyTime(date, timeZone) {
 
 export default function CartPage() {
   const { session } = useCustomerAuth();
+  const orderingCustomer = isOrderingCustomerSession(session);
   const { status, catalog, reload } = useCustomerCatalog();
   const [cart, setCart] = useState(getStoredCart);
   const [pickupIntent, setPickupIntent] = useState(getStoredPickupIntent);
@@ -105,7 +106,7 @@ export default function CartPage() {
   const authRequirementRef = useRef(null);
   const submissionGate = useRef(createSubmissionGate());
   useEffect(() => {
-    if (!session) return;
+    if (!orderingCustomer) return;
     let isCurrent = true;
 
     fetchCustomerProfile()
@@ -133,7 +134,7 @@ export default function CartPage() {
     return () => {
       isCurrent = false;
     };
-  }, [session]);
+  }, [orderingCustomer]);
   const resolvedCart = useMemo(
     () => resolveCart(catalog, cart),
     [catalog, cart]
@@ -241,7 +242,7 @@ export default function CartPage() {
   }
 
   async function placeOrder() {
-    if (!session) {
+    if (!orderingCustomer) {
       setShowAuthRequirement(true);
       window.requestAnimationFrame(() => authRequirementRef.current?.focus());
       return;
@@ -549,7 +550,7 @@ export default function CartPage() {
               <h2>How should we contact you?</h2>
             </div>
           </div>
-          {!session && showAuthRequirement ? <div className="checkout-auth-required" role="status" aria-live="polite"><h2 ref={authRequirementRef} tabIndex="-1">Sign in to place your order</h2><p>Your café bag is saved. Sign in or create an account to continue.</p><div className="form-actions"><Link className="primary-button" to="/account/sign-in?returnTo=%2Fcart">Sign In</Link><Link className="secondary-button" to="/account/create?returnTo=%2Fcart">Create Account</Link></div></div> : null}
+          {!orderingCustomer && showAuthRequirement ? <div className="checkout-auth-required" role="status" aria-live="polite"><h2 ref={authRequirementRef} tabIndex="-1">Sign in to place your order</h2><p>Your café bag is saved. Sign in or create a customer account to continue.</p><div className="form-actions"><Link className="primary-button" to="/account/sign-in?returnTo=%2Fcart">Sign In</Link><Link className="secondary-button" to="/account/create?returnTo=%2Fcart">Create Account</Link></div></div> : null}
           <div className="checkout-contact-grid">
             <label>
               <span>Name</span>

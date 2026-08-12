@@ -90,8 +90,24 @@ async function runContinuation(mode) {
     if (path === "/api/v1/customer/profile") return response(200, { name: "Jessie Customer", email: "jessie@example.com", phone: "+15198816869", preferred_pickup_minutes: null, preferred_pickup_notes: "" });
     if (path === "/api/v1/catalog") return response(200, catalog);
     if (path === "/api/v1/scheduling/options") return response(200, { ordering_available: true, quick_pickup_options: [{ key: "asap", label: "ASAP", preference_minutes: null, requested_pickup_at: "2026-08-12T12:30:00Z" }], minimum_lead_time_minutes: 10, pickup_interval_minutes: 5, maximum_advance_days: 1, business_timezone: "UTC", custom_pickup_at: null, custom_pickup_error: null });
-    if (path === "/api/v1/orders") { orderCalls += 1; return response(500, {}); }
-    if (path.includes("/api/v1/clover/orders/")) { cloverCalls += 1; return response(500, {}); }
+    if (path === "/api/v1/orders") {
+      orderCalls += 1;
+      assert.equal(authenticated, true);
+      assert.equal(options.credentials, "include");
+      return response(201, {
+        public_token: "customer-order-token", status: "pending",
+        requested_pickup_at: "2026-08-12T12:30:00Z", business_timezone: "UTC",
+        customer: { name: "Jessie Customer", email: "jessie@example.com", phone: "+15198816869" },
+        items: [{ product_slug: "coffee", product_name: "Coffee", variant_key: "large", variant_name: "Large", quantity: 3, line_subtotal_cents: 1350, modifiers: [{ group_name: "Sugar", option_name: "Sugar", quantity: 2 }] }],
+        notes: "", subtotal_cents: 1350, tax_cents: 176, total_cents: 1526,
+      });
+    }
+    if (path.includes("/api/v1/clover/orders/")) {
+      cloverCalls += 1;
+      assert.equal(authenticated, true);
+      assert.equal(options.credentials, "include");
+      return response(200, { checkout_session_id: "mock-session", checkout_url: "https://checkout.example.test/mock" });
+    }
     throw new Error(`Unexpected request: ${path} ${options.method || "GET"}`);
   };
   const root = createRoot(document.getElementById("root"));
@@ -122,6 +138,12 @@ async function runContinuation(mode) {
     assert.match(document.body.textContent, /Sugar x2/);
     assert.match(document.body.textContent, /3 x \$4\.50/);
     assert.equal(orderCalls, 0); assert.equal(cloverCalls, 0);
+    await click([...document.querySelectorAll("button")].find((button) => button.textContent.includes("Place order")), dom.window);
+    for (let attempt = 0; attempt < 100 && cloverCalls === 0; attempt += 1) {
+      await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    }
+    assert.equal(orderCalls, 1); assert.equal(cloverCalls, 1);
+    assert.doesNotMatch(document.body.textContent, /A customer account is required/);
   } finally {
     await act(async () => root.unmount()); dom.window.close();
     globalThis.window = previous.window; globalThis.document = previous.document;
@@ -131,5 +153,5 @@ async function runContinuation(mode) {
   }
 }
 
-test("signed-out configured Cart survives sign-in continuation without early order or Clover calls", { concurrency: false }, () => runContinuation("login"));
-test("signed-out configured Cart survives create-account continuation without early order or Clover calls", { concurrency: false }, () => runContinuation("register"));
+test("signed-out configured Cart signs in, preserves configuration, and submits with customer authority", { concurrency: false }, () => runContinuation("login"));
+test("signed-out configured Cart continues through Create Account and submits with customer authority", { concurrency: false }, () => runContinuation("register"));

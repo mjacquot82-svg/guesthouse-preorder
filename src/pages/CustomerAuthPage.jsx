@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
+import { isOrderingCustomerSession, useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 import { registerCustomer, resendCustomerVerification } from "../services/customerAuthApi.js";
 import { getCustomerErrorMessage } from "../services/customerMessages.js";
 import { formatCustomerPhone, isCompleteCustomerPhone, normalizeCustomerPhone } from "../services/customerPhone.js";
@@ -33,7 +33,11 @@ export default function CustomerAuthPage({ mode }) {
         const result = await registerCustomer(form.name, form.email, form.password, normalizeCustomerPhone(form.phone));
         setStatus(result.message);
       } else {
-        await login(form.email, form.password, keepSignedIn);
+        const authenticatedSession = await login(form.email, form.password, keepSignedIn);
+        if (returnTo === "/cart" && !isOrderingCustomerSession(authenticatedSession)) {
+          setStatus("Ordering requires a customer account. Sign in with a customer account to continue.");
+          return;
+        }
         clearCustomerReturn();
         navigate(returnTo, { replace: true });
       }

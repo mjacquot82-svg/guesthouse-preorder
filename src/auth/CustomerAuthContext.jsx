@@ -3,6 +3,10 @@ import { fetchCustomerSession, loginCustomer, logoutCustomer } from "../services
 
 const CustomerAuthContext = createContext(null);
 
+export function isOrderingCustomerSession(session) {
+  return session?.role === "customer";
+}
+
 export function CustomerAuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [status, setStatus] = useState("loading");
