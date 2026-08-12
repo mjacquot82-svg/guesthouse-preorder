@@ -32,7 +32,18 @@ class CommunicationCenterService:
         self._session = session
         self._settings = settings or PushSettings()
 
-    def snapshot(self) -> dict[str, object]:
+    def snapshot(self, *, organization_id: UUID) -> dict[str, object]:
+        cafe_day = datetime.now(CAFE_TZ).date()
+        today_lunch = self._session.scalar(
+            select(PushAnnouncement)
+            .where(
+                PushAnnouncement.organization_id == organization_id,
+                PushAnnouncement.kind == "lunch_special",
+                PushAnnouncement.cafe_day == cafe_day,
+                PushAnnouncement.is_override.is_(False),
+            )
+            .limit(1)
+        )
         lunch_special = self._session.scalar(
             select(Product)
             .where(
@@ -46,6 +57,8 @@ class CommunicationCenterService:
             "generated_at": datetime.now(timezone.utc),
             "summary": {
                 "actionable_warnings": 0,
+                "lunch_special_attempting_today": today_lunch is not None and today_lunch.status in ("queued", "attempting"),
+                "lunch_special_queued_today": today_lunch is not None,
                 "push_release_enabled": self._settings.active,
             },
             "lunch_special": (

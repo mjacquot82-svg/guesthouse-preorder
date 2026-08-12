@@ -32,6 +32,8 @@ def test_communication_center_reports_honest_announcement_health(owner_orders_ap
     payload = response.json()
     assert payload["summary"] == {
         "actionable_warnings": 0,
+        "lunch_special_attempting_today": False,
+        "lunch_special_queued_today": False,
         "push_release_enabled": False,
     }
     assert payload["lunch_special"] is None

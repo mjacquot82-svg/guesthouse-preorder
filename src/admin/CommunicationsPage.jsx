@@ -7,12 +7,6 @@ import { lunchSpecialAnnouncement } from "../services/announcementFormatting.js"
 import { fetchOwnerCommunications, sendGeneralAnnouncement, sendLunchSpecial } from "../services/ownerCommunicationsApi.js";
 
 const money = (cents) => new Intl.NumberFormat("en-CA", { currency: "CAD", style: "currency" }).format(cents / 100);
-const cafeDay = (value) => new Intl.DateTimeFormat("en-CA", { day: "2-digit", month: "2-digit", timeZone: "America/Toronto", year: "numeric" }).format(value);
-
-export function hasLunchSpecialAnnouncementToday(activity, now = new Date()) {
-  const today = cafeDay(now);
-  return activity.some((item) => item.kind === "lunch_special" && cafeDay(new Date(item.occurred_at)) === today);
-}
 
 function Composer({ disabled, message, onMessageChange, title, onTitleChange, titleOptional = false, onSend, sending }) {
   return <div className="announcement-composer">
@@ -31,15 +25,15 @@ function Composer({ disabled, message, onMessageChange, title, onTitleChange, ti
   </div>;
 }
 
-function LunchSpecialPreview({ disabled, message, onResend, onSend, resendAvailable, sending }) {
+function LunchSpecialPreview({ disabled, message, onResend, onSend, resendAttempting, resendAvailable, sending }) {
   return <div className="announcement-composer announcement-generated-composer">
     <div className="announcement-preview" aria-label="Generated Lunch Special customer notification preview">
       <span>Customer preview · System generated</span>
       <p>{message}</p>
     </div>
     <p className="announcement-provider-note">This message uses the current Lunch Special name and catalog price and cannot be edited.</p>
-    {resendAvailable ? <button className="secondary-button" disabled={disabled || !message || sending} onClick={onResend} title={disabled ? "Push notifications are not release-enabled" : undefined} type="button">
-      <Bell size={17} /> {sending?"Queueing…":"Resend Lunch Special notification"}
+    {resendAvailable ? <button className="secondary-button" disabled={disabled || !message || resendAttempting || sending} onClick={onResend} title={disabled ? "Push notifications are not release-enabled" : resendAttempting ? "Wait for the current delivery attempt to finish" : undefined} type="button">
+      <Bell size={17} /> {sending?"Queueing…":resendAttempting?"Lunch Special notification is still attempting":"Resend Lunch Special notification"}
     </button> : <button className="primary-button" disabled={disabled || !message || sending} onClick={onSend} title={disabled ? "Push notifications are not release-enabled" : undefined} type="button">
       <Bell size={17} /> {sending?"Queueing…":"Send Lunch Special notification"}
     </button>}
@@ -80,7 +74,7 @@ export default function CommunicationsPage() {
   const { activity, health, lunch_special: special, summary } = state.data;
   const pushUnavailable = !summary.push_release_enabled;
   const lunchMessage = lunchSpecialAnnouncement(special);
-  const resendAvailable = owner && hasLunchSpecialAnnouncementToday(activity);
+  const resendAvailable = owner && summary.lunch_special_queued_today;
   async function sendLunch(){if(lunchInFlight.current)return;lunchInFlight.current=true;setSending("lunch");setActionMessage("");try{await sendLunchSpecial(session.csrf_token);setActionMessage("Lunch Special notification queued for eligible customers.");load()}catch(error){setActionMessage(error.message)}finally{lunchInFlight.current=false;setSending("")}}
   async function resendLunch(){if(lunchInFlight.current)return;lunchInFlight.current=true;const confirmed=window.confirm("Today’s Lunch Special notification was already queued.\n\nResending will send another notification to eligible customers.");if(!confirmed){lunchInFlight.current=false;return}setSending("lunch-resend");setActionMessage("");try{await sendLunchSpecial(session.csrf_token,{override:true,confirmOverride:true});setActionMessage("Owner-confirmed Lunch Special resend queued.");load()}catch(error){setActionMessage(error.message)}finally{lunchInFlight.current=false;setSending("")}}
   async function sendGeneral(){if(sending)return;setSending("general");setActionMessage("");try{await sendGeneralAnnouncement(session.csrf_token,{title:generalTitle.trim()||"Ladel’s Café update",body:generalMessage.trim(),targetRoute:"/"});setGeneralTitle("");setGeneralMessage("");setActionMessage("General announcement queued for eligible customers.");load()}catch(error){setActionMessage(error.message)}finally{setSending("")}}
@@ -97,7 +91,7 @@ export default function CommunicationsPage() {
               <strong>{money(special.price_cents)}</strong>
             </article>
             {special.warnings.length ? <div className="announcement-warning" role="alert"><AlertTriangle /><div><strong>Check the product before announcing it.</strong>{special.warnings.map((warning) => <p key={warning}>{warning}</p>)}</div></div> : null}
-            <LunchSpecialPreview disabled={pushUnavailable || !special.orderable} message={lunchMessage} onResend={resendLunch} onSend={sendLunch} resendAvailable={resendAvailable} sending={sending==="lunch" || sending==="lunch-resend"} />
+            <LunchSpecialPreview disabled={pushUnavailable || !special.orderable} message={lunchMessage} onResend={resendLunch} onSend={sendLunch} resendAttempting={summary.lunch_special_attempting_today} resendAvailable={resendAvailable} sending={sending==="lunch" || sending==="lunch-resend"} />
           </> : <div className="communication-empty"><Megaphone /><h3>No Lunch Special selected</h3><p>Select a normal catalog product as the Lunch Special in Products before preparing an announcement.</p>{canOpenProducts ? <Link className="secondary-button" to="/admin/products">Open Products</Link> : <p>Ask an Owner to select today’s product in Products.</p>}</div>}
         </div>
       </section>

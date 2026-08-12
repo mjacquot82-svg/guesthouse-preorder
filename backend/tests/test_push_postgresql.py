@@ -2,6 +2,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from cryptography.fernet import Fernet
@@ -181,3 +182,28 @@ def test_dispatcher_persists_safe_pre_http_category_and_retries(owner_orders_api
         assert delivery.next_attempt_at>delivery.last_attempt_at
         assert announcement.status=="attempting"
         assert announcement.attempted_count==1
+
+
+@pytest.mark.postgresql
+def test_snapshot_exposes_authoritative_organization_cafe_day_lunch_state(owner_orders_api):
+    _,engine=owner_orders_api;settings=active_settings()
+    with Session(engine) as session:
+        organization=Organization(slug=f"snapshot-{uuid4()}",name="Snapshot Test");other=Organization(slug=f"snapshot-other-{uuid4()}",name="Other")
+        session.add_all([organization,other]);session.flush()
+        today=datetime.now(timezone.utc).astimezone(ZoneInfo("America/Toronto")).date()
+        session.add_all([
+            PushAnnouncement(organization_id=other.id,kind="lunch_special",title="Other",frozen_message="Other",target_route="/menu",actor_name_snapshot="Other",status="completed",idempotency_key=f"other-{uuid4()}",cafe_day=today,is_override=False),
+            PushAnnouncement(organization_id=organization.id,kind="lunch_special",title="Yesterday",frozen_message="Yesterday",target_route="/menu",actor_name_snapshot="Staff",status="completed",idempotency_key=f"yesterday-{uuid4()}",cafe_day=today-timedelta(days=1),is_override=False),
+        ])
+        session.commit()
+        summary=CommunicationCenterService(session,settings).snapshot(organization_id=organization.id)["summary"]
+        assert summary["lunch_special_queued_today"] is False
+        announcement=PushAnnouncement(organization_id=organization.id,kind="lunch_special",title="Today",frozen_message="Today",target_route="/menu",actor_name_snapshot="Staff",status="attempting",idempotency_key=f"today-{uuid4()}",cafe_day=today,is_override=False)
+        session.add(announcement);session.commit()
+        summary=CommunicationCenterService(session,settings).snapshot(organization_id=organization.id)["summary"]
+        assert summary["lunch_special_queued_today"] is True
+        assert summary["lunch_special_attempting_today"] is True
+        announcement.status="completed";session.commit()
+        summary=CommunicationCenterService(session,settings).snapshot(organization_id=organization.id)["summary"]
+        assert summary["lunch_special_queued_today"] is True
+        assert summary["lunch_special_attempting_today"] is False

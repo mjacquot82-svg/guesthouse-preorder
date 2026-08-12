@@ -22,6 +22,8 @@ class StrictModel(BaseModel):
 
 class Summary(StrictModel):
     actionable_warnings: int
+    lunch_special_attempting_today: bool
+    lunch_special_queued_today: bool
     push_release_enabled: bool
 
 
@@ -82,12 +84,14 @@ class CommunicationCenterResponse(StrictModel):
 def communication_center(
     request: Request,
     background_tasks: BackgroundTasks,
-    _: AuthPrincipal = Depends(require_read_permission("communications.announce")),
+    principal: AuthPrincipal = Depends(require_read_permission("communications.announce")),
     session: Session = Depends(get_order_session),
 ) -> CommunicationCenterResponse:
     try:
         result = CommunicationCenterResponse.model_validate(
-            CommunicationCenterService(session, request.app.state.push_settings).snapshot()
+            CommunicationCenterService(session, request.app.state.push_settings).snapshot(
+                organization_id=principal.organization_id
+            )
         )
         background_tasks.add_task(
             drain_push_outbox,
