@@ -5,7 +5,6 @@ import test from "node:test";
 const root = new URL("../../", import.meta.url);
 const manifest = JSON.parse(await readFile(new URL("public/manifest.webmanifest", root), "utf8"));
 const index = await readFile(new URL("index.html", root), "utf8");
-const favicon = await readFile(new URL("public/favicon.svg", root), "utf8");
 
 test("manifest exposes the Ladel's install identity and valid brand colors", () => {
   assert.equal(manifest.name, "Ladel's Wellness Café");
@@ -33,15 +32,16 @@ test("manifest uses distinct normal and maskable source assets", async () => {
 });
 
 test("browser and Apple metadata use the new source-controlled branding", async () => {
-  assert.match(index, /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg" \/>/);
+  assert.match(index, /<link rel="icon" type="image\/png" sizes="32x32" href="\/favicon-32x32\.png\?v=ladel-favicon-1" \/>/);
+  assert.match(index, /<link rel="icon" type="image\/png" sizes="16x16" href="\/favicon-16x16\.png\?v=ladel-favicon-1" \/>/);
+  assert.match(index, /<link rel="shortcut icon" href="\/favicon\.ico\?v=ladel-favicon-1" \/>/);
   assert.match(index, /<link rel="apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png\?v=ladel-master-1" \/>/);
   assert.match(index, /<meta name="theme-color" content="#4c3426" \/>/);
   assert.match(index, /<title>Ladel's Wellness Café<\/title>/);
   assert.doesNotMatch(index, /The Guest House|Café &amp; Pantry/);
-  assert.match(favicon, /aria-label="Ladel's Wellness Café"/);
-  assert.match(favicon, /fill="#fffdf8"/);
-  assert.match(favicon, /fill="#755f4a"/);
-  assert.doesNotMatch(favicon, /The Guest House|>GH</);
+  await access(new URL("public/favicon-32x32.png", root));
+  await access(new URL("public/favicon-16x16.png", root));
+  await access(new URL("public/favicon.ico", root));
   await access(new URL("public/apple-touch-icon.png", root));
 });
 
