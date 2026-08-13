@@ -26,6 +26,7 @@ from app.db.session import get_db_session
 router = APIRouter(prefix="/customer/auth", tags=["customer-auth"])
 logger = logging.getLogger(__name__)
 CUSTOMER_EXPERIENCE_ROLES = frozenset({"customer", "owner"})
+CUSTOMER_LOGIN_ROLES = frozenset({"customer"})
 
 
 def get_customer_auth_settings(request: Request) -> AuthSettings:
@@ -189,7 +190,7 @@ def login(payload: CustomerLoginRequest, response: Response, request: Request, _
     enforce_limit(service, LOGIN_IP, client_identifier(request), now)
     enforce_limit(service, LOGIN_ACCOUNT, payload.email, now)
     try:
-        issued = service.login(payload.email.strip().lower(), payload.password, now=now, user_agent=request.headers.get("user-agent"), allowed_roles=CUSTOMER_EXPERIENCE_ROLES, persistent=payload.keep_signed_in)
+        issued = service.login(payload.email.strip().lower(), payload.password, now=now, user_agent=request.headers.get("user-agent"), allowed_roles=CUSTOMER_LOGIN_ROLES, persistent=payload.keep_signed_in)
     except EmailVerificationRequired as error:
         auth_error(403, error.code, str(error))
     except (InvalidCredentialsError, MembershipInactive, AuthenticationError):

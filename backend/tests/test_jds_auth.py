@@ -1266,7 +1266,7 @@ async def test_customer_password_reset_reconciles_verified_orphaned_supabase_ide
 
 @pytest.mark.anyio
 @pytest.mark.postgresql
-async def test_active_owner_can_use_customer_experience_without_duplicate_identity_or_membership(
+async def test_active_owner_cannot_sign_in_through_customer_login(
     auth_client: AsyncClient,
     auth_engine: Engine,
     fake_provider: FakeIdentityProvider,
@@ -1292,17 +1292,13 @@ async def test_active_owner_can_use_customer_experience_without_duplicate_identi
         json={"email": fake_provider.identity.email, "password": "correct horse battery staple"},
     )
 
-    assert customer_login.status_code == 200
-    customer_payload = customer_login.json()
-    assert customer_payload["role"] == "owner"
-    assert customer_payload["organization_id"] == str(organization_id)
+    assert customer_login.status_code == 401
+    assert customer_login.json()["detail"]["code"] == "authentication_failed"
 
     customer_session = await auth_client.get("/api/v1/customer/auth/session")
-    assert customer_session.status_code == 200
-    assert customer_session.json()["role"] == "owner"
+    assert customer_session.status_code == 401
     customer_orders = await auth_client.get("/api/v1/customer/orders")
-    assert customer_orders.status_code == 200
-    assert customer_orders.json() == []
+    assert customer_orders.status_code == 401
 
     ordering_payload = {
         "idempotency_key": "owner-cannot-order",
@@ -1311,8 +1307,8 @@ async def test_active_owner_can_use_customer_experience_without_duplicate_identi
         "lines": [{"product_id": 1, "quantity": 1}],
     }
     owner_order = await auth_client.post("/api/v1/orders", json=ordering_payload)
-    assert owner_order.status_code == 403
-    assert owner_order.json()["detail"]["code"] == "customer_required"
+    assert owner_order.status_code == 401
+    assert owner_order.json()["detail"]["code"] == "unauthenticated"
 
     owner_login_response = await auth_client.post(
         "/api/v1/owner/auth/login",
@@ -1321,6 +1317,50 @@ async def test_active_owner_can_use_customer_experience_without_duplicate_identi
     )
     assert owner_login_response.status_code == 200
     assert owner_login_response.json()["role"] == "owner"
+
+    customer_identity = ProviderIdentity(
+        issuer=fake_provider.identity.issuer,
+        subject="provider-customer-with-owner-session",
+        email="customer-with-owner-session@example.com",
+        email_verified=True,
+    )
+    with Session(auth_engine) as session, session.begin():
+        customer_role = session.scalar(select(Role).where(Role.application_id == application_id, Role.key == "customer"))
+        assert customer_role is not None
+        customer_user = JdsUser(
+            primary_email=customer_identity.email,
+            display_name="Customer With Owner Session",
+            email_verified_at=datetime.now(timezone.utc),
+        )
+        session.add(customer_user)
+        session.flush()
+        session.add_all([
+            ExternalIdentity(
+                user_id=customer_user.id,
+                issuer=customer_identity.issuer,
+                subject=customer_identity.subject,
+                provider="supabase",
+                provider_email=customer_identity.email,
+            ),
+            Membership(
+                organization_id=organization_id,
+                application_id=application_id,
+                user_id=customer_user.id,
+                role_id=customer_role.id,
+                status="active",
+                joined_at=datetime.now(timezone.utc),
+            ),
+        ])
+    fake_provider.identity = customer_identity
+    customer_login = await auth_client.post(
+        "/api/v1/customer/auth/login",
+        headers={"Origin": "http://test"},
+        json={"email": customer_identity.email, "password": "correct horse battery staple"},
+    )
+    assert customer_login.status_code == 200
+    assert customer_login.json()["role"] == "customer"
+    assert (await auth_client.get("/api/v1/customer/auth/session")).json()["role"] == "customer"
+    assert (await auth_client.get("/api/v1/owner/auth/session")).json()["role"] == "owner"
 
     with Session(auth_engine) as session:
         identities_after = list(session.scalars(select(ExternalIdentity).where(ExternalIdentity.user_id == user_id)))
