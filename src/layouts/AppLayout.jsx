@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Home, Search, ShoppingBag, UserRound } from "lucide-react";
 import { useCustomerAuth } from "../auth/CustomerAuthContext.jsx";
 
@@ -8,8 +8,18 @@ const customerLinks = [
   { to: "/cart", label: "Cart", icon: ShoppingBag },
 ];
 
+const operationalPathPrefixes = ["/admin", "/owner", "/staff", "/kitchen"];
+
+export function isCustomerFacingPath(pathname) {
+  return !operationalPathPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
 export default function AppLayout() {
   const { session } = useCustomerAuth();
+  const { pathname } = useLocation();
+  const showCustomerFooter = isCustomerFacingPath(pathname);
   const primaryLinks = [
     ...customerLinks,
     {
@@ -40,6 +50,15 @@ export default function AppLayout() {
       <main>
         <Outlet />
       </main>
+
+      {showCustomerFooter ? (
+        <footer className="customer-footer">
+          Jacquot Digital Solutions · Walkerton, Ont. ·{" "}
+          <a href="https://jdsstudio.ca" rel="noopener noreferrer" target="_blank">
+            jdsstudio.ca
+          </a>
+        </footer>
+      ) : null}
 
       <nav className="bottom-nav" aria-label="Mobile ordering navigation">
         {primaryLinks.map((link) => {

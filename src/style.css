@@ -7518,6 +7518,49 @@ body {
 .modifier-advanced fieldset label { align-items: center; display: flex; gap: .4rem; }
 
 /* Ladel's customer hero and navigation branding */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-shell > main {
+  flex: 1 0 auto;
+}
+
+.customer-footer {
+  color: var(--gh-muted, var(--muted));
+  flex: 0 0 auto;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  margin: 0 auto;
+  padding: 8px 14px 24px;
+  text-align: center;
+  width: min(100%, 1120px);
+}
+
+.customer-footer a {
+  color: var(--gh-olive, var(--sage-ink));
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 0.16em;
+}
+
+.customer-footer a:hover {
+  color: var(--gh-charcoal-soft, var(--ink));
+}
+
+.customer-footer a:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid var(--gh-olive, var(--sage-ink));
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .customer-footer {
+    padding-bottom: 18px;
+  }
+}
+
 .customer-nav-container {
   display: flex;
   justify-content: flex-end;
