@@ -19,22 +19,22 @@ test("manifest uses distinct normal and maskable source assets", async () => {
   assert.deepEqual(
     manifest.icons.map(({ src, sizes, type, purpose }) => ({ src, sizes, type, purpose })),
     [
-      { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-      { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icon-192.png?v=exact-fit-1", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/icon-512.png?v=exact-fit-1", sizes: "512x512", type: "image/png", purpose: "any" },
+      { src: "/icon-maskable-192.png?v=exact-fit-1", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icon-maskable-512.png?v=exact-fit-1", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   );
   assert.equal(new Set(manifest.icons.map(({ src }) => src)).size, manifest.icons.length);
   for (const { src } of manifest.icons) {
     assert.equal(src.startsWith("/dist/"), false);
-    await access(new URL(`public${src}`, root));
+    await access(new URL(`public${new URL(src, "https://example.test").pathname}`, root));
   }
 });
 
 test("browser and Apple metadata use the new source-controlled branding", async () => {
   assert.match(index, /<link rel="icon" type="image\/svg\+xml" href="\/favicon\.svg" \/>/);
-  assert.match(index, /<link rel="apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png" \/>/);
+  assert.match(index, /<link rel="apple-touch-icon" sizes="180x180" href="\/apple-touch-icon\.png\?v=exact-fit-1" \/>/);
   assert.match(index, /<meta name="theme-color" content="#4c3426" \/>/);
   assert.match(index, /<title>Ladel's Wellness Café<\/title>/);
   assert.doesNotMatch(index, /The Guest House|Café &amp; Pantry/);
