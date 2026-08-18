@@ -352,7 +352,7 @@ async def test_clover_management_routes_require_owner_integration_permission(
     assert connection.status_code == 200
     assert connection.json()["connected"] is True
     assert connection.json()["environment"] == "sandbox"
-    assert connection.json()["merchant_id"] == "merchant-id"
+    assert connection.json()["merchant_id"] == "merc...t-id"
 
     monkeypatch.delenv("CLOVER_ECOMMERCE_PRIVATE_TOKEN")
     disconnected = await auth_client.get("/api/v1/clover/connection")
@@ -361,7 +361,25 @@ async def test_clover_management_routes_require_owner_integration_permission(
         "configured": True,
         "connected": False,
         "environment": "sandbox",
-        "merchant_id": "merchant-id",
+        "merchant_id": "merc...t-id",
+        "health": "disconnected",
+        "credential_source": "oauth",
+        "access_token_expires_at": None,
+        "refresh_token_expires_at": None,
+        "configuration": {
+            "environment": "sandbox",
+            "app_id_masked": "******",
+            "merchant_id_masked": "merc...t-id",
+            "credential_source": "oauth",
+            "oauth_configured": True,
+            "webhook_configured": True,
+            "page_configuration": "default",
+            "page_config_uuid_masked": None,
+            "platform_api_host": "https://apisandbox.dev.clover.com",
+            "hosted_checkout_host": "https://apisandbox.dev.clover.com",
+            "ecommerce_service_host": "https://scl-sandbox.dev.clover.com",
+            "tokenization_host": "https://token-sandbox.dev.clover.com",
+        },
     }
 
 

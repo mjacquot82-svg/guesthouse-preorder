@@ -12,7 +12,10 @@ from app.api.v1.clover import (
     _hosted_checkout_session_id,
     _masked_identifier,
     _parse_clover_checkout_expiration,
+    _installation_health,
+    _verify_payment_evidence,
 )
+from app.clover.models import CloverInstallation
 from app.clover.client import CloverApiError, CloverClient
 from app.clover.config import CloverConfigurationError, CloverSettings
 from app.clover.security import (
@@ -52,6 +55,32 @@ def test_clover_settings_expose_registered_callback_and_environment_hosts() -> N
     assert config.launch_url == "https://api.example.com/api/v1/clover/oauth/start"
     assert config.authorize_base_url == "https://sandbox.dev.clover.com"
     assert config.api_base_url == "https://apisandbox.dev.clover.com"
+    assert config.platform_api_base_url == "https://apisandbox.dev.clover.com"
+    assert config.hosted_checkout_base_url == "https://apisandbox.dev.clover.com"
+    assert config.ecommerce_service_base_url == "https://scl-sandbox.dev.clover.com"
+    assert config.tokenization_base_url == "https://token-sandbox.dev.clover.com"
+
+    production = settings(environment="production")
+    production.validate()
+    assert production.authorize_base_url == "https://www.clover.com"
+    assert production.platform_api_base_url == "https://api.clover.com"
+    assert production.hosted_checkout_base_url == "https://api.clover.com"
+    assert production.ecommerce_service_base_url == "https://scl.clover.com"
+    assert production.tokenization_base_url == "https://token.clover.com"
+
+
+def test_production_requires_oauth_while_sandbox_private_token_is_intentional() -> None:
+    sandbox = settings(ecommerce_private_token="sandbox-private-token")
+    sandbox.validate()
+    assert sandbox.credential_source == "sandbox_private_token"
+
+    with pytest.raises(CloverConfigurationError, match="requires OAuth"):
+        settings(
+            environment="production",
+            ecommerce_private_token="must-not-be-used",
+        ).validate()
+    with pytest.raises(CloverConfigurationError, match="sandbox or production"):
+        settings(environment="staging").validate()
 
 
 def test_clover_diagnostic_identifiers_are_safely_masked() -> None:
@@ -106,6 +135,62 @@ def test_token_cipher_round_trip() -> None:
 
     assert encrypted != "sensitive-token"
     assert cipher.decrypt(encrypted) == "sensitive-token"
+
+
+def test_connection_health_distinguishes_expiry_and_reconnect_states() -> None:
+    now = datetime(2026, 8, 18, tzinfo=timezone.utc)
+    installation = CloverInstallation(
+        merchant_id="merchant-id",
+        environment="sandbox",
+        app_id="app-id",
+        access_token_encrypted="encrypted-access",
+        refresh_token_encrypted="encrypted-refresh",
+        access_token_expires_at=datetime(2026, 8, 20, tzinfo=timezone.utc),
+        refresh_token_expires_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+        connection_state="connected",
+    )
+    assert _installation_health(None, now=now) == "disconnected"
+    assert _installation_health(installation, now=now) == "healthy"
+    installation.access_token_expires_at = datetime(2026, 8, 18, 12, tzinfo=timezone.utc)
+    assert _installation_health(installation, now=now) == "expiring"
+    installation.access_token_expires_at = datetime(2026, 8, 18, 0, 1, tzinfo=timezone.utc)
+    assert _installation_health(installation, now=now) == "refresh_required"
+    installation.connection_state = "reconnect_required"
+    assert _installation_health(installation, now=now) == "reconnect_required"
+
+
+def test_payment_evidence_requires_identity_approval_amount_currency_and_session() -> None:
+    order = _configured_coffee_order(variant="12oz", modifiers=[], price_cents=500)
+    order.clover_checkout_session_id = "checkout-session"
+    payment = {
+        "id": "payment-id",
+        "result": "SUCCESS",
+        "amount": order.total_cents,
+        "currency": "CAD",
+        "checkoutSessionId": "checkout-session",
+    }
+    assert _verify_payment_evidence(
+        payment,
+        payment_id="payment-id",
+        order=order,
+        require_session_identity=True,
+    ) == ("SUCCESS", order.total_cents, "CAD")
+
+    for field, value, message in (
+        ("id", "other-payment", "identity"),
+        ("result", "DECLINED", "not approved"),
+        ("amount", order.total_cents + 1, "amount"),
+        ("currency", "USD", "currency"),
+        ("checkoutSessionId", "other-session", "session identity"),
+    ):
+        invalid = {**payment, field: value}
+        with pytest.raises(ValueError, match=message):
+            _verify_payment_evidence(
+                invalid,
+                payment_id="payment-id",
+                order=order,
+                require_session_identity=True,
+            )
 
 
 def test_hosted_checkout_webhook_signature() -> None:
@@ -167,6 +252,9 @@ def test_oauth_authorization_and_token_exchange_contract() -> None:
     assert tokens.expires_at == datetime.fromtimestamp(
         2_000_000_000, tz=timezone.utc
     )
+    assert tokens.refresh_expires_at == datetime.fromtimestamp(
+        2_100_000_000, tz=timezone.utc
+    )
     assert requests[0].url.path == "/oauth/v2/token"
     assert requests[0].headers["content-type"] == "application/json"
 
@@ -199,6 +287,34 @@ def test_hosted_checkout_uses_server_side_bearer_token() -> None:
     assert captured is not None
     assert captured.headers["authorization"] == "Bearer private-token"
     assert captured.headers["x-clover-merchant-id"] == "merchant-id"
+    assert captured.url.host == "apisandbox.dev.clover.com"
+
+
+def test_payment_reconciliation_lookup_uses_platform_api() -> None:
+    captured: httpx.Request | None = None
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal captured
+        captured = request
+        return httpx.Response(
+            200,
+            json={"id": "payment-id", "result": "SUCCESS", "amount": 565},
+        )
+
+    client = CloverClient(
+        settings(environment="production"),
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    payment = client.get_payment(
+        access_token="oauth-token",
+        merchant_id="merchant-id",
+        payment_id="payment-id",
+    )
+
+    assert payment["amount"] == 565
+    assert captured is not None
+    assert captured.url.host == "api.clover.com"
+    assert captured.url.path == "/v3/merchants/merchant-id/payments/payment-id"
 
 
 def test_merchant_tax_rates_uses_oauth_bearer_token_and_returns_diagnostics() -> None:
@@ -452,6 +568,13 @@ def test_checkout_payload_matches_authoritative_total_with_tax() -> None:
     order.total_cents = 564
     with pytest.raises(ValueError, match="does not match"):
         _checkout_payload(order, settings())
+
+    order.total_cents = 565
+    order.currency = "USD"
+    with pytest.raises(ValueError, match="requires a CAD order"):
+        _checkout_payload(order, settings(environment="production"))
+    # Historical and intentional sandbox fixtures remain representable.
+    assert _checkout_payload(order, settings())["shoppingCart"]["lineItems"]
 
 
 def _modifier(group: str, option: str, quantity: int, sort_order: int) -> OrderItemModifier:

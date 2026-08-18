@@ -64,6 +64,21 @@ class CloverSettings:
             raise CloverConfigurationError(
                 "CLOVER_ENVIRONMENT must be sandbox or production."
             )
+        if self.environment == "production" and self.ecommerce_private_token:
+            raise CloverConfigurationError(
+                "Production Clover configuration requires OAuth; "
+                "CLOVER_ECOMMERCE_PRIVATE_TOKEN must be unset."
+            )
+        if self.page_config_uuid is not None:
+            if (
+                not self.page_config_uuid.strip()
+                or self.page_config_uuid != self.page_config_uuid.strip()
+                or any(character.isspace() for character in self.page_config_uuid)
+            ):
+                raise CloverConfigurationError(
+                    "CLOVER_PAGE_CONFIG_UUID must be a non-blank identifier "
+                    "without whitespace."
+                )
         if len(self.state_secret) < 32 or len(self.webhook_secret) < 32:
             raise CloverConfigurationError(
                 "CLOVER_STATE_SECRET and CLOVER_WEBHOOK_SECRET must be at least "
@@ -107,9 +122,34 @@ class CloverSettings:
 
     @property
     def api_base_url(self) -> str:
+        return self.platform_api_base_url
+
+    @property
+    def platform_api_base_url(self) -> str:
         if self.environment == "sandbox":
             return "https://apisandbox.dev.clover.com"
         return "https://api.clover.com"
+
+    @property
+    def ecommerce_service_base_url(self) -> str:
+        if self.environment == "sandbox":
+            return "https://scl-sandbox.dev.clover.com"
+        return "https://scl.clover.com"
+
+    @property
+    def tokenization_base_url(self) -> str:
+        if self.environment == "sandbox":
+            return "https://token-sandbox.dev.clover.com"
+        return "https://token.clover.com"
+
+    @property
+    def hosted_checkout_base_url(self) -> str:
+        """Hosted Checkout is documented on Clover's Platform API host."""
+        return self.platform_api_base_url
+
+    @property
+    def credential_source(self) -> str:
+        return "sandbox_private_token" if self.ecommerce_private_token else "oauth"
 
     @property
     def callback_url(self) -> str:

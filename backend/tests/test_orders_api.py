@@ -18,11 +18,14 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.availability.models import ProductAvailabilityOverride
-from app.api.v1.clover import create_hosted_checkout, get_settings
+from app.api.v1.clover import _active_credential, create_hosted_checkout, get_settings
 from app.api.v1.customer_auth import current_ordering_customer
 from app.api.v1.orders import get_current_time
-from app.clover.client import CloverApiError, CloverClient
+from app.clover.client import CloverApiError, CloverClient, CloverTokenPair
 from app.clover.config import CloverSettings
+from app.clover.models import CloverPaymentEvent
+from app.clover.models import CloverInstallation
+from app.clover.security import TokenCipher
 from app.main import create_app
 from app.jds_auth.service import AuthPrincipal
 from app.jds_auth.models import JdsUser
@@ -40,7 +43,8 @@ def orders_api(
     with engine.begin() as connection:
         connection.execute(
             text(
-                "TRUNCATE order_item_modifiers, order_items, orders, "
+                "TRUNCATE clover_payment_events, clover_installations, "
+                "order_item_modifiers, order_items, orders, "
                 "product_availability_overrides, product_availability, "
                 "business_closures, business_hours, business_settings, "
                 "product_modifier_groups, modifier_options, "
@@ -508,6 +512,20 @@ def test_clover_checkout_is_idempotent_and_webhook_state_is_monotonic(
     assert client.get(
         f"/api/v1/orders/{created['public_token']}"
     ).json()["status"] == "paid"
+    with Session(engine) as session:
+        paid_version = session.scalar(select(Order.version).where(
+            Order.public_access_token == created["public_token"]
+        ))
+    duplicate = client.post(
+        "/api/v1/clover/webhooks/hosted-checkout",
+        content=approved_payload,
+        headers={"Clover-Signature": f"t={timestamp},v1={signature}"},
+    )
+    assert duplicate.status_code == 204
+    with Session(engine) as session:
+        assert session.scalar(select(Order.version).where(
+            Order.public_access_token == created["public_token"]
+        )) == paid_version
 
     declined_payload = approved_payload.replace(b"APPROVED", b"DECLINED")
     declined_signature = hmac.new(
@@ -525,7 +543,180 @@ def test_clover_checkout_is_idempotent_and_webhook_state_is_monotonic(
         f"/api/v1/orders/{created['public_token']}"
     ).json()["status"] == "paid"
     assert client.post(path).status_code == 409
+    with Session(engine) as session:
+        events = list(session.scalars(select(CloverPaymentEvent)).all())
+        assert len(events) == 2
+        assert events[0].outcome == "paid_transition_applied"
+        assert events[0].environment == "sandbox"
     client.app.dependency_overrides.pop(get_settings, None)
+
+
+@pytest.mark.postgresql
+def test_production_webhook_requires_verified_cad_payment_evidence(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine, ids = orders_api
+    key = Fernet.generate_key().decode()
+    sandbox_settings = CloverSettings(
+        app_id="sandbox-app", app_secret="sandbox-secret",
+        token_encryption_key=key, state_secret="s" * 48,
+        webhook_secret="w" * 48, public_app_url="https://api.example.test",
+        frontend_url="https://shop.example.test", merchant_id="merchant-id",
+        environment="sandbox", ecommerce_private_token="sandbox-private-token",
+    )
+    client.app.dependency_overrides[get_settings] = lambda: sandbox_settings
+    created = client.post("/api/v1/orders", json=order_payload(ids)).json()
+    with Session(engine) as session:
+        order = session.scalar(select(Order).where(Order.public_access_token == created["public_token"]))
+        order.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+        session.commit()
+
+    monkeypatch.setattr(
+        CloverClient,
+        "create_checkout",
+        lambda *_args, **_kwargs: {
+            "href": "https://checkout.example.test/production-evidence",
+            "checkoutSessionId": "production-checkout-session",
+            "expirationTime": int((time.time() + 900) * 1000),
+        },
+    )
+    assert client.post(
+        f"/api/v1/clover/orders/{created['public_token']}/checkout"
+    ).status_code == 200
+
+    production_settings = CloverSettings(
+        app_id="production-app", app_secret="production-secret",
+        token_encryption_key=key, state_secret="p" * 48,
+        webhook_secret="q" * 48, public_app_url="https://api.example.test",
+        frontend_url="https://shop.example.test", merchant_id="merchant-id",
+        environment="production",
+    )
+    cipher = TokenCipher(key)
+    with Session(engine) as session:
+        session.add(CloverInstallation(
+            merchant_id="merchant-id", environment="production",
+            app_id="production-app",
+            access_token_encrypted=cipher.encrypt("production-access"),
+            refresh_token_encrypted=cipher.encrypt("production-refresh"),
+            access_token_expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
+            refresh_token_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            connection_state="connected",
+        ))
+        session.commit()
+    client.app.dependency_overrides[get_settings] = lambda: production_settings
+
+    payment = {
+        "id": "production-payment-id",
+        "result": "SUCCESS",
+        "amount": created["total_cents"],
+        "currency": "CAD",
+    }
+    monkeypatch.setattr(CloverClient, "get_payment", lambda *_args, **_kwargs: payment)
+    payload = json.dumps({
+        "type": "PAYMENT", "status": "APPROVED", "merchantId": "merchant-id",
+        "data": "production-checkout-session", "id": "production-payment-id",
+    }, separators=(",", ":")).encode()
+    timestamp = int(time.time())
+    signature = hmac.new(
+        production_settings.webhook_secret.encode(),
+        str(timestamp).encode() + b"." + payload,
+        hashlib.sha256,
+    ).hexdigest()
+    assert client.post(
+        "/api/v1/clover/webhooks/hosted-checkout", content=payload,
+        headers={"Clover-Signature": f"t={timestamp},v1={signature}"},
+    ).status_code == 204
+    assert client.get(f"/api/v1/orders/{created['public_token']}").json()["status"] == "paid"
+
+    with Session(engine) as session:
+        event = session.scalar(select(CloverPaymentEvent).where(
+            CloverPaymentEvent.payment_id == "production-payment-id"
+        ))
+        assert event is not None
+        assert event.verified_amount_cents == created["total_cents"]
+        assert event.verified_currency == "CAD"
+        assert event.outcome == "paid_transition_applied"
+    client.app.dependency_overrides.pop(get_settings, None)
+
+
+@pytest.mark.postgresql
+def test_oauth_refresh_rotation_is_serialized_and_environment_scoped(
+    orders_api: tuple[TestClient, Engine, dict[str, int]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, engine, _ = orders_api
+    key = Fernet.generate_key().decode()
+    config = CloverSettings(
+        app_id="sandbox-oauth-app", app_secret="sandbox-secret",
+        token_encryption_key=key, state_secret="s" * 48,
+        webhook_secret="w" * 48, public_app_url="https://api.example.test",
+        frontend_url="https://shop.example.test", merchant_id="merchant-id",
+        environment="sandbox",
+    )
+    cipher = TokenCipher(key)
+    now = datetime.now(timezone.utc)
+    with Session(engine) as session:
+        session.add_all([
+            CloverInstallation(
+                merchant_id="merchant-id", environment="sandbox",
+                app_id="sandbox-oauth-app",
+                access_token_encrypted=cipher.encrypt("expired-access"),
+                refresh_token_encrypted=cipher.encrypt("sandbox-refresh"),
+                access_token_expires_at=now - timedelta(minutes=1),
+                refresh_token_expires_at=now + timedelta(days=30),
+                connection_state="connected",
+            ),
+            CloverInstallation(
+                merchant_id="merchant-id", environment="production",
+                app_id="production-app",
+                access_token_encrypted=cipher.encrypt("production-access"),
+                refresh_token_encrypted=cipher.encrypt("production-refresh"),
+                access_token_expires_at=now + timedelta(hours=2),
+                refresh_token_expires_at=now + timedelta(days=30),
+                connection_state="connected",
+            ),
+        ])
+        session.commit()
+
+    calls = 0
+    calls_lock = Lock()
+
+    def refresh(*_: object, **__: object) -> CloverTokenPair:
+        nonlocal calls
+        with calls_lock:
+            calls += 1
+        time.sleep(0.1)
+        return CloverTokenPair(
+            access_token="rotated-access",
+            refresh_token="rotated-refresh",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            refresh_expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        )
+
+    monkeypatch.setattr(CloverClient, "refresh_access_token", refresh)
+
+    def active() -> tuple[str, str]:
+        with Session(engine) as session:
+            return _active_credential(session, config)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(lambda _: active(), range(2)))
+
+    assert results == [
+        ("merchant-id", "rotated-access"),
+        ("merchant-id", "rotated-access"),
+    ]
+    assert calls == 1
+    with Session(engine) as session:
+        sandbox = session.scalar(select(CloverInstallation).where(
+            CloverInstallation.environment == "sandbox"
+        ))
+        production = session.scalar(select(CloverInstallation).where(
+            CloverInstallation.environment == "production"
+        ))
+        assert cipher.decrypt(sandbox.refresh_token_encrypted) == "rotated-refresh"
+        assert cipher.decrypt(production.access_token_encrypted) == "production-access"
 
 
 @pytest.mark.postgresql

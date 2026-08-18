@@ -117,7 +117,9 @@ test("dashboard uses real order metrics with honest loading and error states", a
   assert.match(dashboard, /Clover configuration is incomplete\./);
   assert.match(dashboard, /Connection to the server failed\./);
   assert.match(dashboard, /Unable to determine Clover status\./);
-  assert.match(dashboard, /clover\.status === "ready" && !clover\.connected/);
+  assert.match(dashboard, /!clover\.connected \|\| clover\.health === "reconnect_required"/);
+  assert.match(dashboard, /Credential:.*Sandbox private token/);
+  assert.match(dashboard, /Owner authorization is required again/);
   assert.doesNotMatch(dashboard, /Merchant:|clover\.merchant_id/);
   assert.match(dashboard, /\s+Retry\s+<\/button>/);
 });

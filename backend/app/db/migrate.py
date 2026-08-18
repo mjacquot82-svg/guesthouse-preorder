@@ -16,6 +16,7 @@ from app.orders import models as order_models  # noqa: F401
 from app.jds_auth import models as auth_models  # noqa: F401
 from app.customers import models as customer_models  # noqa: F401
 from app.push import models as push_models  # noqa: F401
+from app.clover import models as clover_models  # noqa: F401
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 CATALOG_BASELINE_REVISION = "20260727_01"
@@ -52,6 +53,7 @@ ORDER_TABLE_NAMES = frozenset(
 CLOVER_TABLE_NAMES = frozenset(
     {
         "clover_installations",
+        "clover_payment_events",
     }
 )
 LEGACY_CATALOG_AND_ORDER_TABLE_NAMES = CATALOG_TABLE_NAMES | ORDER_TABLE_NAMES

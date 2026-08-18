@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 from collections import OrderedDict
@@ -14,7 +15,7 @@ from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 
 from app.clover.client import CloverApiError, CloverClient, CloverTokenPair
 from app.clover.config import CloverConfigurationError, CloverSettings
-from app.clover.models import CloverInstallation
+from app.clover.models import CloverInstallation, CloverPaymentEvent
 from app.clover.security import (
     InvalidOAuthState,
     InvalidWebhookSignature,
@@ -23,7 +24,7 @@ from app.clover.security import (
     verify_oauth_state,
     verify_webhook_signature,
 )
-from app.api.v1.owner_auth import require_read_permission
+from app.api.v1.owner_auth import require_permission, require_read_permission
 from app.api.v1.customer_auth import current_ordering_customer
 from app.db.session import get_db_session
 from app.orders.constants import OrderStatus
@@ -83,12 +84,114 @@ class CloverConnectionResponse(BaseModel):
     connected: bool
     environment: str | None = None
     merchant_id: str | None = None
+    health: str = "disconnected"
+    credential_source: str | None = None
+    access_token_expires_at: datetime | None = None
+    refresh_token_expires_at: datetime | None = None
+    configuration: dict[str, object] | None = None
 
 
 class CloverCheckoutResponse(BaseModel):
     checkout_url: str
     checkout_session_id: str
     expires_at: datetime | None = None
+
+
+class CloverReconciliationRequest(BaseModel):
+    payment_id: str
+
+
+def _payment_id(payload: dict) -> str | None:
+    value = payload.get("id") or payload.get("Id") or payload.get("paymentId")
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _payment_facts(payment: dict) -> tuple[str | None, int | None, str | None, str | None]:
+    status_value = payment.get("result") or payment.get("status")
+    amount_value = payment.get("amount")
+    currency_value = payment.get("currency") or payment.get("currencyCode")
+    transaction_info = payment.get("transactionInfo")
+    if currency_value is None and isinstance(transaction_info, dict):
+        currency_value = transaction_info.get("currency")
+    session_value = (
+        payment.get("checkoutSessionId")
+        or payment.get("checkout_session_id")
+        or payment.get("externalReferenceId")
+    )
+    return (
+        str(status_value).upper() if status_value is not None else None,
+        amount_value if isinstance(amount_value, int) and not isinstance(amount_value, bool) else None,
+        str(currency_value).upper() if currency_value is not None else None,
+        session_value if isinstance(session_value, str) else None,
+    )
+
+
+def _verify_payment_evidence(
+    payment: dict,
+    *,
+    payment_id: str,
+    order: Order,
+    require_session_identity: bool,
+) -> tuple[str, int, str | None]:
+    returned_id = payment.get("id")
+    payment_status, amount_cents, currency, session_id = _payment_facts(payment)
+    if returned_id != payment_id:
+        raise ValueError("Clover payment identity does not match.")
+    if payment_status not in {"APPROVED", "SUCCESS"}:
+        raise ValueError("Clover payment is not approved.")
+    if amount_cents != order.total_cents:
+        raise ValueError("Clover payment amount does not match the order.")
+    if currency is not None and currency != order.currency:
+        raise ValueError("Clover payment currency does not match the order.")
+    if order.currency != "CAD":
+        raise ValueError("Clover production reconciliation requires CAD.")
+    if require_session_identity and session_id != order.clover_checkout_session_id:
+        raise ValueError("Clover payment does not prove the checkout session identity.")
+    return payment_status, amount_cents, currency
+
+
+def _record_payment_event(
+    session: Session,
+    *,
+    settings: CloverSettings,
+    payment_id: str,
+    checkout_session_id: str,
+    order: Order | None,
+    source: str,
+    payload_hash: str | None,
+    reported_status: str | None,
+    verified_status: str | None,
+    verified_amount_cents: int | None,
+    verified_currency: str | None,
+    outcome: str,
+    detail: str | None = None,
+) -> CloverPaymentEvent:
+    existing = session.scalar(
+        select(CloverPaymentEvent).where(
+            CloverPaymentEvent.environment == settings.environment,
+            CloverPaymentEvent.merchant_id == settings.merchant_id,
+            CloverPaymentEvent.payment_id == payment_id,
+        )
+    )
+    if existing is not None:
+        return existing
+    event = CloverPaymentEvent(
+        environment=settings.environment,
+        merchant_id=settings.merchant_id,
+        payment_id=payment_id,
+        checkout_session_id=checkout_session_id,
+        order_id=order.id if order is not None else None,
+        source=source,
+        webhook_payload_sha256=payload_hash,
+        reported_status=reported_status,
+        verified_status=verified_status,
+        verified_amount_cents=verified_amount_cents,
+        verified_currency=verified_currency,
+        outcome=outcome,
+        detail=detail,
+    )
+    session.add(event)
+    return event
 
 
 def get_settings() -> CloverSettings:
@@ -101,6 +204,45 @@ def get_settings() -> CloverSettings:
             detail={"code": "clover_not_configured", "message": str(error)},
         ) from error
     return settings
+
+
+def _configuration_diagnostic(settings: CloverSettings) -> dict[str, object]:
+    return {
+        "environment": settings.environment,
+        "app_id_masked": _masked_identifier(settings.app_id),
+        "merchant_id_masked": _masked_identifier(settings.merchant_id),
+        "credential_source": settings.credential_source,
+        "oauth_configured": bool(settings.app_id and settings.app_secret),
+        "webhook_configured": bool(settings.webhook_secret),
+        "page_configuration": "configured" if settings.page_config_uuid else "default",
+        "page_config_uuid_masked": _masked_identifier(settings.page_config_uuid),
+        "platform_api_host": settings.platform_api_base_url,
+        "hosted_checkout_host": settings.hosted_checkout_base_url,
+        "ecommerce_service_host": settings.ecommerce_service_base_url,
+        "tokenization_host": settings.tokenization_base_url,
+    }
+
+
+def _installation_health(
+    installation: CloverInstallation | None,
+    *,
+    now: datetime | None = None,
+) -> str:
+    if installation is None:
+        return "disconnected"
+    current_time = now or datetime.now(timezone.utc)
+    if installation.connection_state == "reconnect_required":
+        return "reconnect_required"
+    if (
+        installation.refresh_token_expires_at is not None
+        and installation.refresh_token_expires_at <= current_time
+    ):
+        return "reconnect_required"
+    if installation.access_token_expires_at <= current_time + timedelta(minutes=2):
+        return "refresh_required"
+    if installation.access_token_expires_at <= current_time + timedelta(hours=24):
+        return "expiring"
+    return "healthy"
 
 
 @router.get("", include_in_schema=False)
@@ -180,6 +322,9 @@ def oauth_callback(
             "access_token_encrypted": cipher.encrypt(pair.access_token),
             "refresh_token_encrypted": cipher.encrypt(pair.refresh_token),
             "access_token_expires_at": pair.expires_at,
+            "refresh_token_expires_at": pair.refresh_expires_at,
+            "connection_state": "connected",
+            "reconnect_reason": None,
         }
         statement = postgresql_insert(CloverInstallation).values(**values)
         session.execute(
@@ -189,6 +334,9 @@ def oauth_callback(
                     "access_token_encrypted": values["access_token_encrypted"],
                     "refresh_token_encrypted": values["refresh_token_encrypted"],
                     "access_token_expires_at": values["access_token_expires_at"],
+                    "refresh_token_expires_at": values["refresh_token_expires_at"],
+                    "connection_state": values["connection_state"],
+                    "reconnect_reason": values["reconnect_reason"],
                     "updated_at": datetime.now(timezone.utc),
                 },
             )
@@ -223,7 +371,10 @@ def connection_status(
             configured=True,
             connected=True,
             environment=settings.environment,
-            merchant_id=settings.merchant_id,
+            merchant_id=_masked_identifier(settings.merchant_id),
+            health="healthy",
+            credential_source=settings.credential_source,
+            configuration=_configuration_diagnostic(settings),
         )
     try:
         installation = session.scalar(
@@ -242,7 +393,16 @@ def connection_status(
         configured=True,
         connected=installation is not None,
         environment=settings.environment,
-        merchant_id=settings.merchant_id,
+        merchant_id=_masked_identifier(settings.merchant_id),
+        health=_installation_health(installation),
+        credential_source=settings.credential_source,
+        access_token_expires_at=(
+            installation.access_token_expires_at if installation else None
+        ),
+        refresh_token_expires_at=(
+            installation.refresh_token_expires_at if installation else None
+        ),
+        configuration=_configuration_diagnostic(settings),
     )
 
 
@@ -269,6 +429,13 @@ def _active_credential(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "clover_not_connected", "message": "Connect Clover before checkout."},
+        )
+
+    health = _installation_health(installation)
+    if health == "reconnect_required":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "clover_reconnect_required", "message": "Reconnect Clover."},
         )
 
     cipher = TokenCipher(settings.token_encryption_key)
@@ -302,15 +469,48 @@ def _active_credential(
         )
     if installation.access_token_expires_at <= refresh_cutoff:
         try:
-            pair: CloverTokenPair = CloverClient(settings).refresh_access_token(
-                cipher.decrypt(installation.refresh_token_encrypted)
+            current_refresh_token = cipher.decrypt(
+                installation.refresh_token_encrypted
             )
+            pair: CloverTokenPair = CloverClient(settings).refresh_access_token(
+                current_refresh_token
+            )
+        except (CloverApiError, ValueError) as error:
+            session.rollback()
+            if isinstance(error, ValueError) or (
+                isinstance(error, CloverApiError)
+                and error.upstream_status in {400, 401, 403}
+            ):
+                installation = session.scalar(installation_query.with_for_update())
+                if installation is not None:
+                    installation.connection_state = "reconnect_required"
+                    installation.reconnect_reason = "refresh_rejected"
+                    session.commit()
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail={"code": "clover_refresh_failed", "message": "Reconnect Clover."},
+            ) from error
+        try:
             installation.access_token_encrypted = cipher.encrypt(pair.access_token)
             installation.refresh_token_encrypted = cipher.encrypt(pair.refresh_token)
             installation.access_token_expires_at = pair.expires_at
+            installation.refresh_token_expires_at = pair.refresh_expires_at
+            installation.connection_state = "connected"
+            installation.reconnect_reason = None
             session.commit()
-        except (CloverApiError, SQLAlchemyError, ValueError) as error:
+        except (SQLAlchemyError, ValueError) as error:
             session.rollback()
+            # Clover refresh tokens are single-use. If persistence fails after
+            # Clover issued a new pair, the stored token may no longer be usable.
+            # Do not guess at recovery-token semantics: require authorization again.
+            try:
+                installation = session.scalar(installation_query.with_for_update())
+                if installation is not None:
+                    installation.connection_state = "reconnect_required"
+                    installation.reconnect_reason = "refresh_rotation_not_persisted"
+                    session.commit()
+            except SQLAlchemyError:
+                session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail={"code": "clover_refresh_failed", "message": "Reconnect Clover."},
@@ -328,6 +528,8 @@ def _active_credential(
 
 
 def _checkout_payload(order: Order, settings: CloverSettings) -> dict:
+    if settings.environment == "production" and order.currency != "CAD":
+        raise ValueError("Production Clover checkout requires a CAD order.")
     name_parts = order.guest_name.split(maxsplit=1)
     customer = {
         "firstName": name_parts[0],
@@ -375,7 +577,7 @@ def _checkout_payload(order: Order, settings: CloverSettings) -> dict:
         }
         line_items.append(line_item)
     subtotal_cents = sum(
-        line_item["price"] * line_item["unitQty"] for line_item in line_items
+        item.unit_price_cents * item.quantity for item in order.items
     )
     calculated_tax_cents = calculate_tax_cents(
         subtotal_cents, order.tax_rate_millionths
@@ -408,6 +610,11 @@ def debug_clover_tax_rates(
     _: object = Depends(require_read_permission("integrations.manage")),
 ) -> dict:
     """Temporary authenticated diagnostic for Clover merchant tax rates."""
+    if settings.environment != "sandbox":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "diagnostic_not_available"},
+        )
     response.headers["Cache-Control"] = "no-store"
     current_time = datetime.now(timezone.utc)
     credential_source = (
@@ -570,7 +777,11 @@ def create_hosted_checkout(
             status_code=status.HTTP_410_GONE,
             detail={"code": "order_expired", "message": "Order has expired."},
         )
-    if order.clover_checkout_url and order.clover_checkout_expires_at:
+    if (
+        order.clover_checkout_url
+        and order.clover_checkout_session_id
+        and order.clover_checkout_expires_at
+    ):
         if order.clover_checkout_expires_at > now:
             return CloverCheckoutResponse(
                 checkout_url=order.clover_checkout_url,
@@ -701,6 +912,8 @@ async def hosted_checkout_webhook(
         ) from error
 
     checkout_session_id = _hosted_checkout_session_id(payload)
+    payload_hash = hashlib.sha256(raw_body).hexdigest()
+    payment_id = _payment_id(payload)
     event_type = str(payload.get("type") or payload.get("Type") or "").upper()
     payment_status = str(
         payload.get("status") or payload.get("Status") or ""
@@ -716,7 +929,10 @@ async def hosted_checkout_webhook(
         "merchant_id_masked": _masked_identifier(
             merchant_id if isinstance(merchant_id, str) else None
         ),
-        "checkout_session_id": checkout_session_id,
+        "checkout_session_id_masked": _masked_identifier(
+            checkout_session_id if isinstance(checkout_session_id, str) else None
+        ),
+        "payment_id_masked": _masked_identifier(payment_id),
     }
     logger.warning(
         "Clover Hosted Checkout webhook received: %s",
@@ -763,6 +979,35 @@ async def hosted_checkout_webhook(
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    verified_payment: dict | None = None
+    if (
+        settings.environment == "production"
+        and payment_status == "APPROVED"
+    ):
+        if payment_id is None:
+            logger.error(
+                "Production Clover webhook omitted payment identity: %s",
+                json.dumps(webhook_diagnostic, sort_keys=True),
+            )
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+        try:
+            credential_merchant_id, access_token = _active_credential(session, settings)
+            verified_payment = CloverClient(settings).get_payment(
+                access_token=access_token,
+                merchant_id=credential_merchant_id,
+                payment_id=payment_id,
+            )
+        except (CloverApiError, HTTPException) as error:
+            session.rollback()
+            logger.error(
+                "Production Clover payment evidence lookup failed: %s",
+                json.dumps(webhook_diagnostic, sort_keys=True),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={"code": "clover_payment_verification_unavailable"},
+            ) from error
+
     try:
         order = session.scalar(
             select(Order)
@@ -795,14 +1040,79 @@ async def hosted_checkout_webhook(
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
+    verified_status = None
+    verified_amount_cents = None
+    verified_currency = None
+    if verified_payment is not None and payment_id is not None:
+        try:
+            (
+                verified_status,
+                verified_amount_cents,
+                verified_currency,
+            ) = _verify_payment_evidence(
+                verified_payment,
+                payment_id=payment_id,
+                order=order,
+                require_session_identity=False,
+            )
+        except ValueError as error:
+            _record_payment_event(
+                session,
+                settings=settings,
+                payment_id=payment_id,
+                checkout_session_id=checkout_session_id,
+                order=order,
+                source="hosted_checkout_webhook",
+                payload_hash=payload_hash,
+                reported_status=payment_status,
+                verified_status=None,
+                verified_amount_cents=None,
+                verified_currency=None,
+                outcome="rejected",
+                detail=str(error),
+            )
+            session.commit()
+            logger.error(
+                "Production Clover payment evidence rejected: %s",
+                json.dumps(webhook_diagnostic, sort_keys=True),
+            )
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    event_payment_id = payment_id or f"webhook:{payload_hash}"
+    event = _record_payment_event(
+        session,
+        settings=settings,
+        payment_id=event_payment_id,
+        checkout_session_id=checkout_session_id,
+        order=order,
+        source="hosted_checkout_webhook",
+        payload_hash=payload_hash,
+        reported_status=payment_status,
+        verified_status=verified_status,
+        verified_amount_cents=verified_amount_cents,
+        verified_currency=verified_currency,
+        outcome="received",
+    )
+    if (
+        event.order_id != order.id
+        or event.checkout_session_id != checkout_session_id
+    ):
+        logger.error(
+            "Clover payment identity was already bound to another checkout: %s",
+            json.dumps(webhook_diagnostic, sort_keys=True),
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     previous_status = order.status
     if payment_status == "APPROVED" and order.status != OrderStatus.PAID:
         order.status = OrderStatus.PAID
+        event.outcome = "paid_transition_applied"
     elif (
         payment_status in {"DECLINED", "FAILED"}
         and order.status != OrderStatus.PAID
     ):
         order.status = OrderStatus.PAYMENT_FAILED
+        event.outcome = "failed_transition_applied"
     else:
         if order.status == OrderStatus.PAID:
             reason = "paid_order_transition_is_monotonic"
@@ -824,6 +1134,10 @@ async def hosted_checkout_webhook(
                 sort_keys=True,
             ),
         )
+        if event.outcome == "received":
+            event.outcome = "duplicate_or_ignored"
+            event.detail = reason
+        session.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     order.version += 1
     try:
@@ -848,4 +1162,94 @@ async def hosted_checkout_webhook(
             sort_keys=True,
         ),
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/orders/{public_token}/reconcile", status_code=status.HTTP_204_NO_CONTENT)
+def reconcile_hosted_checkout_payment(
+    public_token: str,
+    request_body: CloverReconciliationRequest,
+    session: Session = Depends(get_db_session),
+    settings: CloverSettings = Depends(get_settings),
+    _: object = Depends(require_permission("integrations.manage")),
+) -> Response:
+    """Recover a missed webhook only when Clover proves every required identity."""
+    if settings.environment != "production":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "reconciliation_production_only"},
+        )
+    order = session.scalar(select(Order).where(Order.public_access_token == public_token))
+    if order is None:
+        raise HTTPException(status_code=404, detail={"code": "order_not_found"})
+    checkout_session_id = order.clover_checkout_session_id
+    if not checkout_session_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "clover_checkout_identity_missing"},
+        )
+    if order.status == OrderStatus.PAID:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    if not order.clover_checkout_session_id or order.clover_merchant_id != settings.merchant_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "clover_checkout_identity_missing"},
+        )
+    merchant_id, access_token = _active_credential(session, settings)
+    order = session.scalar(
+        select(Order).where(Order.public_access_token == public_token).with_for_update()
+    )
+    if order is None:
+        raise HTTPException(status_code=404, detail={"code": "order_not_found"})
+    try:
+        payment = CloverClient(settings).get_payment(
+            access_token=access_token,
+            merchant_id=merchant_id,
+            payment_id=request_body.payment_id,
+        )
+        verified_status, verified_amount, verified_currency = _verify_payment_evidence(
+            payment,
+            payment_id=request_body.payment_id,
+            order=order,
+            require_session_identity=True,
+        )
+    except CloverApiError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "clover_payment_verification_unavailable"},
+        ) from error
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "clover_payment_evidence_insufficient", "message": str(error)},
+        ) from error
+
+    event = _record_payment_event(
+        session,
+        settings=settings,
+        payment_id=request_body.payment_id,
+        checkout_session_id=checkout_session_id,
+        order=order,
+        source="owner_reconciliation",
+        payload_hash=None,
+        reported_status=None,
+        verified_status=verified_status,
+        verified_amount_cents=verified_amount,
+        verified_currency=verified_currency,
+        outcome="paid_transition_applied",
+    )
+    if (
+        event.order_id != order.id
+        or event.checkout_session_id != checkout_session_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "clover_payment_already_reconciled"},
+        )
+    if order.status != OrderStatus.PAID:
+        order.status = OrderStatus.PAID
+        order.version += 1
+    else:
+        event.outcome = "duplicate_or_ignored"
+    session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -2,6 +2,7 @@ import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any
 from urllib.parse import urlencode, urlparse
 
 import httpx
@@ -180,6 +181,7 @@ class CloverTokenPair:
     access_token: str
     refresh_token: str
     expires_at: datetime
+    refresh_expires_at: datetime
 
 
 class CloverClient:
@@ -192,7 +194,7 @@ class CloverClient:
         self.settings = settings
         self.http_client = http_client
 
-    def _post(self, url: str, **kwargs: object) -> httpx.Response:
+    def _post(self, url: str, **kwargs: Any) -> httpx.Response:
         try:
             if self.http_client is not None:
                 return self.http_client.post(url, **kwargs)
@@ -226,7 +228,7 @@ class CloverClient:
                 "Unable to reach Clover.", code="clover_unreachable"
             ) from error
 
-    def _get(self, url: str, **kwargs: object) -> httpx.Response:
+    def _get(self, url: str, **kwargs: Any) -> httpx.Response:
         try:
             if self.http_client is not None:
                 return self.http_client.get(url, **kwargs)
@@ -301,8 +303,13 @@ class CloverClient:
             expires_at = datetime.fromtimestamp(
                 int(data["access_token_expiration"]), tz=timezone.utc
             )
+            refresh_expires_at = datetime.fromtimestamp(
+                int(data["refresh_token_expiration"]), tz=timezone.utc
+            )
             if expires_at <= datetime.now(timezone.utc):
                 raise ValueError("access token is already expired")
+            if refresh_expires_at <= expires_at:
+                raise ValueError("refresh token must outlive the access token")
             access_token = data["access_token"]
             refresh_token = data["refresh_token"]
             if (
@@ -316,6 +323,7 @@ class CloverClient:
                 access_token=access_token,
                 refresh_token=refresh_token,
                 expires_at=expires_at,
+                refresh_expires_at=refresh_expires_at,
             )
         except (KeyError, TypeError, ValueError) as error:
             raise CloverApiError("Clover returned an invalid token response.") from error
@@ -329,7 +337,7 @@ class CloverClient:
     ) -> dict:
         response = self._post(
             (
-                f"{self.settings.api_base_url}"
+                f"{self.settings.hosted_checkout_base_url}"
                 "/invoicingcheckoutservice/v1/checkouts"
             ),
             headers={
@@ -360,6 +368,26 @@ class CloverClient:
                 upstream_response_headers=_diagnostic_headers(response),
             )
         return data
+
+    def get_payment(
+        self,
+        *,
+        access_token: str,
+        merchant_id: str,
+        payment_id: str,
+    ) -> dict:
+        response = self._get(
+            (
+                f"{self.settings.platform_api_base_url}/v3/merchants/"
+                f"{merchant_id}/payments/{payment_id}"
+            ),
+            headers={
+                "Accept": "application/json",
+                "Authorization": f"Bearer {access_token}",
+                "User-Agent": "guesthouse-preorder/0.1",
+            },
+        )
+        return self._response_json(response, "Clover payment lookup failed")
 
     def get_merchant_tax_rates(
         self,
